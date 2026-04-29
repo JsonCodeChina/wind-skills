@@ -118,8 +118,9 @@ const ERROR_PATTERNS = [
   ['BALANCE_INSUFFICIENT', /余额不足|请先充值|insufficient.*balance/i,             'API Key 计费余额不足。开发者中心充值或换备用 Key。'],
   ['RATE_LIMIT_QPS',       /请求过于频繁|qps.*limit|too.*frequent/i,               '请求过于频繁。等几秒重试（可重试）。'],
   ['BACKEND_BUG_STR_GET',  /'str' object has no attribute 'get'/,                  'economic_data 后端 bug：含具体年份/freq/beginDate 等高级参数时偶发。降级为简单 NL 问句重试（如 "中国GDP" / "近10年中国新能源汽车产销量"）。'],
-  ['KEY_INVALID',          /密钥无效|key.*invalid|unauthorized/i,                  'API Key 无效或过期 → 开发者中心重新生成。'],
+  ['KEY_INVALID',          /密钥无效|key.*invalid|unauthorized|认证失败|auth.*fail/i,   'API Key 无效或过期 → 开发者中心重新生成。'],
   ['NO_RESULTS',           /未获取到数据|"NO_RESULTS"/,                            '未获取到匹配数据。调整 question 关键词，或换工具/server 重试。'],
+  ['TOOL_RUNTIME_ERROR',   /TOOL_ERROR.*查询失败|tool.*runtime.*error/i,           '工具运行时错误（后端临时异常或参数复杂）。简化参数后重试；economic_data 降级为简单 NL 问句。'],
 ];
 
 function inferErrorCode(msg) {
