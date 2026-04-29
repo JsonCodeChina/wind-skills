@@ -84,14 +84,4 @@ npx skills add https://gitee.com/wind_info/wind-skills.git --skill wind-mcp-skil
 
 ---
 
-## 升级所有已装 skill
-
-> 平台持续在迭代,跑下面命令同步最新(新增能力 / bug 修复):
-
-```bash
-npx skills update -g -y
-```
-
----
-
 © AIMarket 2026 · 反馈与贡献:[github.com/Wind-Information-Co-Ltd/wind-skills](https://github.com/Wind-Information-Co-Ltd/wind-skills)
