@@ -136,7 +136,7 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 |---|---|---|
 | `get_economic_data` | EDB 宏观 / 行业经济指标（自动 NL → 指标 ID） | `metricIdsStr`（必填，自然语言问句）+ `beginDate / endDate / freq / magnitude / currency` |
 
-> ⚠️ **当前后端 bug**：含具体年份 / freq / beginDate 等高级参数时偶发 `'str' object has no attribute 'get'` 报错（已反馈万得后端，2026-04-29）。**简单 NL 问句稳定通过**（例：`"中国GDP"` / `"近10年中国新能源汽车产销量"`）。
+> ⚠️ economic_data 报 `TOOL_RUNTIME_ERROR` 时，换 `analytics_data.get_financial_data` 兜底（同样问句通常能成功）。
 
 ### server_type=analytics_data（通用兜底）
 
@@ -159,7 +159,7 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 4. **NL 问句要简洁**：fund_data / stock_data 的 NL 工具 `question` 字段**不要把用户原话直接抄进去**。提取关键实体（标的代码 / 简称 + 维度 + 时间）即可：
    - ✅ `"易方达蓝筹精选 005827.OF 基金档案"`
    - ❌ `"帮我查一下易方达基金的资料看看"`
-5. **economic_data 复杂参数降级**：含具体年份 / freq / beginDate 偶发后端 bug；遇 `'str' object has no attribute 'get'` 错时，**降级为简单 NL 问句重试**。
+5. **economic_data 失败时换 `analytics_data.get_financial_data` 兜底**。
 6. **server_type 选错的代价**：选错会导致工具不存在或参数不匹配。优先按"何时使用"段的场景表选 server，再选具体工具。
 7. **跨域查询用 analytics_data**：用户问题落不进前 4 个 server 的明确归属时，用 `analytics_data.get_financial_data` 自然语言兜底。
 
@@ -211,7 +211,7 @@ node scripts/cli.mjs call analytics_data get_financial_data '{"question":"中证
 | `MCP HTTP 401/403` | API Key 无效或过期 → 重新生成（开发者中心） |
 | `MCP HTTP 5xx` | 服务端异常 → 稍后重试，或查 status.wind.com.cn |
 | 后端响应"单日请求次数超限" | API Key 当日额度用尽 → 等次日刷新或换 Key |
-| `economic_data` 后端 `'str' object has no attribute 'get'` | 降级为简单 NL 问句（如 `"中国GDP"`），不传 freq / beginDate / 含具体年份 |
+| `economic_data` 报 `TOOL_RUNTIME_ERROR` | 换 `analytics_data.get_financial_data` 兜底 |
 | 行情类工具入参报错 | 行情工具用结构化参数 `{windcode, indexes}`，不要传 `{question}` |
 | NL 类工具入参报错 | NL 工具用 `{question}`，不要传 `{windcode}` |
 | 工具名报"未知 server_type" 或 "工具不存在" | 先 `list-tools <server_type>` 拿真 schema，按工具表选名 |
@@ -232,5 +232,5 @@ node scripts/cli.mjs call analytics_data get_financial_data '{"question":"中证
   - NL 类（财务 / 档案 / 持仓等）→ `{question}` 自然语言
 - 工具名拼对：先 `list-tools` 查；不要凭印象写
 - 报"未配置 Key"时**先问用户**再跑 `open-portal`，不要无打招呼弹浏览器
-- `economic_data` 复杂参数后端有 bug，遇报错降级为简单 NL 问句重试
+- `economic_data` 报错时换 `analytics_data.get_financial_data` 兜底
 - 结果呈现时**末尾标注**："数据来源于万得 Wind 金融数据服务"

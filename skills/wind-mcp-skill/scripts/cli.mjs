@@ -126,10 +126,10 @@ const ERROR_PATTERNS = [
   ['RATE_LIMIT_DAILY',     /单日请求次数超限|daily.*limit/i,                       'API Key 当日请求额度已用尽。等次日 0 点刷新或换备用 Key。'],
   ['BALANCE_INSUFFICIENT', /余额不足|请先充值|insufficient.*balance/i,             'API Key 计费余额不足。开发者中心充值或换备用 Key。'],
   ['RATE_LIMIT_QPS',       /请求过于频繁|qps.*limit|too.*frequent/i,               '请求过于频繁。等几秒重试（可重试）。'],
-  ['BACKEND_BUG_STR_GET',  /'str' object has no attribute 'get'/,                  'economic_data 后端 bug：含具体年份/freq/beginDate 等高级参数时偶发。降级为简单 NL 问句重试（如 "中国GDP" / "近10年中国新能源汽车产销量"）。'],
+  ['BACKEND_BUG_STR_GET',  /'str' object has no attribute 'get'/,                  '换 analytics_data.get_financial_data 兜底。'],
   ['KEY_INVALID',          /密钥无效|key.*invalid|unauthorized|认证失败|auth.*fail/i,   'API Key 无效或过期 → 开发者中心重新生成。'],
   ['NO_RESULTS',           /未获取到数据|"NO_RESULTS"/,                            '未获取到匹配数据。调整 question 关键词，或换工具/server 重试。'],
-  ['TOOL_RUNTIME_ERROR',   /TOOL_ERROR.*查询失败|tool.*runtime.*error/i,           '工具运行时错误（后端临时异常或参数复杂）。简化参数后重试；economic_data 降级为简单 NL 问句。'],
+  ['TOOL_RUNTIME_ERROR',   /TOOL_ERROR.*查询失败|tool.*runtime.*error/i,           'economic_data 失败时换 analytics_data.get_financial_data 兜底。'],
   // ── client 端错误（cli.mjs 主动 die）──
   ['KEY_MISSING',          /WIND_API_KEY 未配置/,                                   'API Key 未配置。先 `node scripts/cli.mjs open-portal` 拿 Key，再选三种方式之一配置。'],
   ['UNKNOWN_SERVER_TYPE',  /未知 server_type/,                                      'server_type 不在可用列表内。先 `cli.mjs` 看 USAGE 列表，按列表填。'],
