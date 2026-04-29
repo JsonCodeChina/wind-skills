@@ -11,6 +11,16 @@ description: 全网金融能力一站式入口。装一次,AI 自动按问题推
 
 ---
 
+## 📍 关于安装位置(先看一眼)
+
+下方所有命令默认带 `-g`(全局):
+- ✅ **全局** `-g`:装一次,所有项目 + 机器上**所有已识别的 AI agent** 都能用(Claude Code / Cursor / OpenClaw / Hermes 等)。
+- 🔒 **仅当前项目**:把命令里的 `-g` **去掉**即可。只装到当前目录,不影响其它项目 / agent。
+
+不确定就用全局(适合金融机构内网跨项目复用)。
+
+---
+
 ## 路径 A:装能力发现器(让 AI 帮你挑全网能力)
 
 > 适合:不知道用哪个工具 / 想看平台都有什么能力。
@@ -26,6 +36,8 @@ npx skills add JsonCodeChina/wind-skills --skill wind-find-finance-skill -g -y
 ```bash
 npx skills add https://gitee.com/jsonCodeChina/wind-skills.git --skill wind-find-finance-skill -g -y
 ```
+
+> 想限制在当前项目内,去掉 `-g` 即可。
 
 装好后任意 AI 对话提金融问题(行情 / 基金 / 估值 / 选股 / 复盘 / 回测 / 公告 / 宏观 ...),AI 会:
 
@@ -52,6 +64,8 @@ npx skills add JsonCodeChina/wind-skills --skill wind-mcp-skill -g -y
 ```bash
 npx skills add https://gitee.com/jsonCodeChina/wind-skills.git --skill wind-mcp-skill -g -y
 ```
+
+> 想限制在当前项目内,去掉 `-g` 即可。
 
 ### Step 2 — 让 AI 帮你拿 API Key
 

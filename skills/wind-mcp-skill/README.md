@@ -8,6 +8,8 @@
 
 ## 安装
 
+### 方式 A — 全局（推荐：一次装好，跨项目 + 跨 AI agent 共用）
+
 ```bash
 # GitHub
 npx skills add JsonCodeChina/wind-skills --skill wind-mcp-skill -g -y
@@ -15,6 +17,20 @@ npx skills add JsonCodeChina/wind-skills --skill wind-mcp-skill -g -y
 # Gitee 镜像（国内）
 npx skills add https://gitee.com/jsonCodeChina/wind-skills.git --skill wind-mcp-skill -g -y
 ```
+
+> ⚠️ `-g` 会自动 symlink 到机器上**所有已识别的 AI agent**（Claude Code / Cursor / OpenClaw / Hermes 等）。如果你不想这样，看方式 B。
+
+### 方式 B — 仅当前项目（隔离：只装到当前目录，不影响其它项目 / agent）
+
+```bash
+# GitHub
+npx skills add JsonCodeChina/wind-skills --skill wind-mcp-skill -y
+
+# Gitee 镜像（国内）
+npx skills add https://gitee.com/jsonCodeChina/wind-skills.git --skill wind-mcp-skill -y
+```
+
+> 装到当前目录下，仅当前项目内的 AI agent 能识别。
 
 需要 `WIND_API_KEY`（登录 https://aimarket.wind.com.cn 开发者中心获取）。
 

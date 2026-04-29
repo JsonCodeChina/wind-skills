@@ -47,11 +47,14 @@ description: AIMarket 金融能力发现器。当用户问金融数据 / 分析 
 推荐 <name> · <一句话描述>
 为什么:<基于用户问题的一句话解释>
 
-安装命令(国外 GitHub):
+安装命令(全局,推荐 — GitHub):
   npx skills add JsonCodeChina/wind-skills --skill <name> -g -y
 
-安装命令(国内 Gitee 镜像):
+安装命令(全局,推荐 — Gitee 镜像):
   npx skills add https://gitee.com/jsonCodeChina/wind-skills.git --skill <name> -g -y
+
+[如果用户问"我只想在当前项目用"或类似,追加这一段:]
+仅当前项目:把上面命令的 -g 去掉即可(只装到当前目录)。
 
 [如果 catalog "装好需配置" 列 = "API Key",追加这一段:]
 首次使用提示:装好后向我提一个金融数据问题,我会引导你登录
@@ -65,7 +68,8 @@ aimarket.wind.com.cn 拿 API Key
 
 # 参数说明(必读)
 
-- **`-g` / `--global`**:装到用户级全局 skill 位置(跨项目共享,金融机构内网友好。具体路径由 npx skills 决定)
+- **`-g` / `--global`**:全局安装 — 跨项目 + 跨 AI agent 共享(自动 symlink 到机器上所有已识别 agent)。金融机构内网推荐。
+- **去掉 `-g`**:仅当前项目 — 装到当前目录,只有当前项目的 AI 能识别,不污染其它项目 / agent。
 - **`-y` / `--yes`**:**必加**,跳过交互菜单(不加会卡)
 - **`--skill <name>`**:从 monorepo 抽指定子 skill 装;不写会装全部 skill
 

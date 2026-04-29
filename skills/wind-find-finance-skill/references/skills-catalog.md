@@ -59,15 +59,18 @@ description: AIMarket 平台 skill 清单本地副本。由 npx skills update -g
 把命令里的 `<name>` 换成上表"名称"列的值:
 
 ```bash
+# 全局安装(推荐 — 跨项目 + 跨 AI agent 共享)
 # 国外(GitHub)
 npx skills add JsonCodeChina/wind-skills --skill <name> -g -y
-
 # 国内(Gitee 镜像)
 npx skills add https://gitee.com/jsonCodeChina/wind-skills.git --skill <name> -g -y
 ```
 
+> 想限制在当前项目内用,把上面命令的 `-g` 去掉即可。
+
 参数说明:
-- `-g`:装到用户级全局 skill 位置(跨项目共享。具体路径由 npx skills 决定)
+- `-g`:全局安装 — 跨项目 + 自动 symlink 到机器上所有已识别 AI agent(Claude Code / Cursor / OpenClaw / Hermes 等)。金融机构内网推荐。
+- 去掉 `-g`:仅当前项目 — 装到当前目录,不影响其它项目 / agent。
 - `-y`:**必加**,跳过交互菜单(不加会卡)
 
 ---
