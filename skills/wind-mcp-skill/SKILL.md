@@ -217,7 +217,7 @@ node scripts/cli.mjs call analytics_data get_financial_data '{"question":"中证
 | 工具名报"未知 server_type" 或 "工具不存在" | 先 `list-tools <server_type>` 拿真 schema，按工具表选名 |
 | 调用失败但目录不对 | 在本文件（SKILL.md）所在目录下执行命令 |
 
-## 自检（响应前）
+## 响应前自查
 
 - 🚨 **在本文件（SKILL.md）所在目录下执行命令吗？** 否则一切失败。
 - 用户问题是 A 股 / 港股 / 中国宏观 / 中概？是 → 用本 skill；否 → 不要套
