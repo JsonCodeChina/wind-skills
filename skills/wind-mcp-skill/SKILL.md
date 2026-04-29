@@ -146,6 +146,39 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 |---|---|
 | `get_financial_data` | 自然语言 → Wind 通用数据（覆盖 fund / stock 之外的杂项 / 跨域综合查询） |
 
+## 行情类参数速查（fund_data + stock_data 共用）
+
+⚠️ 行情类 6 个工具（`*_kline` / `*_quote` / `*_price_indicators`）参数跟 NL 类**不一样**，按下方"高频用例"直接抄，**别凭直觉填**（`period:"D"` 不行，要 `"10"`）。
+
+### 字段速查
+
+| 字段 | 取值 |
+|---|---|
+| `period` | `1`=1分钟 / `3`=5分钟 / `4`=10分钟 / `5`=15分钟 / `6`=30分钟 / `7`=60分钟 / **`10`=日**（默认）/ `11`=周 / `12`=月 |
+| `count` | **负数 = 从最新往前 N 根**（推荐！）/ 正数 = 从最早开始 N 根 |
+| `rangeflag` | `0` = 用 count（推荐）/ `1` = 从上市相对位置 / `2` = 用 begin+end 绝对日期 |
+| `begin` / `end` | rangeflag=2 时绝对日期，**数字格式 yyyymmdd**（如 `20250101`）；分钟工具用字符串如 `"20260415"` 或 `"LAST"` |
+| `aftype` | `0` = 前复权（默认）/ `1` = 后复权 / `2` = 不复权 |
+| `indexes` | 逗号分隔的英文字段名：`NAME` 简称 / `MATCH` 最新价 / `PRECLOSE` 前收 / `OPEN` 开盘 / `HIGH` 最高 / `LOW` 最低 / `CHANGERANGE` 涨跌幅 / `CHANGE` 涨跌额 / `VOLUME` 成交量 / `TURNOVER` 成交额 |
+
+### 高频用例（直接抄，把 `windcode` 换成你要的代码）
+
+| 用户问 | server_type | 工具 + 参数 |
+|---|---|---|
+| 茅台**最新价 / 涨跌幅** | `stock_data` | `get_stock_price_indicators` `{"windcode":"600519.SH","indexes":"NAME,MATCH,CHANGERANGE"}` |
+| 茅台**最新价 + 成交** | `stock_data` | `get_stock_price_indicators` `{"windcode":"600519.SH","indexes":"NAME,MATCH,CHANGERANGE,VOLUME,TURNOVER"}` |
+| 茅台**最近 30 日 K** | `stock_data` | `get_stock_kline` `{"windcode":"600519.SH","rangeflag":0,"count":-30,"period":"10"}` |
+| 茅台 **2025 Q1 日 K** | `stock_data` | `get_stock_kline` `{"windcode":"600519.SH","rangeflag":2,"begin":20250101,"end":20250331,"period":"10"}` |
+| 茅台**最近 12 周 K** | `stock_data` | `get_stock_kline` `{"windcode":"600519.SH","rangeflag":0,"count":-12,"period":"11"}` |
+| 茅台**后复权 K** | `stock_data` | 上面任意 + `"aftype":"1"` |
+| 茅台**今天分钟行情** | `stock_data` | `get_stock_quote` `{"windcode":"600519.SH","begin":"LAST","end":"LAST"}` |
+| 茅台**某日分钟行情** | `stock_data` | `get_stock_quote` `{"windcode":"600519.SH","begin":"20260415","end":"20260415"}` |
+| 588200 ETF **最新价** | `fund_data` | `get_fund_price_indicators` `{"windcode":"588200.SH","indexes":"NAME,MATCH,CHANGERANGE"}` |
+| 588200 ETF **最近 30 日 K** | `fund_data` | `get_fund_kline` `{"windcode":"588200.SH","rangeflag":0,"count":-30,"period":"10"}` |
+| 588200 ETF **某日分钟** | `fund_data` | `get_fund_quote` `{"windcode":"588200.SH","begin":"20260415","end":"20260415"}` |
+
+> 用户场景跟上表不完全一样时，**比对最像的一行**，按字段速查改 `period` / `count` / `aftype` / `indexes` 即可。
+
 ## 使用技巧
 
 > 这些经验帮 AI 用得更准、少走弯路。
