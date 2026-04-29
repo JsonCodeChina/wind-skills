@@ -49,9 +49,16 @@ const TTL_MS = 24 * 60 * 60 * 1000;
 
 // ───── 工具函数 ─────
 
-function die(msg, code = 1) {
-  process.stderr.write(msg + '\n');
-  process.exit(code);
+// 注：die() 强制走错误码体系（formatError），输出格式统一。
+//     纯帮助信息（USAGE / 缺参提示）走 exitWithUsage()，不套错误码。
+function die(code, message, ctx = {}, exitCode = 1) {
+  process.stderr.write(formatError(code, message, ctx) + '\n');
+  process.exit(exitCode);
+}
+
+function exitWithUsage(usage, exitCode = 0) {
+  process.stderr.write(usage + '\n');
+  process.exit(exitCode);
 }
 
 function maskKey(key) {
@@ -71,10 +78,9 @@ function ensureDir(path) {
 function getServer(server_type) {
   const server = SERVERS[server_type];
   if (!server) {
-    die(
-      `❌ 未知 server_type: ${server_type}\n` +
-      `可用: ${Object.keys(SERVERS).join(' / ')}`
-    );
+    die('UNKNOWN_SERVER_TYPE', `未知 server_type: ${server_type}`, {
+      extraHint: `可用 server_type: ${Object.keys(SERVERS).join(' / ')}`,
+    });
   }
   return server;
 }
@@ -98,22 +104,25 @@ function getApiKey() {
     if (m) return m[1];
   }
 
-  die(
-    `❌ WIND_API_KEY 未配置。\n\n` +
-    `获取 Key（推荐先问用户是否同意，再帮他打开浏览器）：\n` +
-    `  $ node ${join(SKILL_DIR, 'scripts', 'cli.mjs')} open-portal\n` +
-    `或手动访问：${PORTAL_URL}（未登录会自动跳到 /#/login）\n\n` +
-    `拿到 Key 后任选一种方式配置：\n` +
-    `  A. export WIND_API_KEY=ak_xxx\n` +
-    `  B. echo '{"wind_api_key":"ak_xxx"}' > ${join(SKILL_DIR, 'config.json')}\n` +
-    `  C. mkdir -p ~/.wind-aimarket && echo "WIND_API_KEY=ak_xxx" > ~/.wind-aimarket/config  (推荐：所有 wind skill 共享)`
-  );
+  die('KEY_MISSING', 'WIND_API_KEY 未配置（env / skill config / 全局 config 三级兜底全失败）', {
+    extraHint:
+      `获取 Key（推荐先问用户是否同意打开浏览器）：\n` +
+      `  $ node ${join(SKILL_DIR, 'scripts', 'cli.mjs')} open-portal\n` +
+      `  或手动访问：${PORTAL_URL}（未登录会自动跳到 /#/login）\n\n` +
+      `配置 Key（任选其一）：\n` +
+      `  A. export WIND_API_KEY=ak_xxx\n` +
+      `  B. echo '{"wind_api_key":"ak_xxx"}' > ${join(SKILL_DIR, 'config.json')}\n` +
+      `  C. mkdir -p ~/.wind-aimarket && echo "WIND_API_KEY=ak_xxx" > ~/.wind-aimarket/config  (推荐：所有 wind skill 共享)`,
+  });
 }
 
 // ───── 错误码体系 ─────
 
 // 错误码识别 + 处理建议（按 message 模式匹配）
+// 注：第三列 hint 仅是 inferErrorCode + getErrorHint 的默认提示；
+//     具体调用 formatError 时可通过 extraHint 覆盖（client 端错误码常用此机制）。
 const ERROR_PATTERNS = [
+  // ── 后端 / 协议错误（mcpRequest 自动识别）──
   ['RATE_LIMIT_DAILY',     /单日请求次数超限|daily.*limit/i,                       'API Key 当日请求额度已用尽。等次日 0 点刷新或换备用 Key。'],
   ['BALANCE_INSUFFICIENT', /余额不足|请先充值|insufficient.*balance/i,             'API Key 计费余额不足。开发者中心充值或换备用 Key。'],
   ['RATE_LIMIT_QPS',       /请求过于频繁|qps.*limit|too.*frequent/i,               '请求过于频繁。等几秒重试（可重试）。'],
@@ -121,6 +130,10 @@ const ERROR_PATTERNS = [
   ['KEY_INVALID',          /密钥无效|key.*invalid|unauthorized|认证失败|auth.*fail/i,   'API Key 无效或过期 → 开发者中心重新生成。'],
   ['NO_RESULTS',           /未获取到数据|"NO_RESULTS"/,                            '未获取到匹配数据。调整 question 关键词，或换工具/server 重试。'],
   ['TOOL_RUNTIME_ERROR',   /TOOL_ERROR.*查询失败|tool.*runtime.*error/i,           '工具运行时错误（后端临时异常或参数复杂）。简化参数后重试；economic_data 降级为简单 NL 问句。'],
+  // ── client 端错误（cli.mjs 主动 die）──
+  ['KEY_MISSING',          /WIND_API_KEY 未配置/,                                   'API Key 未配置。先 `node scripts/cli.mjs open-portal` 拿 Key，再选三种方式之一配置。'],
+  ['UNKNOWN_SERVER_TYPE',  /未知 server_type/,                                      'server_type 不在可用列表内。先 `cli.mjs` 看 USAGE 列表，按列表填。'],
+  ['INVALID_PARAMS_JSON',  /params JSON 解析失败/,                                  '`call` 命令第三参数必须是合法 JSON 字符串。注意 shell 转义（建议外层用单引号包裹整个 JSON）。'],
 ];
 
 function inferErrorCode(msg) {
@@ -206,11 +219,10 @@ async function mcpRequest(server_type, method, params, { timeoutMs = 60_000 } = 
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (err) {
-    die(formatError('NETWORK_ERROR', err.message, {
-      server_type,
-      apiKey,
+    die('NETWORK_ERROR', err.message, {
+      server_type, apiKey,
       extraHint: '网络不通 / DNS 解析失败 / 代理拦截 / 超时。检查网络后重试。',
-    }));
+    });
   }
 
   // ───── HTTP 层错误检测 ─────
@@ -218,7 +230,7 @@ async function mcpRequest(server_type, method, params, { timeoutMs = 60_000 } = 
     const bodyText = await resp.text().catch(() => '');
     const [code, hint] = HTTP_ERROR_MAP[resp.status] || ['UNKNOWN', '检查参数构造'];
     const detail = `HTTP ${resp.status} ${resp.statusText}` + (bodyText ? ` | body: ${bodyText.slice(0, 200)}` : '');
-    die(formatError(code, detail, { server_type, apiKey, extraHint: hint }));
+    die(code, detail, { server_type, apiKey, extraHint: hint });
   }
 
   // ───── 响应解析（兼容 SSE / 纯 JSON）─────
@@ -227,25 +239,23 @@ async function mcpRequest(server_type, method, params, { timeoutMs = 60_000 } = 
   try {
     payload = parseSSE(text);
   } catch (err) {
-    die(formatError('RESPONSE_PARSE_ERROR', err.message, {
-      server_type,
-      apiKey,
+    die('RESPONSE_PARSE_ERROR', err.message, {
+      server_type, apiKey,
       extraHint: '响应格式异常，可能是后端版本变更。把后端原文发给万得支持。',
-    }));
+    });
   }
 
   // ───── JSON-RPC 协议层错误 ─────
   if (payload.error) {
     const msg = payload.error.message || JSON.stringify(payload.error);
-    die(formatError('MCP_PROTOCOL_ERROR', msg, { server_type, apiKey }));
+    die('MCP_PROTOCOL_ERROR', msg, { server_type, apiKey });
   }
 
   // ───── MCP 工具层错误（result.isError = true）─────
   // 限流 / 余额不足 / 部分协议错误走这条路径
   if (payload.result?.isError) {
     const msg = payload.result.content?.[0]?.text || JSON.stringify(payload.result);
-    const code = inferErrorCode(msg);
-    die(formatError(code, msg, { server_type, apiKey }));
+    die(inferErrorCode(msg), msg, { server_type, apiKey });
   }
 
   // ───── 工具内业务错误（content[0].text 内嵌 JSON 含 mcp_tool_error_code 或 error.code）─────
@@ -258,16 +268,14 @@ async function mcpRequest(server_type, method, params, { timeoutMs = 60_000 } = 
       // 万得专属：mcp_tool_error_code 非 0
       if (typeof inner.mcp_tool_error_code === 'number' && inner.mcp_tool_error_code !== 0) {
         const msg = inner.mcp_tool_error_msg || JSON.stringify(inner);
-        const code = inferErrorCode(msg);
-        die(formatError(code, msg, { server_type, apiKey }));
+        die(inferErrorCode(msg), msg, { server_type, apiKey });
       }
       // 通用：含 error.code（如 NO_RESULTS）
       if (inner.error && (inner.error.code || inner.error.message)) {
         const errCode = inner.error.code || '';
         const errMsg = inner.error.message || '';
         const combined = errCode ? `${errCode}: ${errMsg}` : errMsg;
-        const code = inferErrorCode(combined);
-        die(formatError(code, combined, { server_type, apiKey }));
+        die(inferErrorCode(combined), combined, { server_type, apiKey });
       }
     }
   }
@@ -289,9 +297,10 @@ async function mcpInitializeAndCall(server_type, method, params) {
 
 async function cmdListTools(server_type) {
   if (!server_type) {
-    die(
-      `❌ 用法：list-tools <server_type>\n` +
-      `可用 server_type: ${Object.keys(SERVERS).join(' / ')}`
+    exitWithUsage(
+      `用法：list-tools <server_type>\n` +
+      `可用 server_type: ${Object.keys(SERVERS).join(' / ')}`,
+      1,
     );
   }
   const server = getServer(server_type);
@@ -311,15 +320,16 @@ async function cmdListTools(server_type) {
 
 async function cmdCall(server_type, toolName, paramsJson) {
   if (!server_type || !toolName || !paramsJson) {
-    die(
-      `❌ 用法：call <server_type> <tool_name> '<params_json>'\n` +
+    exitWithUsage(
+      `用法：call <server_type> <tool_name> '<params_json>'\n` +
       `可用 server_type: ${Object.keys(SERVERS).join(' / ')}\n` +
       `例：\n` +
       `  call analytics_data get_financial_data '{"question":"贵州茅台 2024 年 ROE"}'\n` +
       `  call stock_data get_stock_basicinfo '{"question":"600519.SH 公司基本档案"}'\n` +
       `  call fund_data get_fund_info '{"question":"005827.OF 基金档案"}'\n` +
       `  call financial_docs get_financial_news '{"query":"美联储利率政策","top_k":3}'\n` +
-      `  call economic_data get_economic_data '{"metricIdsStr":"中国GDP"}'`
+      `  call economic_data get_economic_data '{"metricIdsStr":"中国GDP"}'`,
+      1,
     );
   }
 
@@ -327,7 +337,8 @@ async function cmdCall(server_type, toolName, paramsJson) {
   try {
     args = JSON.parse(paramsJson);
   } catch (e) {
-    die(`❌ params JSON 解析失败：${e.message}\n原文：${paramsJson}`);
+    die('INVALID_PARAMS_JSON', `params JSON 解析失败：${e.message} | 原文：${paramsJson.slice(0, 200)}`);
+    // extraHint 不传，使用 ERROR_PATTERNS 默认 hint（含 shell 转义建议）
   }
 
   const result = await mcpInitializeAndCall(server_type, 'tools/call', {
@@ -404,5 +415,7 @@ if (!cmd || !commands[cmd]) {
 }
 
 commands[cmd]().catch((err) => {
-  die(`❌ 执行失败：${err.stack || err.message || err}`);
+  die('UNKNOWN', `执行失败：${err.message || err}`, {
+    extraHint: err.stack ? `stack:\n${err.stack}` : '未知异常，建议联系万得支持。',
+  });
 });
