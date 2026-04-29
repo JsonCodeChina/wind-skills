@@ -75,6 +75,29 @@ function ensureDir(path) {
   if (!existsSync(path)) mkdirSync(path, { recursive: true });
 }
 
+// 解析 dotenv 风格配置文件（KEY=VALUE 每行一对）
+// 支持：# 注释、空行、引号包裹值、export 前缀、行内注释
+function parseDotenv(content) {
+  const env = {};
+  for (const rawLine of content.split('\n')) {
+    let line = rawLine.replace(/^﻿/, '').trim();
+    if (!line || line.startsWith('#')) continue;
+    if (line.startsWith('export ')) line = line.slice(7).trim();
+    const eq = line.indexOf('=');
+    if (eq <= 0) continue;
+    const key = line.slice(0, eq).trim();
+    let val = line.slice(eq + 1).trim();
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    } else {
+      const hashIdx = val.indexOf(' #');
+      if (hashIdx >= 0) val = val.slice(0, hashIdx).trim();
+    }
+    env[key] = val;
+  }
+  return env;
+}
+
 function getServer(server_type) {
   const server = SERVERS[server_type];
   if (!server) {
@@ -100,8 +123,10 @@ function getApiKey() {
 
   const globalConfig = join(homedir(), '.wind-aimarket', 'config');
   if (existsSync(globalConfig)) {
-    const m = readFileSync(globalConfig, 'utf8').match(/WIND_API_KEY=(\S+)/);
-    if (m) return m[1];
+    try {
+      const env = parseDotenv(readFileSync(globalConfig, 'utf8'));
+      if (env.WIND_API_KEY) return env.WIND_API_KEY;
+    } catch {}
   }
 
   die('KEY_MISSING', 'WIND_API_KEY 未配置（env / skill config / 全局 config 三级兜底全失败）', {
