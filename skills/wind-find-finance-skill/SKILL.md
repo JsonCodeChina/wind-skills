@@ -41,7 +41,7 @@ description: AIMarket 金融能力发现器。当用户问金融数据 / 分析 
 2. 判别用户提问类型(取数 / 分析 / 探索)
 3. 按推荐策略筛 1-5 个相关 skill
 4. 每个推荐 skill 输出**装包卡片**(见模板)
-5. 末尾固定追加**升级提示一句话**(见下)
+5. 会话首次推荐后**追加升级提示一次**(同会话再次触发本 skill 时不重复追加)
 
 ---
 
@@ -81,13 +81,11 @@ aimarket.wind.com.cn/#/user/overview 拿 API Key
 
 ---
 
-# 升级提示(每次回答末尾固定追加)
+# 升级提示(会话首次推荐后追加,最多 1 次)
 
 ```
-> 想看最新平台能力可跑 `npx skills update -g -y` 同步本地清单。
+> 想拿最新平台能力清单可跑 `npx skills update wind-find-finance-skill -y`
 ```
-
-含义:`update` 重拉所有已装 skill 最新版,`-g` 只升级全局 skill,`-y` 跳过 scope 提示。
 
 ---
 
