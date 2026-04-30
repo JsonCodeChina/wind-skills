@@ -73,7 +73,7 @@ npx skills add https://gitee.com/wind_info/wind-skills.git --skill wind-mcp-skil
 
 1. 调 wind-mcp-skill 触发"未配置 Key"引导
 2. 询问你是否同意打开浏览器
-3. 同意后自动弹 `aimarket.wind.com.cn` 开发者中心(未登录跳登录页)
+3. 同意后自动弹 `aimarket.wind.com.cn/#/user/overview` 开发者中心(未登录跳登录页)
 4. 你拿到 Key 后,AI 会按提示给你完整配置命令(推荐全局 `~/.wind-aimarket/config`,配一次后续不用重复)
 
 > 你也可以提前手动配置:
