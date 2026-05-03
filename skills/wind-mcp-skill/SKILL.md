@@ -30,10 +30,11 @@ examples:
 
 访问万得 Wind 金融数据：股票（行情与财务基本面）、基金（行情与全维数据）、上市公司公告与新闻、宏观经济指标。
 
-> ⚠️ **3 条核心规则**（违反必失败）：
+> ⚠️ **4 条核心规则**（违反必失败）：
 > 1. 命令必须在**本文件所在目录**下执行
 > 2. fund_data / stock_data 分**行情类**（`*_price_indicators` / `*_kline` / `*_quote` → 结构化 `{windcode, ...}`）和 **NL 类**（财务 / 档案 / 持仓 / 事件等 → `{question}` 自然语言）—— 选错入参必报错
 > 3. K 线必须显式传 `begin_date`（默认昨天，否则只回 2 条）；quote 字段名是 `begin / end` 短名（跟 K 线不一样）
+> 4. 调 `get_*_price_indicators` 时,**用户问的字段不在工具表"常用快捷"里就必须 Read `references/indicators.md`** 挑准确字段名(694 项 enum,后端有命名陷阱:大小写混杂 / 个别拼写错原样保留 / `Type` `Shares` 等单词字段含义特殊)—— 凭印象猜必错
 
 > 📅 **数据时效**：行情快照 + 分钟级 = 当日准实时；K 线 = 收盘历史；财务 / 档案 = 最近一期定期报告。**WIND_API_KEY 有日调用额度**，密集开发请多 Key 轮换。
 
@@ -100,7 +101,7 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 | 字段 | 必填 | 类型 | 默认 | 说明 |
 |---|---|---|---|---|
 | `windcode` | ✅ | string | | 见 windcode 约定 |
-| `indexes` | ✅ | string (enum) | | 行情字段，逗号分隔。常用：`NAME,MATCH,PRECLOSE,OPEN,HIGH,LOW,VOLUME,TURNOVER,CHANGE,CHANGERANGE,IOPV,PREMIUMDISCOUNTRATE,FUNDSIZE`。694 项全集见 `list-tools` |
+| `indexes` | ✅ | string (enum) | | 行情字段，逗号分隔。**常用快捷**(覆盖 80% 高频问题)：`NAME,MATCH,PRECLOSE,OPEN,HIGH,LOW,VOLUME,TURNOVER,CHANGE,CHANGERANGE,IOPV,PREMIUMDISCOUNTRATE,FUNDSIZE`。要其它字段先 Read `references/indicators.md`(694 项,有命名陷阱) |
 
 #### `get_fund_kline` — 场内基金 K 线
 
@@ -144,7 +145,7 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 | 字段 | 必填 | 类型 | 默认 | 说明 |
 |---|---|---|---|---|
 | `windcode` | ✅ | string | | A 股 / 港股均支持 |
-| `indexes` | ✅ | string (enum) | | 行情字段，逗号分隔。常用：`NAME,MATCH,PRECLOSE,OPEN,HIGH,LOW,VOLUME,TURNOVER,CHANGE,CHANGERANGE,CHANGEHANDRATE,LIANGBI,WEIBI,HIGHLIMIT,LOWLIMIT,CAPITALMARKETVALUE,LISTEDMARKETVALUE,WEEK52HIGH,WEEK52LOW,PE_TTM,PB,DIVIDENDYIELDRATIO`。694 项见 `list-tools` |
+| `indexes` | ✅ | string (enum) | | 行情字段，逗号分隔。**常用快捷**(覆盖 80% 高频问题)：`NAME,MATCH,PRECLOSE,OPEN,HIGH,LOW,VOLUME,TURNOVER,CHANGE,CHANGERANGE,CHANGEHANDRATE,LIANGBI,WEIBI,HIGHLIMIT,LOWLIMIT,CAPITALMARKETVALUE,LISTEDMARKETVALUE,WEEK52HIGH,WEEK52LOW,PE_TTM,PB,DIVIDENDYIELDRATIO`。要其它字段(估值细分/财务/资金流/期权希腊字母/债券估值/历史多周期等)先 Read `references/indicators.md`(694 项,有命名陷阱) |
 
 #### `get_stock_kline` — 股票 K 线
 
@@ -257,6 +258,7 @@ node scripts/cli.mjs call analytics_data get_financial_data '{"question":"中证
 | `*_quote` 参数报错 | 字段名是 `begin / end`，不是 `begin_date / end_date` |
 | `aftype` 报错 | 只接受 `"0"` / `"1"`，无"不复权" |
 | 工具不存在 / 未知 server_type | 先 `list-tools <server_type>` 拿真 schema |
+| `indexes` 字段不识别 / 字段名不存在 | Read `references/indicators.md`，从 694 项里挑准确字段名（不要凭印象猜）|
 | 调用失败但似乎啥都没报 | 检查命令是否在本 SKILL.md 所在目录下执行 |
 
 ## 调用前自查
