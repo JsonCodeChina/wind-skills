@@ -127,10 +127,16 @@ async function fetchGiteeTree() {
   return null;
 }
 
+// 把 skillPath 标准化成目录路径,然后在 tree 里找同名 tree 节点 SHA
+// "skills/X/SKILL.md" / "skills/X/" / "skills/X" 都归一到 "skills/X"
+// "SKILL.md" / "" → 根级 skill,返回整棵 tree 的 SHA
 function findSkillSha(tree, skillPath) {
-  // skillPath 形如 "skills/wind-mcp-skill"
-  const entry = tree.tree.find(t => t.path === skillPath && t.type === 'tree');
-  return entry?.sha || null;
+  const dir = String(skillPath || '')
+    .replace(/\\/g, '/')
+    .replace(/\/?SKILL\.md$/i, '')
+    .replace(/\/+$/, '');
+  if (!dir) return tree.sha || null;
+  return tree.tree.find(t => t.type === 'tree' && t.path === dir)?.sha || null;
 }
 
 // ───── 主逻辑 ─────
