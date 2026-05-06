@@ -78,17 +78,18 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 
 ## windcode 代码格式
 
-行情类工具的 `windcode` 统一约定：
+行情类工具的 `windcode` **接受两种输入**：Wind 代码或中文名（后端自动解析）。
 
-| 类型 | 格式 | 示例 |
+| 类型 | Wind 代码示例 | 中文名示例 |
 |---|---|---|
-| A 股 | `xxxxxx.SH/SZ/BJ` | `600519.SH` |
-| 港股 | `xxxxx.HK` | `00700.HK` |
-| 场外基金 | `xxxxxx.OF` | `005827.OF` |
-| ETF / LOF | `xxxxxx.SH/SZ` | `588200.SH` |
-| 中文名 | 直接写 | `贵州茅台` |
+| A 股 | `600519.SH` / `000858.SZ` / `8XXXXX.BJ` | `贵州茅台` |
+| 港股 | `00700.HK` | `腾讯控股` |
+| 场外基金 | `005827.OF` | `易方达蓝筹精选` |
+| ETF / LOF | `588200.SH` / `159915.SZ` | `科创50ETF` |
 
-⚠️ **单工具调用只支持单代码**——传逗号分隔的多代码后端只识别第 1 个，其它静默忽略。多标的对比请并行多次调用。
+> 💡 中文名简洁但有歧义风险（重名 / 多个产品带相同关键词）；**重名标的或精确查询用 Wind 代码**。
+
+⚠️ **单工具调用只支持单标的**——传逗号分隔的多代码后端只识别第 1 个，其它静默忽略。多标的对比请并行多次调用。
 
 ## 工具表
 
@@ -123,7 +124,7 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 | `begin` | | string | `LAST` | ⚠️ **字段名 `begin` 不是 `begin_date`**！`yyyyMMdd` 或 `LAST` |
 | `end` | | string | `LAST` | ⚠️ **字段名 `end` 不是 `end_date`** |
 
-**NL 类（入参 `{question, lang?, version?}`）：**
+**NL 类（入参 `{question: string, lang?: "CNS" | "ENS"}`，默认 `CNS`=中文 / `ENS`=英文；`version` 后端预留不强制）：**
 
 | 工具 | 说明 | question 示例 |
 |---|---|---|
@@ -155,7 +156,7 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 
 字段同 `get_fund_quote`（参见上方），字段名 `begin / end` 不是 `begin_date / end_date`。
 
-**NL 类（入参 `{question, lang?, version?}`）：**
+**NL 类（入参 `{question: string, lang?: "CNS" | "ENS"}`，默认 `CNS`=中文 / `ENS`=英文；`version` 后端预留不强制）：**
 
 | 工具 | 说明 | question 示例 |
 |---|---|---|
@@ -203,7 +204,7 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 | 字段 | 必填 | 类型 | 说明 |
 |---|---|---|---|
 | `question` | ✅ | string | 覆盖 fund / stock 之外的杂项与跨域综合，如 `"中证 500 最近一周表现"` |
-| `lang` | | enum | `zh-CN` / `en` |
+| `lang` | | enum | `CNS`=中文（默认） / `ENS`=英文 |
 
 ## 数据来源标注（必做）
 
