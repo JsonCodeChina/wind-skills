@@ -11,7 +11,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 
-const SKILL_VERSION = '1.3.0';
+const SKILL_VERSION = '1.4.0';
 
 const SERVERS = {
   fund_data: {
@@ -46,6 +46,41 @@ const PORTAL_URL = 'https://aimarket.wind.com.cn/#/user/overview';
 const SKILL_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
 const CACHE_DIR = join(homedir(), '.cache', 'wind-aimarket', 'tools');
 const TTL_MS = 24 * 60 * 60 * 1000;
+
+const UPDATE_CHECK_PATH = join(SKILL_DIR, 'scripts', 'update-check.mjs');
+const UPDATE_STATE_FILE = join(homedir(), '.cache', 'wind-aimarket', 'update-state.json');
+
+// 异步 spawn 探活子进程,detached + 静默,不阻塞主流程
+function spawnUpdateCheck() {
+  try {
+    if (!existsSync(UPDATE_CHECK_PATH)) return;
+    const child = spawn('node', [UPDATE_CHECK_PATH], { detached: true, stdio: 'ignore' });
+    child.on('error', () => {});
+    child.unref();
+  } catch {}
+}
+
+// 主流程末尾读 cache,有 outdated 且未 snooze → stderr 输出
+function maybePrintUpdateNotice() {
+  try {
+    if (!existsSync(UPDATE_STATE_FILE)) return;
+    const state = JSON.parse(readFileSync(UPDATE_STATE_FILE, 'utf8'));
+    if (state.status !== 'available') return;
+    if (!Array.isArray(state.outdated) || state.outdated.length === 0) return;
+    if (state.snoozedUntil && new Date(state.snoozedUntil) > new Date()) return;
+
+    const lines = ['', `[wind-skills] 检测到 ${state.outdated.length} 个 skill 有新版:`];
+    for (const o of state.outdated) {
+      const upgradeCmd = o.source === 'gitee'
+        ? `npx skills add https://gitee.com/wind_info/wind-skills.git --skill ${o.name} -g -y  # Gitee 装的需重装`
+        : `npx skills update ${o.name} -g -y`;
+      lines.push(`  • ${o.name.padEnd(34)} ${o.current || '?'} → ${o.latest}`);
+      lines.push(`    升级: ${upgradeCmd}`);
+    }
+    lines.push('');
+    process.stderr.write(lines.join('\n') + '\n');
+  } catch {}
+}
 
 // ───── 工具函数 ─────
 
@@ -439,8 +474,15 @@ if (!cmd || !commands[cmd]) {
   process.exit(cmd ? 1 : 0);
 }
 
-commands[cmd]().catch((err) => {
-  die('UNKNOWN', `执行失败：${err.message || err}`, {
-    extraHint: err.stack ? `stack:\n${err.stack}` : '未知异常，建议联系万得支持。',
+// 仅对实际调用类命令触发探活(open-portal 类管理命令跳过)
+if (cmd === 'call' || cmd === 'list-tools') {
+  spawnUpdateCheck();
+}
+
+commands[cmd]()
+  .then(maybePrintUpdateNotice)
+  .catch((err) => {
+    die('UNKNOWN', `执行失败：${err.message || err}`, {
+      extraHint: err.stack ? `stack:\n${err.stack}` : '未知异常，建议联系万得支持。',
+    });
   });
-});

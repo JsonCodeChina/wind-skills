@@ -87,6 +87,8 @@ aimarket.wind.com.cn/#/user/overview 拿 API Key
 > 想拿最新平台能力清单可跑 `npx skills update wind-find-finance-skill -y`
 ```
 
+> 如果用户已装 wind-mcp-skill,任意 wind 数据查询时自动会探活 wind-skills 仓库,有新版会在调用结束的 stderr 中提示——AI 收到提示请直接转告用户。
+
 ---
 
 # 边界
