@@ -69,41 +69,26 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 | **行情类** | `{windcode, ...}` 结构化字段 | `*_price_indicators` / `*_kline` / `*_quote` |
 | **NL 类** | `{question: string, lang?: "CNS"\|"ENS"}` 自然语言（默认 `CNS`=中文） | 其余工具（含 `financial_docs` / `economic_data` / `analytics_data`，部分入参字段名有差异，详见工具表）|
 
-### windcode 填法（仅行情类用）
-
-**AI 怎么取 windcode**：直接把用户原话里的标的名（中文名 / 简称 / 代码）塞进 `windcode` 字段——后端自动解析（`贵州茅台` → `600519.SH`、`小米集团` → `01810.HK`、`易方达蓝筹精选` → `005827.OF`）。**无需 AI 自己查代码或本地推断**。
-
-**反问用户的两种情况**：
-1. 后端报"未找到 / 歧义 / 多结果"——把候选列出来让用户选
-2. 用户给的是短名 / 别名（如 `茅台` 可能是贵州茅台 / 茅台股份 / 重庆啤酒-茅台啤酒...），主动反问"你问的是哪只？"
-
-**Wind 代码格式**（用户直接给代码时识别用）：
-
-| 类型 | Wind 代码 | 中文名 |
-|---|---|---|
-| A 股 | `600519.SH` / `000858.SZ` / `8XXXXX.BJ` | `贵州茅台` |
-| 港股 | `00700.HK` | `腾讯控股` |
-| 场外基金 | `005827.OF` | `易方达蓝筹精选` |
-| ETF / LOF | `588200.SH` / `159915.SZ` | `科创50ETF` |
-
 ---
 
 ## 3. 工具表
 
 ### 行情类（`fund_data` + `stock_data` 共用 3 个工具）
 
+> 3 个工具共用 `windcode` 字段：直接传用户原话里的标的名（中文名 / 简称 / 代码均可），后端自动解析（`贵州茅台` → `600519.SH`、`小米集团` → `01810.HK`、`易方达蓝筹精选` → `005827.OF`），AI 无需自己查代码。后端报歧义或用户给短名别名（如 `茅台`）时反问用户具体是哪只。代码格式参考：A 股 `600519.SH` / `8XXXXX.BJ`、港股 `00700.HK`、场外基金 `005827.OF`、ETF/LOF `588200.SH` / `159915.SZ`。
+
 #### `get_{fund|stock}_price_indicators` — 行情快照
 
 | 字段 | 必填 | 说明 |
 |---|---|---|
-| `windcode` | ✅ | 见 windcode 填法 |
+| `windcode` | ✅ | 标的（见行情类段头）|
 | `indexes` | ✅ | 字段逗号分隔。**常用快捷**（覆盖 80% 高频问题）：<br>· 通用：`NAME,MATCH,PRECLOSE,OPEN,HIGH,LOW,VOLUME,TURNOVER,CHANGE,CHANGERANGE`<br>· 股票额外：`CHANGEHANDRATE,LIANGBI,WEIBI,HIGHLIMIT,LOWLIMIT,CAPITALMARKETVALUE,LISTEDMARKETVALUE,WEEK52HIGH,WEEK52LOW,PE_TTM,PB,DIVIDENDYIELDRATIO`<br>· 基金额外：`IOPV,PREMIUMDISCOUNTRATE,FUNDSIZE`<br>其它字段（估值细分 / 财务 / 资金流 / 期权希腊字母等）见使用技巧 |
 
 #### `get_{fund|stock}_kline` — K 线
 
 | 字段 | 必填 | 默认 | 说明 |
 |---|---|---|---|
-| `windcode` | ✅ | | |
+| `windcode` | ✅ | | 标的（见行情类段头）|
 | `begin_date` | ⚠️ | 昨天 | `yyyyMMdd` |
 | `end_date` | | 今天 | `yyyyMMdd` |
 | `period` | | `"10"` | `1`=1分 / `3`=5分 / `4`=10分 / `5`=15分 / `6`=30分 / `7`=60分 / `8`=120分 / `9`=240分 / `10`=日K / `11`=周K / `12`=月K / `13`=年K / `14`=季K / `15`=半年K |
@@ -114,7 +99,7 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 
 | 字段 | 必填 | 默认 | 说明 |
 |---|---|---|---|
-| `windcode` | ✅ | | |
+| `windcode` | ✅ | | 标的（见行情类段头）|
 | `begin` | | `LAST` | `yyyyMMdd` 或 `LAST` |
 | `end` | | `LAST` | `yyyyMMdd` 或 `LAST` |
 
