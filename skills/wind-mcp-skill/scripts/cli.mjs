@@ -5,7 +5,7 @@
 // 调用签名: call(server_type, tool_name, params)
 // 注: fund_data / stock_data 各包含行情类工具(*_price_indicators / *_kline / *_quote) + NL 类工具(财务 / 档案等),入参模式不同,见 SKILL.md 工具表
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,27 +16,22 @@ const SKILL_VERSION = '1.4.0';
 const SERVERS = {
   fund_data: {
     endpoint: 'https://mcp.wind.com.cn/vserver_fund_data/mcp/',
-    cache_id: 'wind-fund-data',
     label: 'Wind 基金（档案/财务/持仓/业绩/持有人/公司 + 行情/K线/分钟）',
   },
   financial_docs: {
     endpoint: 'https://mcp.wind.com.cn/vserver_financial_docs/mcp/',
-    cache_id: 'wind-financial-docs',
     label: 'Wind 金融文档 RAG（公告 / 新闻）',
   },
   stock_data: {
     endpoint: 'https://mcp.wind.com.cn/vserver_stock_data/mcp/',
-    cache_id: 'wind-stock-data',
     label: 'Wind 股票（档案/财务/股本/事件/技术/风险 + 行情/K线/分钟）',
   },
   economic_data: {
     endpoint: 'https://mcp.wind.com.cn/vserver_economic_data/mcp/',
-    cache_id: 'wind-economic-data',
     label: 'Wind EDB 宏观/行业经济指标',
   },
   analytics_data: {
     endpoint: 'https://mcp.wind.com.cn/vserver_analytics_data/mcp/',
-    cache_id: 'wind-analytics-data',
     label: 'Wind 通用分析数据（NL → Wind 数据）',
   },
 };
@@ -44,8 +39,6 @@ const SERVERS = {
 const PORTAL_URL = 'https://aimarket.wind.com.cn/#/user/overview';
 
 const SKILL_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
-const CACHE_DIR = join(homedir(), '.cache', 'wind-aimarket', 'tools');
-const TTL_MS = 24 * 60 * 60 * 1000;
 
 const UPDATE_CHECK_PATH = join(SKILL_DIR, 'scripts', 'update-check.mjs');
 const UPDATE_STATE_FILE = join(homedir(), '.cache', 'wind-aimarket', 'update-state.json');
@@ -99,15 +92,6 @@ function exitWithUsage(usage, exitCode = 0) {
 function maskKey(key) {
   if (!key || key.length < 8) return '***';
   return key.slice(0, 4) + '***' + key.slice(-4);
-}
-
-function fresh(path) {
-  if (!existsSync(path)) return false;
-  return Date.now() - statSync(path).mtimeMs < TTL_MS;
-}
-
-function ensureDir(path) {
-  if (!existsSync(path)) mkdirSync(path, { recursive: true });
 }
 
 // 解析 dotenv 风格配置文件（KEY=VALUE 每行一对）
@@ -355,29 +339,6 @@ async function mcpInitializeAndCall(server_type, method, params) {
 
 // ───── 命令 ─────
 
-async function cmdListTools(server_type) {
-  if (!server_type) {
-    exitWithUsage(
-      `用法：list-tools <server_type>\n` +
-      `可用 server_type: ${Object.keys(SERVERS).join(' / ')}`,
-      1,
-    );
-  }
-  const server = getServer(server_type);
-  const cacheFile = join(CACHE_DIR, `${server.cache_id}.json`);
-
-  if (fresh(cacheFile)) {
-    const result = JSON.parse(readFileSync(cacheFile, 'utf8'));
-    console.log(JSON.stringify({ ok: true, server_type, from_cache: true, ...result }, null, 2));
-    return;
-  }
-
-  const result = await mcpInitializeAndCall(server_type, 'tools/list', {});
-  ensureDir(CACHE_DIR);
-  writeFileSync(cacheFile, JSON.stringify(result, null, 2));
-  console.log(JSON.stringify({ ok: true, server_type, from_cache: false, ...result }, null, 2));
-}
-
 async function cmdCall(server_type, toolName, paramsJson) {
   if (!server_type || !toolName || !paramsJson) {
     exitWithUsage(
@@ -451,20 +412,17 @@ const USAGE =
   `wind-mcp-skill\n` +
   `访问万得 Wind 金融数据（按数据域分类调用）\n\n` +
   `用法:\n` +
-  `  cli.mjs list-tools <server_type>\n` +
   `  cli.mjs call <server_type> <tool_name> '<params_json>'\n` +
   `  cli.mjs open-portal                       # 打开万得开发者中心拿 API Key\n\n` +
   `可用 server_type:\n` +
   Object.entries(SERVERS).map(([k, v]) => `  ${k.padEnd(20)}${v.label}`).join('\n') + '\n\n' +
   `典型:\n` +
-  `  cli.mjs list-tools fund_data\n` +
   `  cli.mjs call stock_data get_stock_basicinfo '{"question":"600519.SH 公司基本档案"}'   # NL 类\n` +
   `  cli.mjs call stock_data get_stock_price_indicators '{"windcode":"600519.SH","indexes":"NAME,MATCH,CHANGERANGE"}'   # 行情类(结构化)\n` +
   `  cli.mjs call fund_data get_fund_kline '{"windcode":"588200.SH","period":"10","count":30}'   # 基金 K 线\n` +
   `  cli.mjs call analytics_data get_financial_data '{"question":"贵州茅台 2024 年 ROE"}'`;
 
 const commands = {
-  'list-tools': () => cmdListTools(args[0]),
   call: () => cmdCall(args[0], args[1], args[2]),
   'open-portal': () => cmdOpenPortal(),
 };
@@ -475,7 +433,7 @@ if (!cmd || !commands[cmd]) {
 }
 
 // 仅对实际调用类命令触发探活(open-portal 类管理命令跳过)
-if (cmd === 'call' || cmd === 'list-tools') {
+if (cmd === 'call') {
   spawnUpdateCheck();
 }
 
