@@ -205,9 +205,8 @@ cli.mjs 大部分错误会自动输出错误码 + 处理建议（stderr），照
 
 | 错误 | 解法 |
 |---|---|
-| `economic_data` 报 `TOOL_RUNTIME_ERROR` | 同问题改用 `analytics_data.get_financial_data` 重试 |
 | `indexes` 字段不识别 / 字段名不存在 | Read `references/indicators.md` 挑准确字段名（不要凭印象猜）|
-| 工具不存在 / 未知 server_type / schema 对不上 | 跑 `npx skills update wind-mcp-skill -y` 拉新版（升级感知机制承接，不要绕开）|
+| 工具不存在 / 未知 server_type / schema 对不上 | 跑 `npx skills update wind-mcp-skill -y` 拉新版 |
 | 调用似乎啥都没报 | 检查命令是否在本 SKILL.md 所在目录下执行 |
 
 ## 保持最新
