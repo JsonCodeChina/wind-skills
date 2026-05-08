@@ -53,25 +53,43 @@ function spawnUpdateCheck() {
   } catch {}
 }
 
-// 主流程末尾读 cache,有 outdated 且未 snooze → stderr 输出
+// 主流程末尾读 cache,按 status 分支提示。snooze 期内全静默。
+//   update_available → 详细提示(GitHub: skills update;Gitee: skills add 重装)
+//   transient_error  → 单行短提示(网络抖)
+//   unknown          → 单行短提示(配置/结构问题)
+//   up_to_date       → 静默
 function maybePrintUpdateNotice() {
   try {
     if (!existsSync(UPDATE_STATE_FILE)) return;
     const state = JSON.parse(readFileSync(UPDATE_STATE_FILE, 'utf8'));
-    if (state.status !== 'available') return;
-    if (!Array.isArray(state.outdated) || state.outdated.length === 0) return;
     if (state.snoozedUntil && new Date(state.snoozedUntil) > new Date()) return;
 
-    const lines = ['', `[wind-skills] 检测到 ${state.outdated.length} 个 skill 有新版:`];
-    for (const o of state.outdated) {
-      const upgradeCmd = o.source === 'gitee'
-        ? `npx skills add https://gitee.com/wind_info/wind-skills.git --skill ${o.name} -g -y  # Gitee 装的需重装`
-        : `npx skills update ${o.name} -g -y`;
-      lines.push(`  • ${o.name.padEnd(34)} ${o.current || '?'} → ${o.latest}`);
-      lines.push(`    升级: ${upgradeCmd}`);
+    if (state.status === 'update_available') {
+      if (!Array.isArray(state.outdated) || state.outdated.length === 0) return;
+      const lines = ['', `[wind-skills] 检测到 ${state.outdated.length} 个 skill 有新版:`];
+      for (const o of state.outdated) {
+        const isGitee = typeof o.sourceUrl === 'string' && o.sourceUrl.includes('gitee.com');
+        const upgradeCmd = isGitee
+          ? `npx skills add ${o.sourceUrl} --skill ${o.name} -g -y  # Gitee 源不支持 update,需重装`
+          : `npx skills update ${o.name} -g -y`;
+        lines.push(`  • ${o.name.padEnd(34)} ${o.current || '?'} → ${o.latest}`);
+        lines.push(`    升级: ${upgradeCmd}`);
+      }
+      lines.push('');
+      process.stderr.write(lines.join('\n') + '\n');
+      return;
     }
-    lines.push('');
-    process.stderr.write(lines.join('\n') + '\n');
+
+    if (state.status === 'transient_error') {
+      process.stderr.write(`\n[wind-skills] 检查更新失败,可能是网络问题(reason=${state.reason || 'unknown'})\n\n`);
+      return;
+    }
+
+    if (state.status === 'unknown') {
+      process.stderr.write(`\n[wind-skills] 无法确认是否最新(reason=${state.reason || 'unknown'})\n\n`);
+      return;
+    }
+    // up_to_date / 其他 → 静默
   } catch {}
 }
 
