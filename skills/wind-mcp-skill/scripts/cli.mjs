@@ -5,9 +5,9 @@
 // 调用签名: call(server_type, tool_name, params)
 // 注: fund_data / stock_data 各包含行情类工具(*_price_indicators / *_kline / *_quote) + NL 类工具(财务 / 档案等),入参模式不同,见 SKILL.md 工具表
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 
@@ -53,8 +53,55 @@ function spawnUpdateCheck() {
   } catch {}
 }
 
+// 读 lock,返回 name → installed hash 映射
+// 用于 notify 前自检:用户已升级时(lock hash 跟 cache.outdated.current 不一致)
+// 抑制本次提示并删 cache,让下次 spawn 重新拉真值。
+function getInstalledHashes() {
+  const result = {};
+  const candidates = new Set();
+  const xdg = process.env.XDG_STATE_HOME;
+  candidates.add(xdg
+    ? join(xdg, 'skills', '.skill-lock.json')
+    : join(homedir(), '.agents', '.skill-lock.json'));
+  for (const start of [SKILL_DIR, process.cwd()]) {
+    let dir = resolve(start);
+    while (true) {
+      candidates.add(join(dir, 'skills-lock.json'));
+      const parent = dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+  }
+  for (const lockPath of candidates) {
+    if (!existsSync(lockPath)) continue;
+    try {
+      const lock = JSON.parse(readFileSync(lockPath, 'utf8'));
+      for (const [name, entry] of Object.entries(lock?.skills || {})) {
+        const hash = entry?.skillFolderHash || entry?.computedHash;
+        if (hash && !result[name]) result[name] = hash;
+      }
+    } catch {}
+  }
+  return result;
+}
+
+// 把 outdated 里 lock hash 已经变了的条目过滤掉(用户已升级)
+// current 字段是 cache 写入时记录的安装 hash 短形式;lock hash 全长,取前 N 位比对。
+function filterAlreadyUpgraded(outdated) {
+  const installed = getInstalledHashes();
+  return outdated.filter(o => {
+    const live = installed[o.name];
+    if (!live) return true;            // 找不到 lock,保守保留
+    const cur = o.current || '';
+    if (!cur) return true;
+    return live.startsWith(cur);       // hash 仍匹配 → 真未升级,保留
+                                       // hash 已变  → 已升级,过滤
+  });
+}
+
 // 主流程末尾读 cache,按 status 分支提示。snooze 期内全静默。
 //   update_available → 详细提示(GitHub: skills update;Gitee: skills add 重装)
+//                       会自检 lock — 已升级则抑制提示并删 cache 让下次 spawn 重查
 //   transient_error  → 单行短提示(网络抖)
 //   unknown          → 单行短提示(配置/结构问题)
 //   up_to_date       → 静默
@@ -66,8 +113,16 @@ function maybePrintUpdateNotice() {
 
     if (state.status === 'update_available') {
       if (!Array.isArray(state.outdated) || state.outdated.length === 0) return;
-      const lines = ['', `[wind-skills] 检测到 ${state.outdated.length} 个 skill 有新版:`];
-      for (const o of state.outdated) {
+
+      const stillOutdated = filterAlreadyUpgraded(state.outdated);
+      if (stillOutdated.length === 0) {
+        // 全部已升级 → 删 cache,下次 cli 调用 spawn 会重拉真值
+        try { unlinkSync(UPDATE_STATE_FILE); } catch {}
+        return;
+      }
+
+      const lines = ['', `[wind-skills] 检测到 ${stillOutdated.length} 个 skill 有新版:`];
+      for (const o of stillOutdated) {
         const isGitee = typeof o.sourceUrl === 'string' && o.sourceUrl.includes('gitee.com');
         const upgradeCmd = isGitee
           ? `npx skills add ${o.sourceUrl} --skill ${o.name} -g -y  # Gitee 源不支持 update,需重装`
