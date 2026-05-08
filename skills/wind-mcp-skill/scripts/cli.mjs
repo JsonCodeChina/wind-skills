@@ -5,7 +5,7 @@
 // 调用签名: call(server_type, tool_name, params)
 // 注: fund_data / stock_data 各包含行情类工具(*_price_indicators / *_kline / *_quote) + NL 类工具(财务 / 档案等),入参模式不同,见 SKILL.md 工具表
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -171,13 +171,12 @@ function getApiKey() {
       `① 获取 Key（建议先问用户是否同意打开浏览器）：\n` +
       `   $ node ${join(SKILL_DIR, 'scripts', 'cli.mjs')} open-portal\n` +
       `   或手动访问：${PORTAL_URL}（未登录会自动跳到 /#/login）\n\n` +
-      `② 配置 Key（请向用户确认存放位置，推荐全局）：\n` +
+      `② 用 AskUserQuestion 让用户选 Key 存放位置（不要替用户挑默认）：\n` +
       `   A. 全局共享【推荐 — 所有 wind skill 共用】\n` +
-      `      mkdir -p ~/.wind-aimarket && echo "WIND_API_KEY=ak_xxx" > ~/.wind-aimarket/config\n` +
-      `   B. 仅当前 skill\n` +
-      `      echo '{"wind_api_key":"ak_xxx"}' > ${join(SKILL_DIR, 'config.json')}\n` +
-      `   C. 当前会话临时\n` +
-      `      export WIND_API_KEY=ak_xxx`,
+      `   B. 仅当前 skill\n\n` +
+      `③ 拿到用户选择后调：\n` +
+      `   $ node ${join(SKILL_DIR, 'scripts', 'cli.mjs')} setup-key <KEY> --scope <global|skill>\n\n` +
+      `④ 重试原 Wind 调用`,
   });
 }
 
@@ -388,6 +387,72 @@ async function cmdCall(server_type, toolName, paramsJson) {
   console.log(JSON.stringify({ ok: true, server_type, tool: toolName, ...result }, null, 2));
 }
 
+async function cmdSetupKey(...rawArgs) {
+  const key = rawArgs[0];
+
+  if (!key || key.startsWith('--')) {
+    exitWithUsage(
+      `用法：cli.mjs setup-key <KEY> --scope <global|skill>\n\n` +
+      `⚠️ AI 注意：调本命令前必须先用 AskUserQuestion 让用户在以下两项里选一个：\n` +
+      `  A. 全局共享【推荐 — 所有 wind skill 共用】 → --scope global\n` +
+      `  B. 仅当前 skill                              → --scope skill\n` +
+      `不要替用户挑默认值。`,
+      1,
+    );
+  }
+
+  let scope = null;
+  for (let i = 1; i < rawArgs.length; i++) {
+    const a = rawArgs[i];
+    if (a === '--scope' && rawArgs[i + 1]) { scope = rawArgs[i + 1]; break; }
+    if (a.startsWith('--scope=')) { scope = a.slice(8); break; }
+  }
+
+  if (!scope) {
+    exitWithUsage(
+      `setup-key 缺 --scope 参数。\n\n` +
+      `⚠️ AI 注意：必须先用 AskUserQuestion 让用户选，不要替用户挑默认：\n` +
+      `  A. 全局共享【推荐 — 所有 wind skill 共用】 → 重试: cli.mjs setup-key ${maskKey(key)} --scope global\n` +
+      `  B. 仅当前 skill                              → 重试: cli.mjs setup-key ${maskKey(key)} --scope skill`,
+      1,
+    );
+  }
+
+  if (scope === 'global') {
+    const dir = join(homedir(), '.wind-aimarket');
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    const file = join(dir, 'config');
+    let lines = [];
+    if (existsSync(file)) {
+      lines = readFileSync(file, 'utf8').split('\n')
+        .filter(l => l.length > 0 && !/^\s*(export\s+)?WIND_API_KEY\s*=/.test(l));
+    }
+    lines.push(`WIND_API_KEY=${key}`);
+    writeFileSync(file, lines.join('\n') + '\n', { mode: 0o600 });
+    console.log(JSON.stringify({
+      ok: true, action: 'setup-key', scope: 'global', path: file,
+      key_masked: maskKey(key),
+      next: '现在可以重试原 Wind 调用',
+    }, null, 2));
+    return;
+  }
+
+  if (scope === 'skill') {
+    const file = join(SKILL_DIR, 'config.json');
+    writeFileSync(file, JSON.stringify({ wind_api_key: key }, null, 2) + '\n', { mode: 0o600 });
+    console.log(JSON.stringify({
+      ok: true, action: 'setup-key', scope: 'skill', path: file,
+      key_masked: maskKey(key),
+      next: '现在可以重试原 Wind 调用',
+    }, null, 2));
+    return;
+  }
+
+  die('UNKNOWN_SCOPE', `setup-key 未知 scope: ${scope}`, {
+    extraHint: '可选值: global / skill',
+  });
+}
+
 async function cmdOpenPortal() {
   const platform = process.platform;
   let bin, args;
@@ -432,7 +497,8 @@ const USAGE =
   `访问万得 Wind 金融数据（按数据域分类调用）\n\n` +
   `用法:\n` +
   `  cli.mjs call <server_type> <tool_name> '<params_json>'\n` +
-  `  cli.mjs open-portal                       # 打开万得开发者中心拿 API Key\n\n` +
+  `  cli.mjs open-portal                                # 打开万得开发者中心拿 API Key\n` +
+  `  cli.mjs setup-key <KEY> --scope <global|skill>     # 配置 API Key（先问用户存放位置）\n\n` +
   `可用 server_type:\n` +
   Object.entries(SERVERS).map(([k, v]) => `  ${k.padEnd(20)}${v.label}`).join('\n') + '\n\n' +
   `典型:\n` +
@@ -444,6 +510,7 @@ const USAGE =
 const commands = {
   call: () => cmdCall(args[0], args[1], args[2]),
   'open-portal': () => cmdOpenPortal(),
+  'setup-key': () => cmdSetupKey(...args),
 };
 
 if (!cmd || !commands[cmd]) {
