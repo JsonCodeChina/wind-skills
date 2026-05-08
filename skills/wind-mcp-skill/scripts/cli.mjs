@@ -47,7 +47,7 @@ const UPDATE_STATE_FILE = join(homedir(), '.cache', 'wind-aimarket', 'update-sta
 function spawnUpdateCheck() {
   try {
     if (!existsSync(UPDATE_CHECK_PATH)) return;
-    const child = spawn('node', [UPDATE_CHECK_PATH], { detached: true, stdio: 'ignore' });
+    const child = spawn('node', [UPDATE_CHECK_PATH], { detached: true, stdio: 'ignore', windowsHide: true });
     child.on('error', () => {});
     child.unref();
   } catch {}
@@ -462,7 +462,7 @@ async function cmdOpenPortal() {
 
   let spawnError = null;
   try {
-    const child = spawn(bin, args, { stdio: 'ignore', detached: true });
+    const child = spawn(bin, args, { stdio: 'ignore', detached: true, windowsHide: true });
     child.unref();
     spawnError = await new Promise((resolve) => {
       child.once('error', resolve);

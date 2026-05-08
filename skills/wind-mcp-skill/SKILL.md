@@ -58,6 +58,15 @@ examples:
 node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 ```
 
+> **Windows 注意**：上面的单引号写法只在 Bash / Git Bash / WSL 下生效。原生 PowerShell / cmd 走以下写法之一：
+> ```powershell
+> # PowerShell：内部双引号用反斜杠转义
+> node scripts/cli.mjs call stock_data get_stock_quote '{\"windcode\":\"600519.SH\"}'
+>
+> # PowerShell 7+：用 --% 停止解析
+> node scripts/cli.mjs call stock_data get_stock_quote --% '{"windcode":"600519.SH"}'
+> ```
+
 ### API Key
 
 报 `KEY_MISSING` 时按 cli.mjs stderr 给的 extraHint 配置即可（程序自动按多种方式查找 Key）；需要拿 Key 跑 `node scripts/cli.mjs open-portal` 自动打开开发者中心。
