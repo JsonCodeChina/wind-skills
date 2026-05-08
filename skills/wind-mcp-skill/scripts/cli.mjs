@@ -5,9 +5,9 @@
 // 调用签名: call(server_type, tool_name, params)
 // 注: fund_data / stock_data 各包含行情类工具(*_price_indicators / *_kline / *_quote) + NL 类工具(财务 / 档案等),入参模式不同,见 SKILL.md 工具表
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 
@@ -16,27 +16,22 @@ const SKILL_VERSION = '1.4.0';
 const SERVERS = {
   fund_data: {
     endpoint: 'https://mcp.wind.com.cn/vserver_fund_data/mcp/',
-    cache_id: 'wind-fund-data',
     label: 'Wind 基金（档案/财务/持仓/业绩/持有人/公司 + 行情/K线/分钟）',
   },
   financial_docs: {
     endpoint: 'https://mcp.wind.com.cn/vserver_financial_docs/mcp/',
-    cache_id: 'wind-financial-docs',
     label: 'Wind 金融文档 RAG（公告 / 新闻）',
   },
   stock_data: {
     endpoint: 'https://mcp.wind.com.cn/vserver_stock_data/mcp/',
-    cache_id: 'wind-stock-data',
     label: 'Wind 股票（档案/财务/股本/事件/技术/风险 + 行情/K线/分钟）',
   },
   economic_data: {
     endpoint: 'https://mcp.wind.com.cn/vserver_economic_data/mcp/',
-    cache_id: 'wind-economic-data',
     label: 'Wind EDB 宏观/行业经济指标',
   },
   analytics_data: {
     endpoint: 'https://mcp.wind.com.cn/vserver_analytics_data/mcp/',
-    cache_id: 'wind-analytics-data',
     label: 'Wind 通用分析数据（NL → Wind 数据）',
   },
 };
@@ -44,8 +39,6 @@ const SERVERS = {
 const PORTAL_URL = 'https://aimarket.wind.com.cn/#/user/overview';
 
 const SKILL_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
-const CACHE_DIR = join(homedir(), '.cache', 'wind-aimarket', 'tools');
-const TTL_MS = 24 * 60 * 60 * 1000;
 
 const UPDATE_CHECK_PATH = join(SKILL_DIR, 'scripts', 'update-check.mjs');
 const UPDATE_STATE_FILE = join(homedir(), '.cache', 'wind-aimarket', 'update-state.json');
@@ -54,31 +47,120 @@ const UPDATE_STATE_FILE = join(homedir(), '.cache', 'wind-aimarket', 'update-sta
 function spawnUpdateCheck() {
   try {
     if (!existsSync(UPDATE_CHECK_PATH)) return;
-    const child = spawn('node', [UPDATE_CHECK_PATH], { detached: true, stdio: 'ignore' });
+    const child = spawn('node', [UPDATE_CHECK_PATH], { detached: true, stdio: 'ignore', windowsHide: true });
     child.on('error', () => {});
     child.unref();
   } catch {}
 }
 
-// 主流程末尾读 cache,有 outdated 且未 snooze → stderr 输出
+// 读 lock,返回 name → installed hash 映射
+// 用于 notify 前自检:用户已升级时(lock hash 跟 cache.outdated.current 不一致)
+// 抑制本次提示并删 cache,让下次 spawn 重新拉真值。
+function getInstalledHashes() {
+  const result = {};
+  const candidates = new Set();
+  const xdg = process.env.XDG_STATE_HOME;
+  candidates.add(xdg
+    ? join(xdg, 'skills', '.skill-lock.json')
+    : join(homedir(), '.agents', '.skill-lock.json'));
+  for (const start of [SKILL_DIR, process.cwd()]) {
+    let dir = resolve(start);
+    while (true) {
+      candidates.add(join(dir, 'skills-lock.json'));
+      const parent = dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+  }
+  for (const lockPath of candidates) {
+    if (!existsSync(lockPath)) continue;
+    try {
+      const lock = JSON.parse(readFileSync(lockPath, 'utf8'));
+      for (const [name, entry] of Object.entries(lock?.skills || {})) {
+        const hash = entry?.skillFolderHash || entry?.computedHash;
+        if (hash && !result[name]) result[name] = hash;
+      }
+    } catch {}
+  }
+  return result;
+}
+
+// 把 outdated 里 lock hash 已经变了的条目过滤掉(用户已升级)
+// current 字段是 cache 写入时记录的安装 hash 短形式;lock hash 全长,取前 N 位比对。
+function filterAlreadyUpgraded(outdated) {
+  const installed = getInstalledHashes();
+  return outdated.filter(o => {
+    const live = installed[o.name];
+    if (!live) return true;            // 找不到 lock,保守保留
+    const cur = o.current || '';
+    if (!cur) return true;
+    return live.startsWith(cur);       // hash 仍匹配 → 真未升级,保留
+                                       // hash 已变  → 已升级,过滤
+  });
+}
+
+// 主流程末尾:状态修正 + 按 status 分支提示
+// Phase 1 状态修正(snooze 不阻塞):
+//   - update_available 但 lock 已升过 → 原地改写为 up_to_date(全升)/缩小 outdated(部分升)
+// Phase 2 snooze 控制 — 仅影响是否打印
+// Phase 3 按状态打印:
+//   update_available → 详细提示(GitHub: skills update;Gitee: skills add 重装)
+//   transient_error  → 单行短提示(网络抖)
+//   unknown          → 单行短提示(配置/结构问题)
+//   up_to_date       → 静默
 function maybePrintUpdateNotice() {
   try {
     if (!existsSync(UPDATE_STATE_FILE)) return;
-    const state = JSON.parse(readFileSync(UPDATE_STATE_FILE, 'utf8'));
-    if (state.status !== 'available') return;
-    if (!Array.isArray(state.outdated) || state.outdated.length === 0) return;
+    const original = JSON.parse(readFileSync(UPDATE_STATE_FILE, 'utf8'));
+    let state = original;
+
+    // ── Phase 1:状态修正(永远跑,不受 snooze 影响)──
+    if (state.status === 'update_available' && Array.isArray(state.outdated) && state.outdated.length > 0) {
+      const stillOutdated = filterAlreadyUpgraded(state.outdated);
+      if (stillOutdated.length === 0) {
+        state = {
+          status: 'up_to_date',
+          ttlMs: 60 * 60 * 1000,
+          lastCheck: new Date().toISOString(),
+        };
+        if (original.snoozedUntil) state.snoozedUntil = original.snoozedUntil;
+        if (typeof original.snoozeLevel === 'number') state.snoozeLevel = original.snoozeLevel;
+        try { writeFileSync(UPDATE_STATE_FILE, JSON.stringify(state, null, 2)); } catch {}
+      } else if (stillOutdated.length < state.outdated.length) {
+        state = { ...state, outdated: stillOutdated };
+        try { writeFileSync(UPDATE_STATE_FILE, JSON.stringify(state, null, 2)); } catch {}
+      }
+    }
+
+    // ── Phase 2:snooze 期内不打印,但 cache 已经更新过了 ──
     if (state.snoozedUntil && new Date(state.snoozedUntil) > new Date()) return;
 
-    const lines = ['', `[wind-skills] 检测到 ${state.outdated.length} 个 skill 有新版:`];
-    for (const o of state.outdated) {
-      const upgradeCmd = o.source === 'gitee'
-        ? `npx skills add https://gitee.com/wind_info/wind-skills.git --skill ${o.name} -g -y  # Gitee 装的需重装`
-        : `npx skills update ${o.name} -g -y`;
-      lines.push(`  • ${o.name.padEnd(34)} ${o.current || '?'} → ${o.latest}`);
-      lines.push(`    升级: ${upgradeCmd}`);
+    // ── Phase 3:按状态打印 ──
+    if (state.status === 'update_available') {
+      const lines = ['', `[wind-skills] 检测到 ${state.outdated.length} 个 skill 有新版:`];
+      for (const o of state.outdated) {
+        const isGitee = typeof o.sourceUrl === 'string' && o.sourceUrl.includes('gitee.com');
+        const upgradeCmd = isGitee
+          ? `npx skills add ${o.sourceUrl} --skill ${o.name} -g -y  # Gitee 源不支持 update,需重装`
+          : `npx skills update ${o.name} -g -y`;
+        lines.push(`  • ${o.name.padEnd(34)} ${o.current || '?'} → ${o.latest}`);
+        lines.push(`    升级: ${upgradeCmd}`);
+      }
+      lines.push('');
+      process.stderr.write(lines.join('\n') + '\n');
+      return;
     }
-    lines.push('');
-    process.stderr.write(lines.join('\n') + '\n');
+
+    if (state.status === 'transient_error') {
+      process.stderr.write(`\n[wind-skills] 检查更新失败,可能是网络问题(reason=${state.reason || 'unknown'})\n\n`);
+      return;
+    }
+
+    if (state.status === 'unknown') {
+      process.stderr.write(`\n[wind-skills] 无法确认是否最新(reason=${state.reason || 'unknown'})\n\n`);
+      return;
+    }
+    // up_to_date / 其他 → 静默
   } catch {}
 }
 
@@ -99,15 +181,6 @@ function exitWithUsage(usage, exitCode = 0) {
 function maskKey(key) {
   if (!key || key.length < 8) return '***';
   return key.slice(0, 4) + '***' + key.slice(-4);
-}
-
-function fresh(path) {
-  if (!existsSync(path)) return false;
-  return Date.now() - statSync(path).mtimeMs < TTL_MS;
-}
-
-function ensureDir(path) {
-  if (!existsSync(path)) mkdirSync(path, { recursive: true });
 }
 
 // 解析 dotenv 风格配置文件（KEY=VALUE 每行一对）
@@ -143,7 +216,7 @@ function getServer(server_type) {
   return server;
 }
 
-// ───── 认证（三级兜底：env > skill config > 全局 config）─────
+// ───── 认证 ─────
 
 function getApiKey() {
   if (process.env.WIND_API_KEY) return process.env.WIND_API_KEY;
@@ -164,15 +237,17 @@ function getApiKey() {
     } catch {}
   }
 
-  die('KEY_MISSING', 'WIND_API_KEY 未配置（env / skill config / 全局 config 三级兜底全失败）', {
+  die('KEY_MISSING', 'WIND_API_KEY 未配置', {
     extraHint:
-      `获取 Key（推荐先问用户是否同意打开浏览器）：\n` +
-      `  $ node ${join(SKILL_DIR, 'scripts', 'cli.mjs')} open-portal\n` +
-      `  或手动访问：${PORTAL_URL}（未登录会自动跳到 /#/login）\n\n` +
-      `配置 Key（任选其一）：\n` +
-      `  A. export WIND_API_KEY=ak_xxx\n` +
-      `  B. echo '{"wind_api_key":"ak_xxx"}' > ${join(SKILL_DIR, 'config.json')}\n` +
-      `  C. mkdir -p ~/.wind-aimarket && echo "WIND_API_KEY=ak_xxx" > ~/.wind-aimarket/config  (推荐：所有 wind skill 共享)`,
+      `① 获取 Key（建议先问用户是否同意打开浏览器）：\n` +
+      `   $ node ${join(SKILL_DIR, 'scripts', 'cli.mjs')} open-portal\n` +
+      `   或手动访问：${PORTAL_URL}（未登录会自动跳到 /#/login）\n\n` +
+      `② 用 AskUserQuestion 让用户选 Key 存放位置（不要替用户挑默认）：\n` +
+      `   A. 全局共享【推荐 — 所有 wind skill 共用】\n` +
+      `   B. 仅当前 skill\n\n` +
+      `③ 拿到用户选择后调：\n` +
+      `   $ node ${join(SKILL_DIR, 'scripts', 'cli.mjs')} setup-key <KEY> --scope <global|skill>\n\n` +
+      `④ 重试原 Wind 调用`,
   });
 }
 
@@ -186,10 +261,8 @@ const ERROR_PATTERNS = [
   ['RATE_LIMIT_DAILY',     /单日请求次数超限|daily.*limit/i,                       'API Key 当日请求额度已用尽。等次日 0 点刷新或换备用 Key。'],
   ['BALANCE_INSUFFICIENT', /余额不足|请先充值|insufficient.*balance/i,             'API Key 计费余额不足。开发者中心充值或换备用 Key。'],
   ['RATE_LIMIT_QPS',       /请求过于频繁|qps.*limit|too.*frequent/i,               '请求过于频繁。等几秒重试（可重试）。'],
-  ['BACKEND_BUG_STR_GET',  /'str' object has no attribute 'get'/,                  '换 analytics_data.get_financial_data 兜底。'],
   ['KEY_INVALID',          /密钥无效|key.*invalid|unauthorized|认证失败|auth.*fail/i,   'API Key 无效或过期 → 开发者中心重新生成。'],
   ['NO_RESULTS',           /未获取到数据|"NO_RESULTS"/,                            '未获取到匹配数据。调整 question 关键词，或换工具/server 重试。'],
-  ['TOOL_RUNTIME_ERROR',   /TOOL_ERROR.*查询失败|tool.*runtime.*error/i,           'economic_data 失败时换 analytics_data.get_financial_data 兜底。'],
   // ── client 端错误（cli.mjs 主动 die）──
   ['KEY_MISSING',          /WIND_API_KEY 未配置/,                                   'API Key 未配置。先 `node scripts/cli.mjs open-portal` 拿 Key，再选三种方式之一配置。'],
   ['UNKNOWN_SERVER_TYPE',  /未知 server_type/,                                      'server_type 不在可用列表内。先 `cli.mjs` 看 USAGE 列表，按列表填。'],
@@ -355,29 +428,6 @@ async function mcpInitializeAndCall(server_type, method, params) {
 
 // ───── 命令 ─────
 
-async function cmdListTools(server_type) {
-  if (!server_type) {
-    exitWithUsage(
-      `用法：list-tools <server_type>\n` +
-      `可用 server_type: ${Object.keys(SERVERS).join(' / ')}`,
-      1,
-    );
-  }
-  const server = getServer(server_type);
-  const cacheFile = join(CACHE_DIR, `${server.cache_id}.json`);
-
-  if (fresh(cacheFile)) {
-    const result = JSON.parse(readFileSync(cacheFile, 'utf8'));
-    console.log(JSON.stringify({ ok: true, server_type, from_cache: true, ...result }, null, 2));
-    return;
-  }
-
-  const result = await mcpInitializeAndCall(server_type, 'tools/list', {});
-  ensureDir(CACHE_DIR);
-  writeFileSync(cacheFile, JSON.stringify(result, null, 2));
-  console.log(JSON.stringify({ ok: true, server_type, from_cache: false, ...result }, null, 2));
-}
-
 async function cmdCall(server_type, toolName, paramsJson) {
   if (!server_type || !toolName || !paramsJson) {
     exitWithUsage(
@@ -408,6 +458,72 @@ async function cmdCall(server_type, toolName, paramsJson) {
   console.log(JSON.stringify({ ok: true, server_type, tool: toolName, ...result }, null, 2));
 }
 
+async function cmdSetupKey(...rawArgs) {
+  const key = rawArgs[0];
+
+  if (!key || key.startsWith('--')) {
+    exitWithUsage(
+      `用法：cli.mjs setup-key <KEY> --scope <global|skill>\n\n` +
+      `⚠️ AI 注意：调本命令前必须先用 AskUserQuestion 让用户在以下两项里选一个：\n` +
+      `  A. 全局共享【推荐 — 所有 wind skill 共用】 → --scope global\n` +
+      `  B. 仅当前 skill                              → --scope skill\n` +
+      `不要替用户挑默认值。`,
+      1,
+    );
+  }
+
+  let scope = null;
+  for (let i = 1; i < rawArgs.length; i++) {
+    const a = rawArgs[i];
+    if (a === '--scope' && rawArgs[i + 1]) { scope = rawArgs[i + 1]; break; }
+    if (a.startsWith('--scope=')) { scope = a.slice(8); break; }
+  }
+
+  if (!scope) {
+    exitWithUsage(
+      `setup-key 缺 --scope 参数。\n\n` +
+      `⚠️ AI 注意：必须先用 AskUserQuestion 让用户选，不要替用户挑默认：\n` +
+      `  A. 全局共享【推荐 — 所有 wind skill 共用】 → 重试: cli.mjs setup-key ${maskKey(key)} --scope global\n` +
+      `  B. 仅当前 skill                              → 重试: cli.mjs setup-key ${maskKey(key)} --scope skill`,
+      1,
+    );
+  }
+
+  if (scope === 'global') {
+    const dir = join(homedir(), '.wind-aimarket');
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    const file = join(dir, 'config');
+    let lines = [];
+    if (existsSync(file)) {
+      lines = readFileSync(file, 'utf8').split('\n')
+        .filter(l => l.length > 0 && !/^\s*(export\s+)?WIND_API_KEY\s*=/.test(l));
+    }
+    lines.push(`WIND_API_KEY=${key}`);
+    writeFileSync(file, lines.join('\n') + '\n', { mode: 0o600 });
+    console.log(JSON.stringify({
+      ok: true, action: 'setup-key', scope: 'global', path: file,
+      key_masked: maskKey(key),
+      next: '现在可以重试原 Wind 调用',
+    }, null, 2));
+    return;
+  }
+
+  if (scope === 'skill') {
+    const file = join(SKILL_DIR, 'config.json');
+    writeFileSync(file, JSON.stringify({ wind_api_key: key }, null, 2) + '\n', { mode: 0o600 });
+    console.log(JSON.stringify({
+      ok: true, action: 'setup-key', scope: 'skill', path: file,
+      key_masked: maskKey(key),
+      next: '现在可以重试原 Wind 调用',
+    }, null, 2));
+    return;
+  }
+
+  die('UNKNOWN_SCOPE', `setup-key 未知 scope: ${scope}`, {
+    extraHint: '可选值: global / skill',
+  });
+}
+
 async function cmdOpenPortal() {
   const platform = process.platform;
   let bin, args;
@@ -417,7 +533,7 @@ async function cmdOpenPortal() {
 
   let spawnError = null;
   try {
-    const child = spawn(bin, args, { stdio: 'ignore', detached: true });
+    const child = spawn(bin, args, { stdio: 'ignore', detached: true, windowsHide: true });
     child.unref();
     spawnError = await new Promise((resolve) => {
       child.once('error', resolve);
@@ -451,22 +567,21 @@ const USAGE =
   `wind-mcp-skill\n` +
   `访问万得 Wind 金融数据（按数据域分类调用）\n\n` +
   `用法:\n` +
-  `  cli.mjs list-tools <server_type>\n` +
   `  cli.mjs call <server_type> <tool_name> '<params_json>'\n` +
-  `  cli.mjs open-portal                       # 打开万得开发者中心拿 API Key\n\n` +
+  `  cli.mjs open-portal                                # 打开万得开发者中心拿 API Key\n` +
+  `  cli.mjs setup-key <KEY> --scope <global|skill>     # 配置 API Key（先问用户存放位置）\n\n` +
   `可用 server_type:\n` +
   Object.entries(SERVERS).map(([k, v]) => `  ${k.padEnd(20)}${v.label}`).join('\n') + '\n\n' +
   `典型:\n` +
-  `  cli.mjs list-tools fund_data\n` +
   `  cli.mjs call stock_data get_stock_basicinfo '{"question":"600519.SH 公司基本档案"}'   # NL 类\n` +
   `  cli.mjs call stock_data get_stock_price_indicators '{"windcode":"600519.SH","indexes":"NAME,MATCH,CHANGERANGE"}'   # 行情类(结构化)\n` +
-  `  cli.mjs call fund_data get_fund_kline '{"windcode":"588200.SH","period":"10","count":30}'   # 基金 K 线\n` +
+  `  cli.mjs call fund_data get_fund_kline '{"windcode":"588200.SH","begin_date":"20260401","end_date":"20260430"}'   # 基金 K 线(必传 begin_date)\n` +
   `  cli.mjs call analytics_data get_financial_data '{"question":"贵州茅台 2024 年 ROE"}'`;
 
 const commands = {
-  'list-tools': () => cmdListTools(args[0]),
   call: () => cmdCall(args[0], args[1], args[2]),
   'open-portal': () => cmdOpenPortal(),
+  'setup-key': () => cmdSetupKey(...args),
 };
 
 if (!cmd || !commands[cmd]) {
@@ -475,7 +590,7 @@ if (!cmd || !commands[cmd]) {
 }
 
 // 仅对实际调用类命令触发探活(open-portal 类管理命令跳过)
-if (cmd === 'call' || cmd === 'list-tools') {
+if (cmd === 'call') {
   spawnUpdateCheck();
 }
 
