@@ -5,7 +5,7 @@
 // 调用签名: call(server_type, tool_name, params)
 // 注: fund_data / stock_data 各包含行情类工具(*_price_indicators / *_kline / *_quote) + NL 类工具(财务 / 档案等),入参模式不同,见 SKILL.md 工具表
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -99,30 +99,46 @@ function filterAlreadyUpgraded(outdated) {
   });
 }
 
-// 主流程末尾读 cache,按 status 分支提示。snooze 期内全静默。
+// 主流程末尾:状态修正 + 按 status 分支提示
+// Phase 1 状态修正(snooze 不阻塞):
+//   - update_available 但 lock 已升过 → 原地改写为 up_to_date(全升)/缩小 outdated(部分升)
+// Phase 2 snooze 控制 — 仅影响是否打印
+// Phase 3 按状态打印:
 //   update_available → 详细提示(GitHub: skills update;Gitee: skills add 重装)
-//                       会自检 lock — 已升级则抑制提示并删 cache 让下次 spawn 重查
 //   transient_error  → 单行短提示(网络抖)
 //   unknown          → 单行短提示(配置/结构问题)
 //   up_to_date       → 静默
 function maybePrintUpdateNotice() {
   try {
     if (!existsSync(UPDATE_STATE_FILE)) return;
-    const state = JSON.parse(readFileSync(UPDATE_STATE_FILE, 'utf8'));
-    if (state.snoozedUntil && new Date(state.snoozedUntil) > new Date()) return;
+    const original = JSON.parse(readFileSync(UPDATE_STATE_FILE, 'utf8'));
+    let state = original;
 
-    if (state.status === 'update_available') {
-      if (!Array.isArray(state.outdated) || state.outdated.length === 0) return;
-
+    // ── Phase 1:状态修正(永远跑,不受 snooze 影响)──
+    if (state.status === 'update_available' && Array.isArray(state.outdated) && state.outdated.length > 0) {
       const stillOutdated = filterAlreadyUpgraded(state.outdated);
       if (stillOutdated.length === 0) {
-        // 全部已升级 → 删 cache,下次 cli 调用 spawn 会重拉真值
-        try { unlinkSync(UPDATE_STATE_FILE); } catch {}
-        return;
+        state = {
+          status: 'up_to_date',
+          ttlMs: 60 * 60 * 1000,
+          lastCheck: new Date().toISOString(),
+        };
+        if (original.snoozedUntil) state.snoozedUntil = original.snoozedUntil;
+        if (typeof original.snoozeLevel === 'number') state.snoozeLevel = original.snoozeLevel;
+        try { writeFileSync(UPDATE_STATE_FILE, JSON.stringify(state, null, 2)); } catch {}
+      } else if (stillOutdated.length < state.outdated.length) {
+        state = { ...state, outdated: stillOutdated };
+        try { writeFileSync(UPDATE_STATE_FILE, JSON.stringify(state, null, 2)); } catch {}
       }
+    }
 
-      const lines = ['', `[wind-skills] 检测到 ${stillOutdated.length} 个 skill 有新版:`];
-      for (const o of stillOutdated) {
+    // ── Phase 2:snooze 期内不打印,但 cache 已经更新过了 ──
+    if (state.snoozedUntil && new Date(state.snoozedUntil) > new Date()) return;
+
+    // ── Phase 3:按状态打印 ──
+    if (state.status === 'update_available') {
+      const lines = ['', `[wind-skills] 检测到 ${state.outdated.length} 个 skill 有新版:`];
+      for (const o of state.outdated) {
         const isGitee = typeof o.sourceUrl === 'string' && o.sourceUrl.includes('gitee.com');
         const upgradeCmd = isGitee
           ? `npx skills add ${o.sourceUrl} --skill ${o.name} -g -y  # Gitee 源不支持 update,需重装`
