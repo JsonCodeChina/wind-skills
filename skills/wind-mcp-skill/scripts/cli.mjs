@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 // wind-mcp-skill
 // 访问万得 Wind 金融数据 — 按数据域分类调用
-// SERVERS: fund_data / financial_docs / stock_data / economic_data / analytics_data
+// SERVERS: stock_data / global_stock_data / fund_data / index_data / bond_data
+//          / financial_docs / economic_data / analytics_data
 // 调用签名: call(server_type, tool_name, params)
-// 注: fund_data / stock_data 各包含行情类工具(*_price_indicators / *_kline / *_quote) + NL 类工具(财务 / 档案等),入参模式不同,见 SKILL.md 工具表
+// 注: stock/global_stock/fund/index 各包含行情类工具(*_price_indicators / *_kline / *_quote)
+//     + NL 类工具(财务 / 档案等),入参模式不同,见 SKILL.md 工具表
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -11,20 +13,32 @@ import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 
-const SKILL_VERSION = '1.4.0';
+const SKILL_VERSION = '1.5.0';
 
 const SERVERS = {
+  stock_data: {
+    endpoint: 'https://mcp.wind.com.cn/vserver_stock_data/mcp/',
+    label: 'Wind A 股股票（档案/财务/股本/事件/技术/风险 + 行情/K线/分钟）',
+  },
+  global_stock_data: {
+    endpoint: 'https://mcp.wind.com.cn/vserver_global_stock_data/mcp/',
+    label: 'Wind 全球股票/港股美股（档案/财务/股本/事件/技术/风险 + 行情/K线/分钟）',
+  },
   fund_data: {
     endpoint: 'https://mcp.wind.com.cn/vserver_fund_data/mcp/',
     label: 'Wind 基金（档案/财务/持仓/业绩/持有人/公司 + 行情/K线/分钟）',
   },
+  index_data: {
+    endpoint: 'https://mcp.wind.com.cn/vserver_index_data/mcp/',
+    label: 'Wind 指数/板块（档案/基本面/技术 + 行情/K线/分钟）',
+  },
+  bond_data: {
+    endpoint: 'https://mcp.wind.com.cn/vserver_bond_data/mcp/',
+    label: 'Wind 债券（基本档案/发债主体/行情估值/主体财务）',
+  },
   financial_docs: {
     endpoint: 'https://mcp.wind.com.cn/vserver_financial_docs/mcp/',
     label: 'Wind 金融文档 RAG（公告 / 新闻）',
-  },
-  stock_data: {
-    endpoint: 'https://mcp.wind.com.cn/vserver_stock_data/mcp/',
-    label: 'Wind 股票（档案/财务/股本/事件/技术/风险 + 行情/K线/分钟）',
   },
   economic_data: {
     endpoint: 'https://mcp.wind.com.cn/vserver_economic_data/mcp/',
@@ -436,6 +450,9 @@ async function cmdCall(server_type, toolName, paramsJson) {
       `例：\n` +
       `  call analytics_data get_financial_data '{"question":"贵州茅台 2024 年 ROE"}'\n` +
       `  call stock_data get_stock_basicinfo '{"question":"600519.SH 公司基本档案"}'\n` +
+      `  call global_stock_data get_global_stock_basicinfo '{"question":"AAPL.O 公司基本档案"}'\n` +
+      `  call index_data get_index_basicinfo '{"question":"沪深300 指数档案"}'\n` +
+      `  call bond_data get_bond_market_data '{"question":"国债 2601 行情"}'\n` +
       `  call fund_data get_fund_info '{"question":"005827.OF 基金档案"}'\n` +
       `  call financial_docs get_financial_news '{"query":"美联储利率政策","top_k":3}'\n` +
       `  call economic_data get_economic_data '{"metricIdsStr":"中国GDP"}'`,
@@ -574,8 +591,11 @@ const USAGE =
   Object.entries(SERVERS).map(([k, v]) => `  ${k.padEnd(20)}${v.label}`).join('\n') + '\n\n' +
   `典型:\n` +
   `  cli.mjs call stock_data get_stock_basicinfo '{"question":"600519.SH 公司基本档案"}'   # NL 类\n` +
-  `  cli.mjs call stock_data get_stock_price_indicators '{"windcode":"600519.SH","indexes":"NAME,MATCH,CHANGERANGE"}'   # 行情类(结构化)\n` +
+  `  cli.mjs call stock_data get_stock_price_indicators '{"windcode":"600519.SH","indexes":"中文简称,最新成交价,涨跌幅"}'   # 行情类(中文指标名)\n` +
   `  cli.mjs call fund_data get_fund_kline '{"windcode":"588200.SH","begin_date":"20260401","end_date":"20260430"}'   # 基金 K 线(必传 begin_date)\n` +
+  `  cli.mjs call global_stock_data get_global_stock_quote '{"windcode":"AAPL.O"}'   # 美股分钟级\n` +
+  `  cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","begin_date":"20260401","end_date":"20260430"}'   # 指数 K 线\n` +
+  `  cli.mjs call bond_data get_bond_basicinfo '{"question":"国债 2601 基本信息"}'   # 债券档案\n` +
   `  cli.mjs call analytics_data get_financial_data '{"question":"贵州茅台 2024 年 ROE"}'`;
 
 const commands = {
