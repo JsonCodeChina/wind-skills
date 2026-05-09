@@ -97,7 +97,7 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 | 字段 | 必填 | 说明 |
 |---|---|---|
 | `windcode` | ✅ | 标的（见行情类段头）|
-| `indexes` | ✅ | **中文字段名**逗号分隔（schema 已改成中文直传，无需查 enum 映射）。**常用快捷**（覆盖 80% 高频问题）：<br>· 通用：`中文简称,最新成交价,前收盘价,今日开盘价,今日最高价,今日最低价,成交量,成交额,涨跌,涨跌幅`<br>· 股票额外：`换手率,量比,委比,涨停价,跌停价,52周最高,52周最低,总市值1,流通市值,市盈率(TTM),市净率,股息率`<br>· 基金额外：`IOPV,贴水率,基金最新份额,基金规模,最新净值,累计净值,七日年化收益率`<br>· 指数额外：`成分股贡献点数,上涨家数,下跌家数,平盘家数`<br>其它字段（估值细分 / 财务 / 资金流 / 期权希腊字母等）见 `references/indicators.md` |
+| `indexes` | ✅ | **中文字段名**逗号分隔。**常用快捷**（覆盖 80% 高频问题）：<br>· 通用：`中文简称,最新成交价,前收盘价,今日开盘价,今日最高价,今日最低价,成交量,成交额,涨跌,涨跌幅`<br>· 股票额外：`换手率,量比,委比,涨停价,跌停价,52周最高,52周最低,总市值1,流通市值,市盈率(TTM),市净率,股息率`<br>· 基金额外：`IOPV,贴水率,基金最新份额,基金规模,最新净值,累计净值,七日年化收益率`<br>· 指数额外：`成分股贡献点数,上涨家数,下跌家数,平盘家数`<br>其它字段（估值细分 / 财务 / 资金流 / 期权希腊字母等）见 `references/indicators.md` |
 
 #### `get_{stock|global_stock|fund|index}_kline` — K 线
 
@@ -260,7 +260,7 @@ node scripts/cli.mjs call analytics_data get_financial_data '{"question":"螺纹
 | `*_quote` 字段名是 `begin / end`，**不是** `begin_date / end_date` | 字段名错参数解析报错 |
 | K 线 `begin_date / end_date` 和 EDB `beginDate / endDate`（注意 camelCase）都用 `yyyyMMdd` | 格式不对报错 |
 | 文档查询 `start_date / end_date` 用 `YYYY-MM-DD`（**只有 financial_docs 是这格式**）| 跟 K 线 / EDB 混了报错 |
-| 行情类 `indexes` 字段**只接中文名**，从 `references/indicators.md` 复制粘贴 | 写英文 enum / 自创字段名报错 |
+| 行情类 `indexes` 字段**只接中文名**，从 `references/indicators.md` 复制粘贴 | 自创字段名 / 写英文报错 |
 | `aftype` 只接受 `"0"` / `"1"`（无"不复权"） | 其他值报错 |
 | A 股查 `stock_data`，港股 / 美股查 `global_stock_data`，**别混** | A 股财务工具会拒港股 / 美股 |
 | 单工具调用**只支持单标的** | 逗号分隔多代码后端只识别第 1 个，其余静默忽略 |
@@ -290,7 +290,7 @@ cli.mjs 大部分错误会自动输出错误码 + 处理建议（stderr），照
 
 | 错误 | 解法 |
 |---|---|
-| `indexes` 字段不识别 / 字段名不存在 | Read `references/indicators.md` 复制粘贴中文字段名（不要写英文 enum / 自己拼）|
+| `indexes` 字段不识别 / 字段名不存在 | Read `references/indicators.md` 复制粘贴中文字段名（不要自己拼）|
 | 工具不存在 / 未知 server_type / schema 对不上 | 跑 `npx skills update wind-mcp-skill -y` 拉新版 |
 | 美股 / 港股调用 `stock_data` 工具返空 / 报错 | 切到 `global_stock_data` 同名工具（参数签名一致） |
 | 调用似乎啥都没报 | 检查命令是否在本 SKILL.md 所在目录下执行 |
