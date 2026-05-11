@@ -11,7 +11,7 @@
 - 用户问"有什么金融能力" / 提了金融问题但 AI 不确定用哪个 → 触发本 skill
 - AI 读 `references/skills-catalog.md` → 列举平台所有可用 skill（数据发现 + 金融分析两类）
 - 给出对应安装命令，让用户自助挑装
-- 可运行 `scripts/check-updates.mjs` 按 lock-driven 方式检查是否有新版，并提示升级
+- 可运行 `scripts/check-updates.mjs` 按 lock-driven 方式检查是否有新版，并提示升级。
 
 ---
 
