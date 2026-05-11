@@ -3,6 +3,7 @@ name: wind-find-finance-skill
 description: AIMarket 金融能力发现器。当用户问金融数据 / 分析 / 工具相关问题,且 AI 不确定用哪个具体 skill 时,触发本 skill 列举平台可用能力并给出安装命令。
 ---
 
+
 # 触发时机
 
 用户问以下任一情况时触发:
