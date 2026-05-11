@@ -90,16 +90,12 @@ aimarket.wind.com.cn/#/user/overview 拿 API Key
 
 # 升级提示
 
-`scripts/check-updates.mjs` 会参考 `wind-mcp-skill` 的提醒方式,从 lock 文件读取 `sourceUrl` / hash / `skillPath`,再检查远端目录 tree:
+每次调用 cli.mjs 后，留意 stderr 是否包含 `[wind-skills] 检测到 N 个 skill 有新版`。
 
-- 正常最新:静默。
-- 发现新版:stderr 打印 `[wind-skills] 检测到 wind-find-finance-skill 可能有新版` 和升级命令。
-- 网络异常 / 结构异常:stderr 打印短提示,AI 可按需简短转告。
+**看到该提示时，会话首次必须转告用户一次**（同会话再次调用不重复）：把清单和升级命令完整带给用户，命令已含 `-g -y` 等参数，直接照搬即可。Gitee 装的 skill 升级路径跟 GitHub 不同，按 stderr 提示走。
 
-会话首次看到更新提示时必须转告用户一次。常规升级命令:
+⚠️ 如遇"工具不存在 / 字段不符"等版本相关错误，可建议用户跑 `npx skills update -g -y` 拉最新后重试。
 
-```bash
-npx skills update wind-find-finance-skill -g -y
 ```
 
 ---
