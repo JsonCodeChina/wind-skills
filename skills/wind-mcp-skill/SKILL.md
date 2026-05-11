@@ -148,6 +148,8 @@ node scripts/cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","b
 
 入参 `lang?: "English" | "中文"`，默认 `"中文"`。
 
+**`question`**（必填 string）：自然语言问句，A 股标的（代码 / 中文名 / 简称）+ 业务关键词。
+
 | 工具 | 说明 | question 示例 |
 |---|---|---|
 | `get_stock_basicinfo` | 公司档案（信息 / 主营 / 行业 / IPO 上市板）| `"600519.SH 公司基本档案"` |
@@ -160,6 +162,8 @@ node scripts/cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","b
 #### `global_stock_data` NL（6 个，**港股 / 美股**）
 
 入参 `lang?: "English" | "中文"`，默认 `"中文"`。
+
+**`question`**（必填 string）：自然语言问句，港股 / 美股标的（`00700.HK` / `AAPL.O` / 中英文名）+ 业务关键词。
 
 | 工具 | 说明 | question 示例 |
 |---|---|---|
@@ -174,6 +178,8 @@ node scripts/cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","b
 
 入参 `lang?: "English" | "中文"`，默认 `"中文"`。
 
+**`question`**（必填 string）：自然语言问句，基金代码（`*.OF` / ETF / LOF）或简称 + 业务关键词（`get_fund_company_info` 传管理公司名）。
+
 | 工具 | 说明 | question 示例 |
 |---|---|---|
 | `get_fund_info` | 档案（代码 / 简称 / 风格 / 业绩基准 / 费率 / 经理）| `"易方达蓝筹精选 005827.OF 基金档案"` |
@@ -187,6 +193,8 @@ node scripts/cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","b
 
 入参 `lang?: "English" | "中文"`，默认 `"中文"`。
 
+**`question`**（必填 string）：自然语言问句，指数标的（代码 / 中文名）+ 业务关键词。
+
 | 工具 | 说明 | question 示例 |
 |---|---|---|
 | `get_index_basicinfo` | 指数档案（发布机构 / 基日 / 基点 / 计算方法 / 成份股数量 / 分类）| `"沪深300 指数档案"` |
@@ -196,6 +204,8 @@ node scripts/cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","b
 #### `bond_data` NL（4 个）
 
 入参 `lang?: "English" | "中文"`，默认 `"中文"`。**注意：bond_data 没有行情类工具，债券快照 / 估值通过 NL 拿。**
+
+**`question`**（必填 string）：自然语言问句，债券代码或简称（如 `国债 2601`）+ 业务关键词。
 
 | 工具 | 说明 | question 示例 |
 |---|---|---|
