@@ -94,12 +94,16 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 
 #### `get_{stock|global_stock|fund|index}_price_indicators` — 行情快照
 
+获取对应标的一个或多个具体价格指标的最新快照值。需要提供标的代码/名称和指标名称，返回当前值而非时间序列。当用户询问某只股票、基金或指数的当前/最新价格或任何单一时点指标值时，使用此工具。
+
 | 字段 | 必填 | 说明 |
 |---|---|---|
 | `windcode` | ✅ | 标的（见行情类段头）|
 | `indexes` | ✅ | **中文字段名**逗号分隔。**常用快捷**（覆盖 80% 高频问题）：<br>· 通用：`中文简称,最新成交价,前收盘价,今日开盘价,今日最高价,今日最低价,成交量,成交额,涨跌,涨跌幅`<br>· 股票额外：`换手率,量比,委比,涨停价,跌停价,52周最高,52周最低,总市值1,流通市值,市盈率(TTM),市净率,股息率`<br>· 基金额外：`IOPV,贴水率,基金最新份额,基金规模,最新净值,累计净值,七日年化收益率`<br>· 指数额外：`成分股贡献点数,上涨家数,下跌家数,平盘家数`<br>其它字段（估值细分 / 财务 / 资金流 / 期权希腊字母等）见 `references/indicators.md` |
 
 #### `get_{stock|global_stock|fund|index}_kline` — K 线
+
+获取对应标的在指定日期范围内的 K 线行情时间序列，默认日 K（`period=10`）。每条记录代表一个交易周期，通常包含开盘价、收盘价、最高价、最低价、成交量、换手率、涨跌幅、均价。当用户需要多日价格历史时，使用此工具。
 
 | 字段 | 必填 | 默认 | 说明 |
 |---|---|---|---|
@@ -113,6 +117,8 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 | `afdate` | | | 复权基准日期 `yyyyMMdd`，通常不需指定 |
 
 #### `get_{stock|global_stock|fund|index}_quote` — 分钟级
+
+获取对应标的在指定日期范围内的分钟级行情时间序列（默认为当日）。每条记录代表一分钟，包含价格、均价、成交量、换手率。当用户需要日内价格走势、逐分钟交易数据或任何日内时间序列数据时，使用此工具。
 
 | 字段 | 必填 | 默认 | 说明 |
 |---|---|---|---|
@@ -254,17 +260,22 @@ node scripts/cli.mjs call financial_docs get_financial_news '{"query":"美联储
 node scripts/cli.mjs call economic_data get_economic_data '{"metricIdsStr":"中国 CPI 同比","freq":"月","beginDate":"20240101","endDate":"20261231"}'
 ```
 
-#### `analytics_data` — NL 通用入口（1 个）
+#### `analytics_data` — NL 结构化取数入口（1 个）
 
-`get_financial_data` — 自然语言通用查询入口，覆盖整个 Wind 数据库（含跨域综合 / 衍生品 / 商品等其它 server_type 之外的杂项）。
+`get_financial_data` — 自然语言入参的结构化取数工具，后端会先将 `question` 解析成具体查询口径再取数；它只负责取数，不负责分析、归因或投资判断。优先用于其它 server_type 覆盖不到的跨域综合、衍生品、商品等问题。若已知标的代码、字段、K 线、分钟线或指数行情，优先使用对应专项工具。
 
 | 字段 | 必填 | 类型 | 说明 |
 |---|---|---|---|
-| `question` | ✅ | string | 自然语言问句，如 `"螺纹钢主力合约最近一周走势"` |
+| `question` | ✅ | string | 必须是完整自然语言问题，写清对象、指标、时间和口径；不要只传关键词、字段列表、代码列表或半结构化条件 |
 | `lang` | | enum | `CNS`=中文（默认）/ `ENS`=英文 |
 
+使用要求：
+
+- 遇到“板块 / 地域 / 行业 / 概念 / 指数 / 成份 / 平均 / 加权 / 主力 / 连续”等歧义词，必须在 `question` 中写明口径。
+- 调用后必须检查返回列、代码、日期、单位是否符合预期；不符合时视为后端路由口径不匹配，需重写问题或改用结构化工具。
+
 ```bash
-node scripts/cli.mjs call analytics_data get_financial_data '{"question":"螺纹钢主力合约最近一周走势"}'
+node scripts/cli.mjs call analytics_data get_financial_data '{"question":"查询螺纹钢主力合约最近一周的日收盘价和涨跌幅"}'
 ```
 
 ---
@@ -298,7 +309,7 @@ node scripts/cli.mjs call analytics_data get_financial_data '{"question":"螺纹
 | 多市场对比（`苹果 vs 腾讯`）| 美股走 `global_stock_data`，港股走 `global_stock_data`，分别调 |
 | 指数行情 vs 指数基本面 | 行情走 `index_data` 行情类；PE / PB 历史分位走 `get_index_fundamentals`（NL）|
 | 债券需要快照？ | `bond_data` 没有行情类 → 用 `get_bond_market_data`（NL）描述要哪些指标 |
-| NL `question` / `query` 写法 | 提取关键实体即可。✅ `"005827.OF 基金档案"` / ❌ `"帮我查一下..."` |
+| NL `question` / `query` 写法 | 普通档案类可短句；`analytics_data` 必须写完整自然语言问题，明确对象、指标、时间和口径，不要只堆关键词 |
 
 ---
 
