@@ -142,13 +142,13 @@ node scripts/cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","b
 
 ### NL 类（按 server_type 分）
 
-入参签名：`{question: string, lang?}`。`lang` enum 按工具不同（schema 真值），见各段。
-
 #### `stock_data` NL（6 个，**仅 A 股**）
 
-入参 `lang?: "English" | "中文"`，默认 `"中文"`。
+入参签名：`{question: string, lang?}`。
 
 **`question`**（必填 string）：自然语言问句，A 股标的（代码 / 中文名 / 简称）+ 业务关键词。
+
+入参 `lang?: "English" | "中文"`，默认 `"中文"`。
 
 | 工具 | 说明 | question 示例 |
 |---|---|---|
@@ -161,9 +161,11 @@ node scripts/cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","b
 
 #### `global_stock_data` NL（6 个，**港股 / 美股**）
 
-入参 `lang?: "English" | "中文"`，默认 `"中文"`。
+入参签名：`{question: string, lang?}`。
 
 **`question`**（必填 string）：自然语言问句，港股 / 美股标的（`00700.HK` / `AAPL.O` / 中英文名）+ 业务关键词。
+
+入参 `lang?: "English" | "中文"`，默认 `"中文"`。
 
 | 工具 | 说明 | question 示例 |
 |---|---|---|
@@ -176,9 +178,11 @@ node scripts/cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","b
 
 #### `fund_data` NL（6 个）
 
-入参 `lang?: "English" | "中文"`，默认 `"中文"`。
+入参签名：`{question: string, lang?}`。
 
 **`question`**（必填 string）：自然语言问句，基金代码（`*.OF` / ETF / LOF）或简称 + 业务关键词（`get_fund_company_info` 传管理公司名）。
+
+入参 `lang?: "English" | "中文"`，默认 `"中文"`。
 
 | 工具 | 说明 | question 示例 |
 |---|---|---|
@@ -191,9 +195,11 @@ node scripts/cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","b
 
 #### `index_data` NL（3 个）
 
-入参 `lang?: "English" | "中文"`，默认 `"中文"`。
+入参签名：`{question: string, lang?}`。
 
 **`question`**（必填 string）：自然语言问句，指数标的（代码 / 中文名）+ 业务关键词。
+
+入参 `lang?: "English" | "中文"`，默认 `"中文"`。
 
 | 工具 | 说明 | question 示例 |
 |---|---|---|
@@ -203,9 +209,11 @@ node scripts/cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","b
 
 #### `bond_data` NL（4 个）
 
-入参 `lang?: "English" | "中文"`，默认 `"中文"`。**注意：bond_data 没有行情类工具，债券快照 / 估值通过 NL 拿。**
+入参签名：`{question: string, lang?}`。**注意：bond_data 没有行情类工具，债券快照 / 估值通过 NL 拿。**
 
 **`question`**（必填 string）：自然语言问句，债券代码或简称（如 `国债 2601`）+ 业务关键词。
+
+入参 `lang?: "English" | "中文"`，默认 `"中文"`。
 
 | 工具 | 说明 | question 示例 |
 |---|---|---|
