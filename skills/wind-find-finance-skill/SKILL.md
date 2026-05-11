@@ -13,7 +13,7 @@ description: AIMarket 金融能力发现器。当用户问金融数据 / 分析 
 
 # 不触发场景
 
-1. 用户已明确指定某个具体 skill("用 wind-mcp-skill 查茅台" / "用 buffett 分析这家公司")→ 直接走那个 skill,不绕本入口
+1. 用户已明确指定某个具体 skill("用 wind-mcp-skill 查茅台" / "用 dcf-model 分析这家公司")→ 直接走那个 skill,不绕本入口
 
 2. 用户问的是**取数 / 查询类**问题(行情 / 财务 / 基金 / 公告 / 新闻 / 宏观),且本机**已装** wind-mcp-skill → 直接调用 wind-mcp-skill,不绕本入口
 
