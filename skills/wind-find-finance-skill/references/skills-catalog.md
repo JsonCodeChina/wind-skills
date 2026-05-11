@@ -31,7 +31,6 @@ description: AIMarket 平台 skill 清单本地副本。由 npx skills update -g
 | dcf-model | 估值 | 无 | DCF 估值建模(WACC + 敏感性分析) |
 | earnings-analysis | 估值-季报 | 无 | 季报点评(beat/miss + 估值更新) |
 | valuation-pricing-framework | 估值 | 无 | 估值与定价框架(重估空间判断) |
-| buffett | 个股研究 | 无 | 巴菲特投资思维体系(护城河 / 安全边际) |
 | equity-investment-thesis | 个股研究 | 无 | 个股投资逻辑深度研究(券商研究员风格) |
 | a-share-primary-theme-identification | 市场主线 | 无 | A 股市场主线识别(题材周期 / 资金行为) |
 | market-environment-analysis | 市场主线 | 无 | 全球市场环境分析(risk-on / risk-off) |
@@ -48,7 +47,7 @@ description: AIMarket 平台 skill 清单本地副本。由 npx skills update -g
 |---|---|---|
 | 数据-行情/基金/股票/宏观/文档 | 3 | wind-mcp-skill |
 | 估值 | 3 | dcf-model |
-| 个股研究 | 2 | buffett |
+| 个股研究 | 1 | equity-investment-thesis |
 | 市场主线 | 3 | a-share-primary-theme-identification |
 | 复盘 | 1 | post-market-debrief |
 | 仓位 | 1 | position-sizer |

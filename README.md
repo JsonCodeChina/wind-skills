@@ -21,7 +21,6 @@
 |---|---|
 | [`a-share-primary-theme-identification`](./skills/a-share-primary-theme-identification) | A 股市场主线识别（题材周期 / 资金行为） |
 | [`backtest-expert`](./skills/backtest-expert) | 量化策略系统化回测（压力测试） |
-| [`buffett`](./skills/buffett) | 巴菲特投资思维体系（护城河 / 安全边际） |
 | [`dcf-model`](./skills/dcf-model) | DCF 估值建模（WACC + 敏感性分析） |
 | [`earnings-analysis`](./skills/earnings-analysis) | 季报点评（beat/miss + 估值更新） |
 | [`equity-investment-thesis`](./skills/equity-investment-thesis) | 个股投资逻辑深度研究（券商研究员风格） |
@@ -138,7 +137,6 @@ wind-skills/
     ├── wind-mcp-skill/             ← 万得 Wind 金融数据访问
     ├── a-share-primary-theme-identification/
     ├── backtest-expert/
-    ├── buffett/
     ├── dcf-model/
     ├── earnings-analysis/
     ├── equity-investment-thesis/
