@@ -28,7 +28,6 @@ examples:
   - "中国近 10 年新能源汽车产销量"
   - "贵州茅台前十大股东"
 ---
-
 # Wind 万得金融数据
 
 通过 MCP 协议访问万得 Wind 金融数据：股票（A 股 / 港股 / 美股）/ 基金 / 指数 / 债券 / 公司公告 / 财经新闻 / 宏观指标。
@@ -39,16 +38,16 @@ examples:
 
 8 个 server_type 各自能干什么：
 
-| server_type | 能力 |
-|---|---|
-| `stock_data` | **A 股**股票行情 + 基本面（档案 / 财务 / 股本 / 事件 / 技术指标 / 风险）|
-| `global_stock_data` | **港股 / 美股**股票行情 + 基本面（档案 / 财务 / 股本 / 事件 / 技术指标 / 风险）|
-| `fund_data` | 基金 ETF / LOF 行情 + 全维数据（档案 / 财务 / 持仓 / 业绩 / 持有人 / 管理公司）|
-| `index_data` | 指数 / 板块行情 + 档案 / 基本面（成份股加权 PE/PB/PS）/ 技术指标 |
-| `bond_data` | 债券基本档案 / 发债主体公司信息 / 行情与估值（久期 / 凸性 / 利差）/ 发债主体财务 |
-| `financial_docs` | 上市公司公告 + 财经新闻 RAG |
-| `economic_data` | EDB 宏观 / 行业经济指标（含 `freq` / `magnitude` / `currency` / `searchType` 等精细化字段控制）|
-| `analytics_data` | 自然语言通用入口，覆盖整个 Wind 数据库（跨域综合 / 衍生品 / 商品等）|
+| server_type           | 能力                                                                                                    |
+| --------------------- | ------------------------------------------------------------------------------------------------------- |
+| `stock_data`        | **A 股**股票行情 + 基本面（档案 / 财务 / 股本 / 事件 / 技术指标 / 风险）                          |
+| `global_stock_data` | **港股 / 美股**股票行情 + 基本面（档案 / 财务 / 股本 / 事件 / 技术指标 / 风险）                   |
+| `fund_data`         | 基金 ETF / LOF 行情 + 全维数据（档案 / 财务 / 持仓 / 业绩 / 持有人 / 管理公司）                         |
+| `index_data`        | 指数 / 板块行情 + 档案 / 基本面（成份股加权 PE/PB/PS）/ 技术指标                                        |
+| `bond_data`         | 债券基本档案 / 发债主体公司信息 / 行情与估值（久期 / 凸性 / 利差）/ 发债主体财务                        |
+| `financial_docs`    | 上市公司公告 + 财经新闻 RAG                                                                             |
+| `economic_data`     | EDB 宏观 / 行业经济指标（含 `freq` / `magnitude` / `currency` / `searchType` 等精细化字段控制） |
+| `analytics_data`    | 自然语言通用入口，覆盖整个 Wind 数据库（跨域综合 / 衍生品 / 商品等）                                    |
 
 **❌ 不触发**：欧股 / 日股 / 其它非中概非美股；汇率 / 期货盘口 / 加密货币；非金融数据。
 
@@ -60,11 +59,16 @@ examples:
 
 ### 调用命令
 
+> 路径说明：本文档中的相对路径（如 `scripts/cli.mjs`、`references/indicators.md`）均相对 **本 skill 目录**，也就是本 `SKILL.md` 所在目录解析；不要假设当前 shell 工作目录存在 `scripts/cli.mjs`。
+>
+> Agent 执行命令时，应优先使用 `<skill_dir>/scripts/cli.mjs` 的完整路径，或先 `cd <skill_dir>` 再运行示例命令。
+
 ```bash
 node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 ```
 
 > **Windows 注意**：上面的单引号写法只在 Bash / Git Bash / WSL 下生效。原生 PowerShell / cmd 走以下写法之一：
+>
 > ```powershell
 > # PowerShell：内部双引号用反斜杠转义
 > node scripts/cli.mjs call stock_data get_stock_quote '{\"windcode\":\"600519.SH\"}'
@@ -73,16 +77,26 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 > node scripts/cli.mjs call stock_data get_stock_quote --% '{"windcode":"600519.SH"}'
 > ```
 
+### Codex 沙箱联网要求
+
+调用 `<skill_dir>/scripts/cli.mjs call ...` 访问 Wind 后端时，在 Codex 环境中必须使用 `sandbox_permissions: "require_escalated"` 运行命令，并建议申请稳定的 `prefix_rule`。`require_escalated` 是 Codex 工具调用参数，不是 shell 命令参数，不能写进脚本或命令行。
+
+对应 Codex `prefix_rule` 建议为：
+
+```json
+["node", "<skill_dir>/scripts/cli.mjs", "call"]
+```
+
 ### API Key
 
 报 `KEY_MISSING` 时按 cli.mjs stderr 给的 extraHint 配置即可（程序自动按多种方式查找 Key）；需要拿 Key 跑 `node scripts/cli.mjs open-portal` 自动打开开发者中心。
 
 ### 入参签名两类
 
-| 类型 | 入参 | 适用工具 |
-|---|---|---|
-| **行情类** | `{windcode, ...}` 结构化字段 | `*_price_indicators` / `*_kline` / `*_quote`（仅 stock / global_stock / fund / index）|
-| **NL 类** | `{question, lang?}` 自然语言（`lang` enum 在不同 server_type 下取值不同，见各段说明） | 其余工具（含 `bond_data` 全部 / `financial_docs` / `economic_data` / `analytics_data`，部分入参字段名 / 取值有差异，详见工具表）|
+| 类型             | 入参                                                                                      | 适用工具                                                                                                                                 |
+| ---------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **行情类** | `{windcode, ...}` 结构化字段                                                            | `*_price_indicators` / `*_kline` / `*_quote`（仅 stock / global_stock / fund / index）                                             |
+| **NL 类**  | `{question, lang?}` 自然语言（`lang` enum 在不同 server_type 下取值不同，见各段说明） | 其余工具（含 `bond_data` 全部 / `financial_docs` / `economic_data` / `analytics_data`，部分入参字段名 / 取值有差异，详见工具表） |
 
 ---
 
@@ -96,35 +110,35 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 
 获取对应标的一个或多个具体价格指标的最新快照值。需要提供标的代码/名称和指标名称，返回当前值而非时间序列。当用户询问某只股票、基金或指数的当前/最新价格或任何单一时点指标值时，使用此工具。
 
-| 字段 | 必填 | 说明 |
-|---|---|---|
-| `windcode` | ✅ | 标的（见行情类段头）|
-| `indexes` | ✅ | **中文字段名**逗号分隔。**常用快捷**（覆盖 80% 高频问题）：<br>· 通用：`中文简称,最新成交价,前收盘价,今日开盘价,今日最高价,今日最低价,成交量,成交额,涨跌,涨跌幅`<br>· 股票额外：`换手率,量比,委比,涨停价,跌停价,52周最高,52周最低,总市值1,流通市值,市盈率(TTM),市净率,股息率`<br>· 基金额外：`IOPV,贴水率,基金最新份额,基金规模,最新净值,累计净值,七日年化收益率`<br>· 指数额外：`成分股贡献点数,上涨家数,下跌家数,平盘家数`<br>其它字段（估值细分 / 财务 / 资金流 / 期权希腊字母等）见 `references/indicators.md` |
+| 字段         | 必填 | 说明                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------ | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `windcode` | ✅   | 标的（见行情类段头）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `indexes`  | ✅   | **中文字段名**逗号分隔。**常用快捷**（覆盖 80% 高频问题）：`<br>`· 通用：`中文简称,最新成交价,前收盘价,今日开盘价,今日最高价,今日最低价,成交量,成交额,涨跌,涨跌幅<br>`· 股票额外：`换手率,量比,委比,涨停价,跌停价,52周最高,52周最低,总市值1,流通市值,市盈率(TTM),市净率,股息率<br>`· 基金额外：`IOPV,贴水率,基金最新份额,基金规模,最新净值,累计净值,七日年化收益率<br>`· 指数额外：`成分股贡献点数,上涨家数,下跌家数,平盘家数<br>`其它字段（估值细分 / 财务 / 资金流 / 期权希腊字母等）见 `references/indicators.md` |
 
 #### `get_{stock|global_stock|fund|index}_kline` — K 线
 
 获取对应标的在指定日期范围内的 K 线行情时间序列，默认日 K（`period=10`）。每条记录代表一个交易周期，通常包含开盘价、收盘价、最高价、最低价、成交量、换手率、涨跌幅、均价。当用户需要多日价格历史时，使用此工具。
 
-| 字段 | 必填 | 默认 | 说明 |
-|---|---|---|---|
-| `windcode` | ✅ | | 标的（见行情类段头）|
-| `begin_date` | ✅ | | `yyyyMMdd`，例 `20260401` |
-| `end_date` | ✅ | | `yyyyMMdd`，例 `20260430` |
-| `count` | | | 数据条数：正数=从 `begin_date` 往后取 N 条；负数=从 `end_date` 往前取 N 条。不传则取 `begin_date ~ end_date` 范围内所有交易日 |
-| `period` | | `"10"` | `1`=1分 / `3`=5分 / `4`=10分 / `5`=15分 / `6`=30分 / `7`=60分 / `8`=120分 / `9`=240分 / `10`=日K / `11`=周K / `12`=月K / `13`=年K / `14`=季K / `15`=半年K |
-| `aftype` | | `"0"` | `0`=前复权 / `1`=后复权 |
-| `issusp` | | `"1"` | `0`=不含停牌 / `1`=含 |
-| `afdate` | | | 复权基准日期 `yyyyMMdd`，通常不需指定 |
+| 字段           | 必填 | 默认     | 说明                                                                                                                                                                                  |
+| -------------- | ---- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `windcode`   | ✅   |          | 标的（见行情类段头）                                                                                                                                                                  |
+| `begin_date` | ✅   |          | `yyyyMMdd`，例 `20260401`                                                                                                                                                         |
+| `end_date`   | ✅   |          | `yyyyMMdd`，例 `20260430`                                                                                                                                                         |
+| `count`      |      |          | 数据条数：正数=从 `begin_date` 往后取 N 条；负数=从 `end_date` 往前取 N 条。不传则取 `begin_date ~ end_date` 范围内所有交易日                                                   |
+| `period`     |      | `"10"` | `1`=1分 / `3`=5分 / `4`=10分 / `5`=15分 / `6`=30分 / `7`=60分 / `8`=120分 / `9`=240分 / `10`=日K / `11`=周K / `12`=月K / `13`=年K / `14`=季K / `15`=半年K |
+| `aftype`     |      | `"0"`  | `0`=前复权 / `1`=后复权                                                                                                                                                           |
+| `issusp`     |      | `"1"`  | `0`=不含停牌 / `1`=含                                                                                                                                                             |
+| `afdate`     |      |          | 复权基准日期 `yyyyMMdd`，通常不需指定                                                                                                                                               |
 
 #### `get_{stock|global_stock|fund|index}_quote` — 分钟级
 
 获取对应标的在指定日期范围内的分钟级行情时间序列（默认为当日）。每条记录代表一分钟，包含价格、均价、成交量、换手率。当用户需要日内价格走势、逐分钟交易数据或任何日内时间序列数据时，使用此工具。
 
-| 字段 | 必填 | 默认 | 说明 |
-|---|---|---|---|
-| `windcode` | ✅ | | 标的（见行情类段头）|
-| `begin` | | `LAST` | `yyyyMMdd` 或 `LAST` |
-| `end` | | `LAST` | `yyyyMMdd` 或 `LAST` |
+| 字段         | 必填 | 默认     | 说明                     |
+| ------------ | ---- | -------- | ------------------------ |
+| `windcode` | ✅   |          | 标的（见行情类段头）     |
+| `begin`    |      | `LAST` | `yyyyMMdd` 或 `LAST` |
+| `end`      |      | `LAST` | `yyyyMMdd` 或 `LAST` |
 
 **示例：**
 
@@ -156,14 +170,14 @@ node scripts/cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","b
 
 入参 `lang?: "English" | "中文"`，默认 `"中文"`。
 
-| 工具 | 说明 | question 示例 |
-|---|---|---|
-| `get_stock_basicinfo` | 公司档案（信息 / 主营 / 行业 / IPO 上市板）| `"600519.SH 公司基本档案"` |
-| `get_stock_fundamentals` | 财务（盈利 / 资产负债 / 利润 / 现金流 / 增长率 / 银行业专项）| `"贵州茅台 2024 年 ROE 和净利润增速"` |
-| `get_stock_equity_holders` | 股本 + 股东（总股本 / 流通 / 前十大 / 实控人 / 限售）| `"贵州茅台前十大股东"` |
-| `get_stock_events` | 事件 + 资本运作（IPO / 增发 / 配股 / 并购 / ST / 分红）| `"宁德时代 2024 年增发和并购事件"` |
-| `get_stock_technicals` | 技术指标时间序列（MACD / KDJ / RSI / BOLL / 融资融券 / 龙虎榜）| `"贵州茅台近 60 日 MACD 走势"` |
-| `get_risk_metrics` | 风险指标（Beta / Jensen Alpha / 波动率 / Sharpe / VaR）| `"贵州茅台过去 1 年 Beta 和波动率"` |
+| 工具                         | 说明                                                            | question 示例                           |
+| ---------------------------- | --------------------------------------------------------------- | --------------------------------------- |
+| `get_stock_basicinfo`      | 公司档案（信息 / 主营 / 行业 / IPO 上市板）                     | `"600519.SH 公司基本档案"`            |
+| `get_stock_fundamentals`   | 财务（盈利 / 资产负债 / 利润 / 现金流 / 增长率 / 银行业专项）   | `"贵州茅台 2024 年 ROE 和净利润增速"` |
+| `get_stock_equity_holders` | 股本 + 股东（总股本 / 流通 / 前十大 / 实控人 / 限售）           | `"贵州茅台前十大股东"`                |
+| `get_stock_events`         | 事件 + 资本运作（IPO / 增发 / 配股 / 并购 / ST / 分红）         | `"宁德时代 2024 年增发和并购事件"`    |
+| `get_stock_technicals`     | 技术指标时间序列（MACD / KDJ / RSI / BOLL / 融资融券 / 龙虎榜） | `"贵州茅台近 60 日 MACD 走势"`        |
+| `get_risk_metrics`         | 风险指标（Beta / Jensen Alpha / 波动率 / Sharpe / VaR）         | `"贵州茅台过去 1 年 Beta 和波动率"`   |
 
 #### `global_stock_data` NL（6 个，**港股 / 美股**）
 
@@ -173,14 +187,14 @@ node scripts/cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","b
 
 入参 `lang?: "English" | "中文"`，默认 `"中文"`。
 
-| 工具 | 说明 | question 示例 |
-|---|---|---|
-| `get_global_stock_basicinfo` | 公司档案（中英文名称 / 注册地 / 经营范围 / 上市交易所 / 行业 / 指数成份）| `"AAPL.O 公司基本档案"` |
-| `get_global_stock_fundamentals` | 财务（毛利率 / ROE / 资产 / 利润 / 现金流 / 增长率 / PE / PB / PS / 历史分位）| `"腾讯 00700.HK 2024 年 ROE 和营收"` |
-| `get_global_stock_equity_holders` | 股本 + 股东（总股本 / 流通 / 主要股东 / 机构持仓 / 限售解禁）| `"腾讯 00700.HK 前十大股东"` |
-| `get_global_stock_events` | 事件 + 资本运作（IPO / 增发 / 配股 / 并购 / 合规监管 / 分红）| `"腾讯 00700.HK 分红历史"` |
-| `get_global_stock_technicals` | 技术指标 + 多周期涨跌幅（相对大盘 / MACD / KDJ / RSI / BOLL / 融资融券）| `"AAPL.O MACD 和 RSI"` |
-| `get_global_stock_risk_metrics` | 风险指标（Beta / Alpha / 波动率 / Sharpe / 最大回撤 / VaR / 财务安全比率）| `"AAPL.O 过去 1 年 Beta 和波动率"` |
+| 工具                                | 说明                                                                           | question 示例                          |
+| ----------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------- |
+| `get_global_stock_basicinfo`      | 公司档案（中英文名称 / 注册地 / 经营范围 / 上市交易所 / 行业 / 指数成份）      | `"AAPL.O 公司基本档案"`              |
+| `get_global_stock_fundamentals`   | 财务（毛利率 / ROE / 资产 / 利润 / 现金流 / 增长率 / PE / PB / PS / 历史分位） | `"腾讯 00700.HK 2024 年 ROE 和营收"` |
+| `get_global_stock_equity_holders` | 股本 + 股东（总股本 / 流通 / 主要股东 / 机构持仓 / 限售解禁）                  | `"腾讯 00700.HK 前十大股东"`         |
+| `get_global_stock_events`         | 事件 + 资本运作（IPO / 增发 / 配股 / 并购 / 合规监管 / 分红）                  | `"腾讯 00700.HK 分红历史"`           |
+| `get_global_stock_technicals`     | 技术指标 + 多周期涨跌幅（相对大盘 / MACD / KDJ / RSI / BOLL / 融资融券）       | `"AAPL.O MACD 和 RSI"`               |
+| `get_global_stock_risk_metrics`   | 风险指标（Beta / Alpha / 波动率 / Sharpe / 最大回撤 / VaR / 财务安全比率）     | `"AAPL.O 过去 1 年 Beta 和波动率"`   |
 
 #### `fund_data` NL（6 个）
 
@@ -190,14 +204,14 @@ node scripts/cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","b
 
 入参 `lang?: "English" | "中文"`，默认 `"中文"`。
 
-| 工具 | 说明 | question 示例 |
-|---|---|---|
-| `get_fund_info` | 档案（代码 / 简称 / 风格 / 业绩基准 / 费率 / 经理）| `"易方达蓝筹精选 005827.OF 基金档案"` |
-| `get_fund_financials` | 财务（利润 / 净值 / 收入 / 费用 / 分红）| `"005827.OF 2024 年净利润和分红"` |
-| `get_fund_holdings` | 持仓 + 资产配置（重仓股 / 申万 / Wind / 中信行业）| `"005827.OF 最新一期重仓股"` |
-| `get_fund_performance` | 业绩 + 排名 + ETF / 二级交易 | `"005827.OF 近 1 年业绩排名"` |
-| `get_fund_holders` | 持有人结构（个人 / 机构 / 申购赎回 / 规模变动）| `"005827.OF 持有人结构"` |
-| `get_fund_company_info` | 基金管理公司档案 + 经理团队 | `"易方达基金管理公司档案"` |
+| 工具                      | 说明                                                | question 示例                           |
+| ------------------------- | --------------------------------------------------- | --------------------------------------- |
+| `get_fund_info`         | 档案（代码 / 简称 / 风格 / 业绩基准 / 费率 / 经理） | `"易方达蓝筹精选 005827.OF 基金档案"` |
+| `get_fund_financials`   | 财务（利润 / 净值 / 收入 / 费用 / 分红）            | `"005827.OF 2024 年净利润和分红"`     |
+| `get_fund_holdings`     | 持仓 + 资产配置（重仓股 / 申万 / Wind / 中信行业）  | `"005827.OF 最新一期重仓股"`          |
+| `get_fund_performance`  | 业绩 + 排名 + ETF / 二级交易                        | `"005827.OF 近 1 年业绩排名"`         |
+| `get_fund_holders`      | 持有人结构（个人 / 机构 / 申购赎回 / 规模变动）     | `"005827.OF 持有人结构"`              |
+| `get_fund_company_info` | 基金管理公司档案 + 经理团队                         | `"易方达基金管理公司档案"`            |
 
 #### `index_data` NL（3 个）
 
@@ -207,11 +221,11 @@ node scripts/cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","b
 
 入参 `lang?: "English" | "中文"`，默认 `"中文"`。
 
-| 工具 | 说明 | question 示例 |
-|---|---|---|
-| `get_index_basicinfo` | 指数档案（发布机构 / 基日 / 基点 / 计算方法 / 成份股数量 / 分类）| `"沪深300 指数档案"` |
-| `get_index_fundamentals` | 指数基本面（成份股加权 PE / PB / PS / 营收 / 净利润 / 现金流 / 历史分位）| `"沪深300 PE / PB 历史分位"` |
-| `get_index_technicals` | 指数技术指标（多周期涨跌幅 / 趋向 / 反趋向 / 能量 / 量价 / 波动）| `"中证500 MACD 和 RSI"` |
+| 工具                       | 说明                                                                      | question 示例                  |
+| -------------------------- | ------------------------------------------------------------------------- | ------------------------------ |
+| `get_index_basicinfo`    | 指数档案（发布机构 / 基日 / 基点 / 计算方法 / 成份股数量 / 分类）         | `"沪深300 指数档案"`         |
+| `get_index_fundamentals` | 指数基本面（成份股加权 PE / PB / PS / 营收 / 净利润 / 现金流 / 历史分位） | `"沪深300 PE / PB 历史分位"` |
+| `get_index_technicals`   | 指数技术指标（多周期涨跌幅 / 趋向 / 反趋向 / 能量 / 量价 / 波动）         | `"中证500 MACD 和 RSI"`      |
 
 #### `bond_data` NL（4 个）
 
@@ -221,12 +235,12 @@ node scripts/cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","b
 
 入参 `lang?: "English" | "中文"`，默认 `"中文"`。
 
-| 工具 | 说明 | question 示例 |
-|---|---|---|
-| `get_bond_basicinfo` | 基本档案（交易所 / 分类 / 发行日期 / 规模 / 价格 / 票面利率 / 期限 / 兑付）| `"国债 2601 基本信息"` |
-| `get_bond_issuer_info` | 发债主体公司信息（名称 / 注册地 / 行业 / 股权结构 / 企业背景）| `"国债 2601 发债主体"` |
-| `get_bond_market_data` | 行情数据 + 估值分析（报价 / 估价 / 溢价 / 久期 / 凸性 / 利差）| `"国债 2601 久期和凸性"` |
-| `get_bond_financial_data` | 发债主体财务（营收 / 利润 / 资产 / 负债 + 主体层面财务表现）| `"国债 2601 主体 2024 年营收"` |
+| 工具                        | 说明                                                                        | question 示例                    |
+| --------------------------- | --------------------------------------------------------------------------- | -------------------------------- |
+| `get_bond_basicinfo`      | 基本档案（交易所 / 分类 / 发行日期 / 规模 / 价格 / 票面利率 / 期限 / 兑付） | `"国债 2601 基本信息"`         |
+| `get_bond_issuer_info`    | 发债主体公司信息（名称 / 注册地 / 行业 / 股权结构 / 企业背景）              | `"国债 2601 发债主体"`         |
+| `get_bond_market_data`    | 行情数据 + 估值分析（报价 / 估价 / 溢价 / 久期 / 凸性 / 利差）              | `"国债 2601 久期和凸性"`       |
+| `get_bond_financial_data` | 发债主体财务（营收 / 利润 / 资产 / 负债 + 主体层面财务表现）                | `"国债 2601 主体 2024 年营收"` |
 
 #### `financial_docs` — 公告 / 新闻（2 个）
 
@@ -235,10 +249,10 @@ node scripts/cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","b
 
 共用入参：
 
-| 字段 | 必填 | 类型 | 说明 |
-|---|---|---|---|
-| `query` | ✅ | string | 自然语言，如 `"贵州茅台 2024 年报"` / `"美联储利率政策"` |
-| `top_k` | | int | 返回文档数 |
+| 字段      | 必填 | 类型   | 说明                                                         |
+| --------- | ---- | ------ | ------------------------------------------------------------ |
+| `query` | ✅   | string | 自然语言，如 `"贵州茅台 2024 年报"` / `"美联储利率政策"` |
+| `top_k` |      | int    | 返回文档数                                                   |
 
 ```bash
 node scripts/cli.mjs call financial_docs get_financial_news '{"query":"美联储利率政策","top_k":5}'
@@ -248,15 +262,15 @@ node scripts/cli.mjs call financial_docs get_financial_news '{"query":"美联储
 
 `get_economic_data` — EDB 宏观 / 行业经济指标，提供 `freq` / `magnitude` / `currency` 等精细化字段控制：
 
-| 字段 | 必填 | 说明 |
-|---|---|---|
-| `metricIdsStr` | ✅ | **自然语言问句**（不是指标 ID），如 `"中国 GDP"` / `"美国 CPI 同比"` |
-| `beginDate` / `endDate` | | `yyyyMMdd` |
-| `freq` | | `日`=`1` / `工作日`=`2` / `周`=`3` / `月`=`4` / `季`=`5` / `半年`=`6` / `年`=`7` / `年度`=`8`（中文或代码均可）|
-| `magnitude` | | `个`=`1` / `千` / `万` / `百万` / `千万` / `亿` / `十亿` / `百亿` / `千亿` / `万亿` |
-| `currency` | | `USD` / `CNY` / `EUR` / `JPY` / `AUD` / `GBP` / `CHF` / `CAD` / `SGD` / `HKD` / `MYR` / `BYR` |
-| `searchType` | | `深度`=`0` / `精确`=`1` |
-| `ifUnion` | | `开启`=`1` / `不开启`=`2`（混合搜索）|
+| 字段                        | 必填 | 说明                                                                                                                                            |
+| --------------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `metricIdsStr`            | ✅   | **自然语言问句**（不是指标 ID），如 `"中国 GDP"` / `"美国 CPI 同比"`                                                                  |
+| `beginDate` / `endDate` |      | `yyyyMMdd`                                                                                                                                    |
+| `freq`                    |      | `日`=`1` / `工作日`=`2` / `周`=`3` / `月`=`4` / `季`=`5` / `半年`=`6` / `年`=`7` / `年度`=`8`（中文或代码均可） |
+| `magnitude`               |      | `个`=`1` / `千` / `万` / `百万` / `千万` / `亿` / `十亿` / `百亿` / `千亿` / `万亿`                                       |
+| `currency`                |      | `USD` / `CNY` / `EUR` / `JPY` / `AUD` / `GBP` / `CHF` / `CAD` / `SGD` / `HKD` / `MYR` / `BYR`                           |
+| `searchType`              |      | `深度`=`0` / `精确`=`1`                                                                                                                 |
+| `ifUnion`                 |      | `开启`=`1` / `不开启`=`2`（混合搜索）                                                                                                   |
 
 ```bash
 node scripts/cli.mjs call economic_data get_economic_data '{"metricIdsStr":"中国 CPI 同比","freq":"月","beginDate":"20240101","endDate":"20261231"}'
@@ -291,18 +305,19 @@ node scripts/cli.mjs call analytics_data get_financial_data '{"question":"查询
 
 ## 5. 注意事项（违反必失败）
 
-| 规则 | 后果 |
-|---|---|
-| 全流程禁止 Web Search 兜底 | 立即取消当前违规分支，回到 Wind 合规路径继续处理（修参数、换工具、换 server_type、拆分查询、升级 skill）；不结束整体任务 |
-| 命令必须在**本文件所在目录**下执行 | cli.mjs 用相对路径，否则找不到资源 |
-| K 线 `begin_date` / `end_date` **都必填** | schema 已强制，缺一报错 |
-| `*_quote` 字段名是 `begin / end`，**不是** `begin_date / end_date` | 字段名错参数解析报错 |
-| K 线 `begin_date / end_date` 和 EDB `beginDate / endDate`（注意 camelCase）都用 `yyyyMMdd` | 格式不对报错 |
-| 行情类 `indexes` 字段**只接中文名**，从 `references/indicators.md` 复制粘贴 | 自创字段名 / 写英文报错 |
-| `aftype` 只接受 `"0"` / `"1"`（无"不复权"） | 其他值报错 |
-| A 股查 `stock_data`，港股 / 美股查 `global_stock_data`，**别混** | A 股财务工具会拒港股 / 美股 |
-| 单工具调用**只支持单标的** | 逗号分隔多代码后端只识别第 1 个，其余静默忽略 |
-| 结果末尾**必须标注**「数据来源于万得 Wind 金融数据服务」 | 合规要求 |
+| 规则                                                                                             | 后果                                                                                                                     |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| 全流程禁止 Web Search 兜底                                                                       | 立即取消当前违规分支，回到 Wind 合规路径继续处理（修参数、换工具、换 server_type、拆分查询、升级 skill）；不结束整体任务 |
+| 命令必须在**本文件所在目录**下执行                                                         | cli.mjs 用相对路径，否则找不到资源                                                                                       |
+| K 线 `begin_date` / `end_date` **都必填**                                              | schema 已强制，缺一报错                                                                                                  |
+| `*_quote` 字段名是 `begin / end`，**不是** `begin_date / end_date`                   | 字段名错参数解析报错                                                                                                     |
+| K 线 `begin_date / end_date` 和 EDB `beginDate / endDate`（注意 camelCase）都用 `yyyyMMdd` | 格式不对报错                                                                                                             |
+| 行情类 `indexes` 字段**只接中文名**，从 `references/indicators.md` 复制粘贴            | 自创字段名 / 写英文报错                                                                                                  |
+| `aftype` 只接受 `"0"` / `"1"`（无"不复权"）                                                | 其他值报错                                                                                                               |
+| A 股查 `stock_data`，港股 / 美股查 `global_stock_data`，**别混**                       | A 股财务工具会拒港股 / 美股                                                                                              |
+| 单工具调用**只支持单标的**                                                                 | 逗号分隔多代码后端只识别第 1 个，其余静默忽略                                                                            |
+| Codex 中调用 Wind 后端联网必须使用 `require_escalated`                                         | 否则沙箱内可能 `fetch failed`                                                                                          |
+| 结果末尾**必须标注**「数据来源于万得 Wind 金融数据服务」                                   | 合规要求                                                                                                                 |
 
 ---
 
@@ -310,17 +325,17 @@ node scripts/cli.mjs call analytics_data get_financial_data '{"question":"查询
 
 所有技巧仅在通过第 4 节强校验且不触发第 5 节红线时使用，不能替代参数表校验。
 
-| 场景 | 怎么做 |
-|---|---|
-| 拿单时点最新值 / 已知具体字段名 | 用行情类工具（`*_price_indicators`），结构化入参，`indexes` 中文名 |
-| 拿过去 N 日时间序列 | K 线 / 分钟级用行情类（`*_kline` / `*_quote`）；技术指标 / 财务时间序列用 NL 类（`*_technicals` 等）|
-| 财务 / 档案 / 持仓 / 事件等深度业务问题 | NL 类工具，自然语言入参 |
-| `indexes` 字段不在常用快捷里 | Read `references/indicators.md`（按类别分组的中文字段表，命名陷阱：括号 / 全角 / 数字位需逐字复制）|
-| 多标的对比（`贵州茅台 vs 五粮液`）| 单工具单标的限制 → 并行多次调用 |
-| 多市场对比（`苹果 vs 腾讯`）| 美股走 `global_stock_data`，港股走 `global_stock_data`，分别调 |
-| 指数行情 vs 指数基本面 | 行情走 `index_data` 行情类；PE / PB 历史分位走 `get_index_fundamentals`（NL）|
-| 债券需要快照？ | `bond_data` 没有行情类 → 用 `get_bond_market_data`（NL）描述要哪些指标 |
-| NL `question` / `query` 写法 | 普通档案类可短句；`analytics_data` 优先保留用户原话，写成简洁自然语言取数问题，避免只堆关键词或过度补写条件 |
+| 场景                                    | 怎么做                                                                                                     |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| 拿单时点最新值 / 已知具体字段名         | 用行情类工具（`*_price_indicators`），结构化入参，`indexes` 中文名                                     |
+| 拿过去 N 日时间序列                     | K 线 / 分钟级用行情类（`*_kline` / `*_quote`）；技术指标 / 财务时间序列用 NL 类（`*_technicals` 等） |
+| 财务 / 档案 / 持仓 / 事件等深度业务问题 | NL 类工具，自然语言入参                                                                                    |
+| `indexes` 字段不在常用快捷里          | Read `references/indicators.md`（按类别分组的中文字段表，命名陷阱：括号 / 全角 / 数字位需逐字复制）      |
+| 多标的对比（`贵州茅台 vs 五粮液`）    | 单工具单标的限制 → 并行多次调用                                                                           |
+| 多市场对比（`苹果 vs 腾讯`）          | 美股走 `global_stock_data`，港股走 `global_stock_data`，分别调                                         |
+| 指数行情 vs 指数基本面                  | 行情走 `index_data` 行情类；PE / PB 历史分位走 `get_index_fundamentals`（NL）                          |
+| 债券需要快照？                          | `bond_data` 没有行情类 → 用 `get_bond_market_data`（NL）描述要哪些指标                                |
+| NL `question` / `query` 写法        | 普通档案类可短句；`analytics_data` 必须写完整自然语言问题，明确对象、指标、时间和口径，不要只堆关键词    |
 
 ---
 
@@ -337,12 +352,12 @@ cli.mjs 大部分错误会自动输出错误码 + 处理建议（stderr），照
 - 若专项工具重试后仍为工具调用错误，且问题属于结构化取数，可改用 `analytics_data.get_financial_data`；fallback 前必须把复杂问题拆成简单取数问题，不要机械照搬复杂原话。
 - 如果 `analytics_data.get_financial_data` 也返回未知错误或没找到数据，停止继续 fallback，把后端原文、错误码和已尝试路径简要告知用户。
 
-| 错误 | 解法 |
-|---|---|
-| `indexes` 字段不识别 / 字段名不存在 | Read `references/indicators.md` 复制粘贴中文字段名（不要自己拼）|
-| 工具不存在 / 未知 server_type / schema 对不上 | 跑 `npx skills update wind-mcp-skill -y` 拉新版 |
-| 美股 / 港股调用 `stock_data` 工具返空 / 报错 | 切到 `global_stock_data` 同名工具（参数签名一致） |
-| 调用似乎啥都没报 | 检查命令是否在本 SKILL.md 所在目录下执行 |
+| 错误                                           | 解法                                                               |
+| ---------------------------------------------- | ------------------------------------------------------------------ |
+| `indexes` 字段不识别 / 字段名不存在          | Read `references/indicators.md` 复制粘贴中文字段名（不要自己拼） |
+| 工具不存在 / 未知 server_type / schema 对不上  | 跑 `npx skills update wind-mcp-skill -y` 拉新版                  |
+| 美股 / 港股调用 `stock_data` 工具返空 / 报错 | 切到 `global_stock_data` 同名工具（参数签名一致）                |
+| 调用似乎啥都没报                               | 检查命令是否在本 SKILL.md 所在目录下执行                           |
 
 ---
 
