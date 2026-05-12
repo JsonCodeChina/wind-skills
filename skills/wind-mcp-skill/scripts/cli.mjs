@@ -57,8 +57,6 @@ const SKILL_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
 const UPDATE_CHECK_PATH = join(SKILL_DIR, 'scripts', 'update-check.mjs');
 const UPDATE_STATE_FILE = join(homedir(), '.cache', 'wind-aimarket', 'update-state.json');
 
-let activeCallContext = null;
-
 // 异步 spawn 探活子进程,detached + 静默,不阻塞主流程
 function spawnUpdateCheck() {
   try {
@@ -185,12 +183,7 @@ function maybePrintUpdateNotice() {
 // 注：die() 强制走错误码体系（formatError），输出格式统一。
 //     纯帮助信息（USAGE / 缺参提示）走 exitWithUsage()，不套错误码。
 function die(code, message, ctx = {}, exitCode = 1) {
-  const effectiveCtx = { ...ctx };
-  if (!effectiveCtx.server_type && activeCallContext?.server_type) {
-    effectiveCtx.server_type = activeCallContext.server_type;
-  }
-  const aiGuidance = buildAiGuidance(code, message, effectiveCtx);
-  process.stderr.write(formatError(code, message, { ...effectiveCtx, aiGuidance }) + '\n');
+  process.stderr.write(formatError(code, message, ctx) + '\n');
   process.exit(exitCode);
 }
 
@@ -202,200 +195,6 @@ function exitWithUsage(usage, exitCode = 0) {
 function maskKey(key) {
   if (!key || key.length < 8) return '***';
   return key.slice(0, 4) + '***' + key.slice(-4);
-}
-
-function normalizeAnalyticsLang(lang) {
-  if (lang === 'ENS' || lang === 'English' || lang === 'en' || lang === 'EN') return 'ENS';
-  return 'CNS';
-}
-
-function inferFallbackQuestion(callContext) {
-  const args = callContext?.params;
-  if (args && typeof args === 'object') {
-    if (typeof args.question === 'string' && args.question.trim()) return args.question.trim();
-    if (typeof args.query === 'string' && args.query.trim()) return args.query.trim();
-    if (typeof args.metricIdsStr === 'string' && args.metricIdsStr.trim()) {
-      const range = [args.beginDate, args.endDate].filter(Boolean).join(' 至 ');
-      return range ? `查询${range}的${args.metricIdsStr.trim()}` : `查询${args.metricIdsStr.trim()}`;
-    }
-    if (typeof args.windcode === 'string' && args.windcode.trim()) {
-      const parts = [`查询${args.windcode.trim()}`];
-      if (typeof args.indexes === 'string' && args.indexes.trim()) parts.push(`的${args.indexes.trim()}`);
-      if (args.begin_date || args.end_date) parts.push(`，时间范围${args.begin_date || '开始'}至${args.end_date || '结束'}`);
-      if (args.begin || args.end) parts.push(`，时间范围${args.begin || '开始'}至${args.end || '结束'}`);
-      return parts.join('');
-    }
-  }
-  return '请根据用户原始问题，改写为完整自然语言问题后查询。';
-}
-
-function parseLooseScalar(value) {
-  const trimmed = value.trim();
-  if (!trimmed) return '';
-  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
-    return trimmed.slice(1, -1);
-  }
-  if (/^(true|false)$/i.test(trimmed)) return trimmed.toLowerCase() === 'true';
-  if (/^null$/i.test(trimmed)) return null;
-  if (/^-?\d+(\.\d+)?$/.test(trimmed)) return Number(trimmed);
-  return trimmed;
-}
-
-function splitLooseObjectPairs(body) {
-  const pairs = [];
-  let start = 0;
-  let quote = null;
-  let depth = 0;
-  for (let i = 0; i < body.length; i++) {
-    const ch = body[i];
-    const prev = body[i - 1];
-    if (quote) {
-      if (ch === quote && prev !== '\\') quote = null;
-      continue;
-    }
-    if (ch === '"' || ch === "'") {
-      quote = ch;
-      continue;
-    }
-    if (ch === '{' || ch === '[') depth++;
-    if (ch === '}' || ch === ']') depth--;
-    if (ch === ',' && depth === 0) {
-      pairs.push(body.slice(start, i));
-      start = i + 1;
-    }
-  }
-  pairs.push(body.slice(start));
-  return pairs;
-}
-
-function parseLooseObjectLiteral(text) {
-  const trimmed = text.trim();
-  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) {
-    throw new Error('不是对象字面量');
-  }
-  const body = trimmed.slice(1, -1).trim();
-  if (!body) return {};
-  const obj = {};
-  for (const pair of splitLooseObjectPairs(body)) {
-    const idx = pair.indexOf(':');
-    if (idx <= 0) throw new Error(`无法解析键值对: ${pair}`);
-    const rawKey = pair.slice(0, idx).trim();
-    const key = rawKey.replace(/^['"]|['"]$/g, '');
-    if (!key) throw new Error(`空键名: ${pair}`);
-    obj[key] = parseLooseScalar(pair.slice(idx + 1));
-  }
-  return obj;
-}
-
-function parseParamsJson(paramsJson) {
-  try {
-    return JSON.parse(paramsJson);
-  } catch (originalError) {
-    const candidates = [];
-    const trimmed = paramsJson.trim();
-
-    if (trimmed.includes('\\"')) {
-      candidates.push(trimmed.replace(/\\"/g, '"'));
-    }
-    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
-      candidates.push(trimmed.slice(1, -1));
-    }
-
-    for (const candidate of candidates) {
-      try {
-        return JSON.parse(candidate);
-      } catch {}
-    }
-
-    try {
-      return parseLooseObjectLiteral(trimmed);
-    } catch {}
-
-    throw originalError;
-  }
-}
-
-function buildDpuFallback(callContext) {
-  const lang = normalizeAnalyticsLang(callContext?.params?.lang);
-  const params = {
-    question: inferFallbackQuestion(callContext),
-    lang,
-  };
-  return {
-    server_type: 'analytics_data',
-    tool_name: 'get_financial_data',
-    params,
-  };
-}
-
-const NON_FALLBACK_ERROR_CODES = new Set([
-  'INVALID_PARAMS_JSON',
-  'UNKNOWN_SERVER_TYPE',
-  'UNKNOWN_SCOPE',
-  'KEY_MISSING',
-  'KEY_INVALID',
-  'KEY_FORBIDDEN_SERVER',
-  'RATE_LIMIT_DAILY',
-  'RATE_LIMIT_QPS',
-  'BALANCE_INSUFFICIENT',
-  'NETWORK_ERROR',
-  'RESPONSE_PARSE_ERROR',
-  'SERVER_5XX',
-]);
-
-function buildAiGuidance(code, backendMsg, ctx = {}) {
-  const callContext = ctx.callContext || activeCallContext;
-  if (!callContext) return null;
-  if (NON_FALLBACK_ERROR_CODES.has(code)) return null;
-
-  const isDpuFallback =
-    callContext.server_type === 'analytics_data' &&
-    callContext.toolName === 'get_financial_data';
-
-  if (isDpuFallback) {
-    return {
-      schema: 'wind-mcp-skill.ai_guidance.v1',
-      action: 'stop_and_report_unknown',
-      final_message: '未知错误，参考后端原文 + 联系万得支持。',
-      error_code: code,
-    };
-  }
-
-  if (callContext.phase !== 'tools_call') return null;
-
-  const fallback = buildDpuFallback(callContext);
-
-  return {
-    schema: 'wind-mcp-skill.ai_guidance.v1',
-    action: 'retry_then_dpu_fallback',
-    retry_policy: {
-      max_specialized_tool_retries: 1,
-      retry_must_change_arguments: true,
-      after_retry_failure: 'call_fallback_tool',
-    },
-    fallback_tool: fallback,
-  };
-}
-
-function buildHumanNextStep(aiGuidance) {
-  if (!aiGuidance) return '';
-  if (aiGuidance.action === 'stop_and_report_unknown') {
-    return `下一步: ${aiGuidance.final_message}`;
-  }
-  if (aiGuidance.action === 'retry_then_dpu_fallback') {
-    return [
-      '下一步:',
-      '1. 先按 SKILL.md 的工具表和入参要求，调整 server_type / tool_name / params_json 后重试一次。',
-      '2. 如果这已经是重试后的失败，改用 analytics_data.get_financial_data(question, lang)。',
-    ].join('\n');
-  }
-  return '';
-}
-
-function buildHiddenAgentComment(aiGuidance) {
-  if (!aiGuidance) return '';
-  const payload = JSON.stringify(aiGuidance).replace(/--/g, '\\u002d\\u002d');
-  return `<!-- wind-mcp-agent-guidance ${payload} -->`;
 }
 
 // 解析 dotenv 风格配置文件（KEY=VALUE 每行一对）
@@ -499,9 +298,28 @@ function getErrorHint(code, fallback) {
   return fallback || '未知错误，参考后端原文 + 联系万得支持。';
 }
 
+function appendFallbackHint(code, hint, server_type) {
+  const noFallbackCodes = new Set([
+    'INVALID_PARAMS_JSON',
+    'UNKNOWN_SERVER_TYPE',
+    'UNKNOWN_SCOPE',
+    'KEY_MISSING',
+    'KEY_INVALID',
+    'KEY_FORBIDDEN_SERVER',
+    'RATE_LIMIT_DAILY',
+    'RATE_LIMIT_QPS',
+    'BALANCE_INSUFFICIENT',
+    'NETWORK_ERROR',
+    'RESPONSE_PARSE_ERROR',
+    'SERVER_5XX',
+  ]);
+  if (!server_type || server_type === 'analytics_data' || noFallbackCodes.has(code)) return hint;
+  return `${hint} 请先按 SKILL.md 工具表检查 server_type、tool_name 和入参后重试一次；若仍为工具调用错误，可改用 analytics_data.get_financial_data，并将 question 简化为结构化取数问题。`;
+}
+
 function formatError(code, backendMsg, ctx = {}) {
-  const { server_type, apiKey, extraHint, aiGuidance } = ctx;
-  const hint = extraHint || getErrorHint(code);
+  const { server_type, apiKey, extraHint } = ctx;
+  const hint = appendFallbackHint(code, extraHint || getErrorHint(code), server_type);
   return [
     `❌ MCP 错误 [${code}]`,
     ``,
@@ -509,8 +327,6 @@ function formatError(code, backendMsg, ctx = {}) {
     apiKey ? `api key:     ${maskKey(apiKey)}` : '',
     `后端消息:    ${backendMsg}`,
     `处理建议:    ${hint}`,
-    buildHumanNextStep(aiGuidance),
-    buildHiddenAgentComment(aiGuidance),
   ].filter(Boolean).join('\n');
 }
 
@@ -634,14 +450,12 @@ async function mcpRequest(server_type, method, params, { timeoutMs = 60_000 } = 
 }
 
 async function mcpInitializeAndCall(server_type, method, params) {
-  if (activeCallContext) activeCallContext.phase = 'initialize';
   await mcpRequest(server_type, 'initialize', {
     protocolVersion: '2025-03-26',
     capabilities: {},
     clientInfo: { name: 'wind-mcp-skill', version: SKILL_VERSION },
   }, { timeoutMs: 30_000 });
 
-  if (activeCallContext) activeCallContext.phase = 'tools_call';
   return mcpRequest(server_type, method, params, { timeoutMs: 600_000 });
 }
 
@@ -665,18 +479,13 @@ async function cmdCall(server_type, toolName, paramsJson) {
     );
   }
 
-  activeCallContext = { server_type, toolName, paramsJson };
-
   let args;
   try {
-    args = parseParamsJson(paramsJson);
+    args = JSON.parse(paramsJson);
   } catch (e) {
     die('INVALID_PARAMS_JSON', `params JSON 解析失败：${e.message} | 原文：${paramsJson.slice(0, 200)}`);
     // extraHint 不传，使用 ERROR_PATTERNS 默认 hint（含 shell 转义建议）
   }
-
-  activeCallContext.params = args;
-  activeCallContext.question = inferFallbackQuestion(activeCallContext);
 
   const result = await mcpInitializeAndCall(server_type, 'tools/call', {
     name: toolName,
