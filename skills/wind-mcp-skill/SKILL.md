@@ -284,15 +284,21 @@ node scripts/cli.mjs call analytics_data get_financial_data '{"question":"查询
 
 ---
 
-## 4. 注意事项（违反必失败）
+## 4. 调用前参数校验（强制）
+
+每次调用前，必须逐字段对照 `## 3. 工具表` 中对应工具的请求参数定义完成参数有效性验证。字段名、必填项、类型、日期格式、枚举值必须与参数表一致。任一项不一致时，必须先修正参数或先向用户澄清，再调用；禁止明知不符合参数表仍试错调用。参数有效性最终判定以工具参数表为准，示例写法或经验写法不得覆盖参数表。
+
+---
+
+## 5. 注意事项（违反必失败）
 
 | 规则 | 后果 |
 |---|---|
+| 全流程禁止 Web Search 兜底 | 立即取消当前违规分支，回到 Wind 合规路径继续处理（修参数、换工具、换 server_type、拆分查询、升级 skill）；不结束整体任务 |
 | 命令必须在**本文件所在目录**下执行 | cli.mjs 用相对路径，否则找不到资源 |
 | K 线 `begin_date` / `end_date` **都必填** | schema 已强制，缺一报错 |
 | `*_quote` 字段名是 `begin / end`，**不是** `begin_date / end_date` | 字段名错参数解析报错 |
 | K 线 `begin_date / end_date` 和 EDB `beginDate / endDate`（注意 camelCase）都用 `yyyyMMdd` | 格式不对报错 |
-| 文档查询 `start_date / end_date` 用 `YYYY-MM-DD`（**只有 financial_docs 是这格式**）| 跟 K 线 / EDB 混了报错 |
 | 行情类 `indexes` 字段**只接中文名**，从 `references/indicators.md` 复制粘贴 | 自创字段名 / 写英文报错 |
 | `aftype` 只接受 `"0"` / `"1"`（无"不复权"） | 其他值报错 |
 | A 股查 `stock_data`，港股 / 美股查 `global_stock_data`，**别混** | A 股财务工具会拒港股 / 美股 |
@@ -301,7 +307,9 @@ node scripts/cli.mjs call analytics_data get_financial_data '{"question":"查询
 
 ---
 
-## 5. 使用技巧
+## 6. 使用技巧
+
+所有技巧仅在通过第 4 节强校验且不触发第 5 节红线时使用，不能替代参数表校验。
 
 | 场景 | 怎么做 |
 |---|---|
@@ -317,9 +325,17 @@ node scripts/cli.mjs call analytics_data get_financial_data '{"question":"查询
 
 ---
 
-## 6. 出错怎么办
+## 7. 出错怎么办
 
 cli.mjs 大部分错误会自动输出错误码 + 处理建议（stderr），照建议走即可。常见 schema 类陷阱：
+
+### CLI 返回指引
+
+错误输出里若出现 `下一步:` 或隐藏注释 `<!-- wind-mcp-agent-guidance ... -->`，必须按指引处理：
+
+- `retry_then_dpu_fallback`：先按 `## 3. 工具表` 和原始用户问题修正 `server_type` / `tool_name` / `params_json` 后重试同一专项工具一次；如果重试后仍是工具调用错误，改用注释里的 `fallback_tool`（通常是 `analytics_data.get_financial_data`），并确保 `question` 保持原始口径，不引入用户未表达的对象、指标、统计方法或范围。
+- `stop_and_report_unknown`：不要继续 fallback；把后端原文、错误码和已尝试路径简要告知用户，必要时建议联系万得支持。
+- 没有 `下一步:` / `wind-mcp-agent-guidance` 时，只按 `处理建议:` 处理。JSON 解析、未知 `server_type`、Key、权限、限流、余额、网络、后端 5xx 等错误不得改走 `analytics_data`。
 
 | 错误 | 解法 |
 |---|---|
@@ -330,7 +346,7 @@ cli.mjs 大部分错误会自动输出错误码 + 处理建议（stderr），照
 
 ---
 
-## 7. 保持最新
+## 8. 保持最新
 
 每次调用 cli.mjs 后，留意 stderr 是否包含 `[wind-skills] 检测到 N 个 skill 有新版`。
 
