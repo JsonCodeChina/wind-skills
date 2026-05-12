@@ -320,7 +320,7 @@ node scripts/cli.mjs call analytics_data get_financial_data '{"question":"查询
 | 多市场对比（`苹果 vs 腾讯`）| 美股走 `global_stock_data`，港股走 `global_stock_data`，分别调 |
 | 指数行情 vs 指数基本面 | 行情走 `index_data` 行情类；PE / PB 历史分位走 `get_index_fundamentals`（NL）|
 | 债券需要快照？ | `bond_data` 没有行情类 → 用 `get_bond_market_data`（NL）描述要哪些指标 |
-| NL `question` / `query` 写法 | 普通档案类可短句；`analytics_data` 必须写完整自然语言问题，明确对象、指标、时间和口径，不要只堆关键词 |
+| NL `question` / `query` 写法 | 普通档案类可短句；`analytics_data` 优先保留用户原话，写成简洁自然语言取数问题，避免只堆关键词或过度补写条件 |
 
 ---
 
@@ -328,13 +328,14 @@ node scripts/cli.mjs call analytics_data get_financial_data '{"question":"查询
 
 cli.mjs 大部分错误会自动输出错误码 + 处理建议（stderr），照建议走即可。常见 schema 类陷阱：
 
-### CLI 返回指引
+### CLI 错误处理
 
-错误输出里若出现 `下一步:` 或隐藏注释 `<!-- wind-mcp-agent-guidance ... -->`，必须按指引处理：
+`cli.mjs` 只输出错误码、后端消息和 `处理建议:`，不再附带额外的机器可读重试协议。处理时按 stderr 的 `处理建议:` 执行，并遵守以下规则：
 
-- `retry_then_dpu_fallback`：先按 `## 3. 工具表` 和原始用户问题修正 `server_type` / `tool_name` / `params_json` 后重试同一专项工具一次；如果重试后仍是工具调用错误，改用注释里的 `fallback_tool`（通常是 `analytics_data.get_financial_data`）。fallback 前必须把复杂问题拆成简单取数问题，不要机械照搬复杂原话。
-- `stop_and_report_unknown`：不要继续 fallback；把后端原文、错误码和已尝试路径简要告知用户，必要时建议联系万得支持。
-- 没有 `下一步:` / `wind-mcp-agent-guidance` 时，只按 `处理建议:` 处理。JSON 解析、未知 `server_type`、Key、权限、限流、余额、网络、后端 5xx 等错误不得改走 `analytics_data`。
+- JSON 解析、未知 `server_type`、Key、权限、限流、余额、网络、后端 5xx 等错误，不得改走 `analytics_data`；应先修正调用方式、配置或等待后端恢复。
+- 专项工具报字段、工具或口径类错误时，先按 `## 3. 工具表` 检查 `server_type` / `tool_name` / `params_json` 并重试一次。
+- 若专项工具重试后仍为工具调用错误，且问题属于结构化取数，可改用 `analytics_data.get_financial_data`；fallback 前必须把复杂问题拆成简单取数问题，不要机械照搬复杂原话。
+- 如果 `analytics_data.get_financial_data` 也返回未知错误或没找到数据，停止继续 fallback，把后端原文、错误码和已尝试路径简要告知用户。
 
 | 错误 | 解法 |
 |---|---|
