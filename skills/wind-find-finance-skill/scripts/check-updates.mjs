@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 const SKILL_NAME = 'wind-find-finance-skill';
 
+
 const CACHE_DIR = join(homedir(), '.cache', 'wind-aimarket');
 const CACHE_FILE = join(CACHE_DIR, 'wind-find-update-state.json');
 
