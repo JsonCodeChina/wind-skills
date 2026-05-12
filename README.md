@@ -1,6 +1,6 @@
 # wind-skills
 
-> **Wind 万得金融 Skill 集合（monorepo）** · 通过 MCP 协议把万得金融数据接入 Claude / OpenClaw / Hermes 等 AI Agent，并一站式收录 wind 自家数据 + 社区分析工作流共 12 个金融 skill
+> **Wind 万得金融 Skill 集合（monorepo）** · 通过 MCP 协议把万得金融数据接入 Claude / OpenClaw / Hermes 等 AI Agent，并一站式收录 wind 自家数据 + 社区分析工作流共 14 个金融 skill
 
 [![GitHub](https://img.shields.io/badge/GitHub-Wind--Information--Co--Ltd%2Fwind--skills-blue?logo=github)](https://github.com/Wind-Information-Co-Ltd/wind-skills)
 
@@ -13,7 +13,9 @@
 | Skill | 能力域 |
 |---|---|
 | [`wind-find-finance-skill`](./skills/wind-find-finance-skill) | **金融能力入口**：列举平台所有 skill 并按用户问题推荐，引导安装 / 升级 |
-| [`wind-mcp-skill`](./skills/wind-mcp-skill) | **访问万得 Wind 金融数据**：股票（行情与财务）、基金（行情与全维数据）、公司公告与新闻、宏观经济指标 |
+| [`wind-mcp-skill`](./skills/wind-mcp-skill) | **访问万得 Wind 金融数据**：股票（A 股/港股/美股行情与财务）、基金（行情与全维数据）、指数/板块、债券、公司公告与新闻、宏观经济指标 |
+| [`ifind-finance-data`](./skills/ifind-finance-data) | **访问同花顺 iFinD 金融数据**：股票、基金、宏观经济、行业经济、新闻公告，支持智能选股/选基 |
+| [`mx-finance-data`](./skills/mx-finance-data) | **访问东方财富金融数据**：A 股/港股/美股、基金、债券等多资产行情与财务，输出 xlsx |
 
 ### 金融分析类
 
@@ -59,8 +61,6 @@ npx skills add https://gitee.com/wind_info/wind-skills.git --skill wind-find-fin
 
 装好后，用户直接问金融问题即可。AI 会通过 SKILL.md 守则按用户问题筛 1-3 个相关 skill 推荐安装。
 
-机器可读引导文件见 [`README-skills.md`](./README-skills.md)（在线：<https://aimarket.wind.com.cn/skill.md>）。
-
 ### 装单个 skill
 
 ```bash
@@ -96,8 +96,24 @@ node scripts/cli.mjs open-portal
 
 ### 拿到 Key 后配置（推荐方式 3）
 
+macOS / Linux / Git Bash:
+
 ```bash
 mkdir -p ~/.wind-aimarket && echo "WIND_API_KEY=ak_xxx" > ~/.wind-aimarket/config
+```
+
+Windows cmd:
+
+```bat
+if not exist "%USERPROFILE%\.wind-aimarket" mkdir "%USERPROFILE%\.wind-aimarket"
+echo WIND_API_KEY=ak_xxx > "%USERPROFILE%\.wind-aimarket\config"
+```
+
+Windows PowerShell:
+
+```powershell
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.wind-aimarket"
+Set-Content -Path "$env:USERPROFILE\.wind-aimarket\config" -Value "WIND_API_KEY=ak_xxx" -Encoding UTF8
 ```
 
 ### 三级兜底（按优先级）
@@ -108,19 +124,49 @@ mkdir -p ~/.wind-aimarket && echo "WIND_API_KEY=ak_xxx" > ~/.wind-aimarket/confi
 
 ---
 
+## ✅ 验证安装
+
+在支持 skills 的客户端里，直接问一个金融问题即可：
+
+```text
+贵州茅台最新股价
+```
+
+如果客户端支持查看本地 skill 目录，也可以确认已出现 `wind-find-finance-skill` 和 `wind-mcp-skill`。
+
+---
+
+## 💡 使用示例
+
+安装并配置 Key 后，直接向 AI 提金融问题：
+
+```text
+贵州茅台今天最新价
+从各个维度分析 600183
+查一下科创50ETF最近一个月走势
+看一下大盘和各板块怎么样
+```
+
+AI 会根据问题自动选择可用能力。取数类问题优先使用 `wind-mcp-skill`；需要分析工作流时，先通过 `wind-find-finance-skill` 推荐合适能力。
+
+---
+
 ## 🧭 wind-mcp-skill 的 server_type 选择守则
 
 | 你想问 | server_type |
 |---|---|
-| 茅台**最新价 / K 线 / 分钟级行情** | `stock_data`（行情类工具） |
-| 茅台**财报 / 营收 / 净利润 / ROE / 股本 / 技术指标 / 风险** | `stock_data`（NL 类工具） |
+| A 股**最新价 / K 线 / 分钟级行情** | `stock_data`（行情类工具） |
+| A 股**财报 / 营收 / 净利润 / ROE / 股本 / 技术指标 / 风险** | `stock_data`（NL 类工具） |
+| 港股 / 美股**行情与财务** | `global_stock_data` |
 | ETF / 基金**最新价 / K 线** | `fund_data`（行情类工具） |
 | 任何**基金**（档案 / 持仓 / 业绩 / 经理） | `fund_data`（NL 类工具） |
-| 茅台**最新公告 / 年报 / 招股书 / 财经新闻** | `financial_docs` |
+| 指数 / 板块**行情 / PE/PB / 技术指标** | `index_data` |
+| 债券**档案 / 行情估值 / 发债主体** | `bond_data` |
+| **公告 / 年报 / 招股书 / 财经新闻** | `financial_docs` |
 | **GDP / CPI / M2 / 行业经济**指标 | `economic_data` |
 | 不确定 / 跨域综合查询 | `analytics_data` |
 
-> fund_data / stock_data 各包含两类工具：行情类（结构化代码参数）+ NL 类（自然语言）。
+> `stock_data` / `global_stock_data` / `fund_data` 各包含两类工具：行情类（结构化代码参数）+ NL 类（自然语言）。
 
 更详细的工具表见 [`skills/wind-mcp-skill/SKILL.md`](./skills/wind-mcp-skill/SKILL.md)。
 
@@ -131,10 +177,11 @@ mkdir -p ~/.wind-aimarket && echo "WIND_API_KEY=ak_xxx" > ~/.wind-aimarket/confi
 ```
 wind-skills/
 ├── README.md                       ← 你现在看的这份
-├── skill.md                        ← 面向 AI Agent 的站点级入口引导
 └── skills/                         ← 所有 skill 直接平铺，对齐 npx skills 协议
     ├── wind-find-finance-skill/    ← 入口（无 cli.mjs，纯 SKILL.md + references）
     ├── wind-mcp-skill/             ← 万得 Wind 金融数据访问
+    ├── ifind-finance-data/         ← 同花顺 iFinD 金融数据
+    ├── mx-finance-data/            ← 东方财富金融数据
     ├── a-share-primary-theme-identification/
     ├── backtest-expert/
     ├── dcf-model/
