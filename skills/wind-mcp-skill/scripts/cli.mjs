@@ -448,7 +448,7 @@ async function cmdCall(server_type, toolName, paramsJson) {
       `用法：call <server_type> <tool_name> '<params_json>'\n` +
       `可用 server_type: ${Object.keys(SERVERS).join(' / ')}\n` +
       `例：\n` +
-      `  call analytics_data get_financial_data '{"question":"贵州茅台 2024 年 ROE"}'\n` +
+      `  call analytics_data get_financial_data '{"question":"查询中国A股市场过去一年的平均成交量"}'\n` +
       `  call stock_data get_stock_basicinfo '{"question":"600519.SH 公司基本档案"}'\n` +
       `  call global_stock_data get_global_stock_basicinfo '{"question":"AAPL.O 公司基本档案"}'\n` +
       `  call index_data get_index_basicinfo '{"question":"沪深300 指数档案"}'\n` +
@@ -596,7 +596,7 @@ const USAGE =
   `  cli.mjs call global_stock_data get_global_stock_quote '{"windcode":"AAPL.O"}'   # 美股分钟级\n` +
   `  cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","begin_date":"20260401","end_date":"20260430"}'   # 指数 K 线\n` +
   `  cli.mjs call bond_data get_bond_basicinfo '{"question":"国债 2601 基本信息"}'   # 债券档案\n` +
-  `  cli.mjs call analytics_data get_financial_data '{"question":"贵州茅台 2024 年 ROE"}'`;
+  `  cli.mjs call analytics_data get_financial_data '{"question":"查询中国A股市场过去一年的平均成交量"}'`;
 
 const commands = {
   call: () => cmdCall(args[0], args[1], args[2]),

@@ -20,3 +20,6 @@ Thumbs.db
 # 临时
 *.tmp
 *.bak
+
+# 本地私有 skill（推送流程工具，仅本机使用，不入远端）
+skills/push-dev-repos/
