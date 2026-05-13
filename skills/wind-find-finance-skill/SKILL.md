@@ -40,6 +40,17 @@ description: AIMarket 金融能力发现器。当用户问金融数据 / 分析 
 - 需要东方财富结构化数据、多资产查数、批量指标查询、xlsx 结果文件时,可推荐 `mx-finance-data`。
 - 推荐安装命令统一使用远端 monorepo 形式,不要使用任何本地路径。
 
+WindClaw 工作流路由补充:
+
+- 个股初研 / 基本面拆解:推荐 `business_model_decoder_skill`、`moat_strength_review_skill`、`bull_bear_case_builder_skill`、`peer_comparison_decision_skill`。用户写"同业必选"时按 `peer_comparison_decision_skill` 处理。
+- 估值位置 / 贵不贵 / 分位:推荐 `valuation_snapshot_skill`,需要完整模型时再搭配 `dcf-model` 或 `valuation-pricing-framework`。
+- 公告、业绩会、指引、监管文件:分别推荐 `major_announcement_impact_skill`、`conference_call_takeaway_skill`、`guidance_change_impact_skill`、`sec_filing_question_answer_skill`。
+- 市场状态 / 板块轮动 / 机构持仓:分别推荐 `market_regime_switch_skill`、`sector_rotation_radar_skill`、`institutional_position_shift_skill`。
+- 题材龙头 / 题材从头 / 热门题材谁最强:推荐 `theme_leader_identification_skill`。
+- 短中线候选 / 低吸 / 长线核心池:分别推荐 `breakout_candidate_finder_skill`、`pullback_opportunity_finder_skill`、`high_quality_compounder_finder_skill`。
+- 下单前计划 / 仓位 / 止损 / 止盈:分别推荐 `trade_plan_builder_skill`、`position_sizing_decision_skill`、`stop_loss_discipline_skill`、`take_profit_ladder_skill`。
+- WindClaw 分析类 skill 默认也建议配 `wind-mcp-skill` 作数据底座,除非用户明确只要模板或方法论。
+
 ---
 
 # 流程

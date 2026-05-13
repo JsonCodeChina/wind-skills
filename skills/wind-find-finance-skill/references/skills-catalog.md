@@ -38,6 +38,26 @@ description: AIMarket 平台 skill 清单本地副本。由 npx skills update -g
 | post-market-debrief | 复盘 | 无 | 盘后复盘(市场全景 / 主线轮动) |
 | position-sizer | 仓位 | 无 | 仓位管理(风险 / Kelly / ATR) |
 | backtest-expert | 回测 | 无 | 量化策略系统化回测(压力测试) |
+| valuation_snapshot_skill | 估值 | 无 | 快速判断个股估值高低、所处分位与重估触发条件 |
+| bull_bear_case_builder_skill | 个股研究 | 无 | 同步搭建看多与看空逻辑，压缩确认偏误并找出核心分歧 |
+| peer_comparison_decision_skill | 个股研究 | 无 | 横向比较候选公司质量、成长、估值与催化，辅助二选一 |
+| moat_strength_review_skill | 个股研究 | 无 | 评估公司竞争优势是否真实、可持续且能转化为回报 |
+| business_model_decoder_skill | 个股研究 | 无 | 把公司如何获客、赚钱、扩张和受限讲清楚 |
+| major_announcement_impact_skill | 事件/公告/财报文档 | 无 | 分析并购、减持、定增等重大公告的核心影响，服务突发事件判断 |
+| conference_call_takeaway_skill | 事件/公告/财报文档 | 无 | 提炼业绩会关键信息、管理层表态和警讯，服务会后快速吸收要点 |
+| guidance_change_impact_skill | 事件/公告/财报文档 | 无 | 解释业绩指引上修下修的含义、可信度与后续影响 |
+| sec_filing_question_answer_skill | 事件/公告/财报文档 | 无 | 从 10-K、10-Q、招股书等长文档中精准答疑，服务监管文件快读 |
+| sector_rotation_radar_skill | 市场主线 | 无 | 识别板块强弱切换、资金迁移与风格变化，服务市场主线判断 |
+| market_regime_switch_skill | 市场主线 | 无 | 判断市场处于进攻、防守、震荡或切换阶段，服务总仓位与风格判断 |
+| institutional_position_shift_skill | 市场主线 | 无 | 识别机构持仓变化与共识迁移，服务季报持仓研究 |
+| theme_leader_identification_skill | 市场主线/选股 | 无 | 识别热门题材中的龙头、中军和跟随股，判断谁最值得跟踪 |
+| breakout_candidate_finder_skill | 选股 | 无 | 筛选形态成熟、放量待发的突破候选股，并给出触发条件 |
+| pullback_opportunity_finder_skill | 选股 | 无 | 寻找回调充分但趋势未破坏的候选股，定位低吸观察区 |
+| high_quality_compounder_finder_skill | 选股 | 无 | 筛选高 ROE、高护城河、可长期复利的核心候选股 |
+| trade_plan_builder_skill | 交易执行 | 无 | 下单前生成包含入场、仓位、止损止盈的完整计划 |
+| position_sizing_decision_skill | 交易执行/仓位 | 无 | 按风险预算和波动水平给出单笔仓位与分批建议 |
+| stop_loss_discipline_skill | 交易执行 | 无 | 设计价格、逻辑、时间三类止损规则与执行动作 |
+| take_profit_ladder_skill | 交易执行 | 无 | 为盈利仓设计分层兑现、保本上移与尾仓持有规则 |
 
 ---
 
@@ -46,11 +66,14 @@ description: AIMarket 平台 skill 清单本地副本。由 npx skills update -g
 | category | 含 skill 数 | 代表 skill |
 |---|---|---|
 | 数据-行情/基金/股票/宏观/文档 | 3 | wind-mcp-skill |
-| 估值 | 3 | dcf-model |
-| 个股研究 | 1 | equity-investment-thesis |
-| 市场主线 | 3 | a-share-primary-theme-identification |
+| 估值 | 4 | dcf-model |
+| 个股研究 | 5 | equity-investment-thesis |
+| 事件/公告/财报文档 | 4 | major_announcement_impact_skill |
+| 市场主线 | 7 | a-share-primary-theme-identification |
+| 选股 | 4 | breakout_candidate_finder_skill |
 | 复盘 | 1 | post-market-debrief |
-| 仓位 | 1 | position-sizer |
+| 仓位 | 2 | position-sizer |
+| 交易执行 | 4 | trade_plan_builder_skill |
 | 回测 | 1 | backtest-expert |
 
 ---
