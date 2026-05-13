@@ -74,11 +74,13 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 > | Shell | 写法 | 示例 |
 > |---|---|---|
 > | **Bash / Git Bash / WSL** | 外层单引号包裹，内部双引号无需转义 | `node scripts/cli.mjs call stock_data get_stock_quote '{"windcode":"600519.SH"}'` |
-> | **PowerShell 5.x / Windows PowerShell** | 外层单引号包裹，内部每个双引号前加反斜杠 `\"` 转义 | `node scripts/cli.mjs call stock_data get_stock_quote '{\"windcode\":\"600519.SH\"}'` |
-> | **PowerShell stop-parsing** | `--%` 后不要再套单引号；JSON 内部双引号仍写成 `\"` | `node scripts/cli.mjs call stock_data get_stock_quote --% {\"windcode\":\"600519.SH\"}` |
+> | **PowerShell 5.x / Windows PowerShell** | 外层单引号包裹，内部每个双引号前加反斜杠 `\"` 转义；如果 JSON 字符串值里有空格，把空格写成 `\u0020` | `node scripts/cli.mjs call stock_data get_stock_quote '{\"windcode\":\"600519.SH\"}'` |
+> | **PowerShell stop-parsing** | `--%` 后不要再套单引号；JSON 内部双引号仍写成 `\"`；如果 JSON 字符串值里有空格，把空格写成 `\u0020` | `node scripts/cli.mjs call stock_data get_stock_quote --% {\"windcode\":\"600519.SH\"}` |
 > | **cmd.exe** | 外层双引号包裹整个 JSON，内部双引号用反斜杠转义 | `node scripts/cli.mjs call stock_data get_stock_quote "{\"windcode\":\"600519.SH\"}"` |
 >
-> **不要混用 shell 写法。** PowerShell 中裸写 `'{"windcode":"600519.SH"}'` 或 `--% '{"windcode":"600519.SH"}'` 会导致双引号丢失；PowerShell 5.x 中把 `ConvertTo-Json` 结果作为变量裸传给 Node 也会导致双引号丢失。若不确定当前 shell，先用 `node -e "console.log(process.argv.slice(1))" <params_json>` 回显确认 Node 实际收到的参数。
+> **不要混用 shell 写法。** PowerShell 中裸写 `'{"windcode":"600519.SH"}'` 或 `--% '{"windcode":"600519.SH"}'` 会导致双引号丢失；PowerShell 5.x 中 `'{\"question\":\"海光信息 688041 公司基本资料\"}'` 会在空格处被拆成多个参数；PowerShell 5.x 中把 `ConvertTo-Json` 结果作为变量裸传给 Node 也会导致双引号丢失。若不确定当前 shell，先用 `node -e "console.log(process.argv.slice(1))" <params_json>` 回显确认 Node 实际收到的参数。
+>
+> **PowerShell 查询语句含空格时的正确示例**：`node scripts/cli.mjs call stock_data get_stock_basicinfo '{\"question\":\"海光信息\u0020688041\u0020公司基本资料\u0020所属行业\",\"lang\":\"中文\"}'`。`JSON.parse` 会把 `\u0020` 还原为空格，后端收到的问题仍是 `海光信息 688041 公司基本资料 所属行业`。
 
 ### Codex 沙箱联网要求
 
