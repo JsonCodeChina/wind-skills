@@ -42,13 +42,13 @@ description: AIMarket 金融能力发现器。当用户问金融数据 / 分析 
 
 WindClaw 工作流路由补充:
 
-- 个股初研 / 基本面拆解:推荐 `WindClaw_业务模式拆解`、`WindClaw_护城河评估`、`WindClaw_多空论证`、`WindClaw_同业比选`。用户写"同业必选"时按 `WindClaw_同业比选` 处理。
-- 估值位置 / 贵不贵 / 分位:推荐 `WindClaw_估值快照`,需要完整模型时再搭配 `dcf-model` 或 `valuation-pricing-framework`。
-- 公告、业绩会、指引、监管文件:分别推荐 `WindClaw_公告影响`、`WindClaw_业绩会提炼`、`WindClaw_指引变动`、`WindClaw_监管文件答疑`。
-- 市场状态 / 板块轮动 / 机构持仓:分别推荐 `WindClaw_市场状态判档`、`WindClaw_板块轮动雷达`、`WindClaw_机构调仓洞察`。
-- 题材龙头 / 题材从头 / 热门题材谁最强:推荐 `WindClaw_题材龙头`。
-- 短中线候选 / 低吸 / 长线核心池:分别推荐 `WindClaw_突破候选`、`WindClaw_回调机会`、`WindClaw_高质复利`。
-- 下单前计划 / 仓位 / 止损 / 止盈:分别推荐 `WindClaw_交易计划`、`WindClaw_仓位决策`、`WindClaw_止损纪律`、`WindClaw_分批止盈`。
+- 个股初研 / 基本面拆解:推荐 `business_model_decoder_skill`、`moat_strength_review_skill`、`bull_bear_case_builder_skill`、`peer_comparison_decision_skill`。用户写"同业必选"时按 `peer_comparison_decision_skill` 处理。
+- 估值位置 / 贵不贵 / 分位:推荐 `valuation_snapshot_skill`,需要完整模型时再搭配 `dcf-model` 或 `valuation-pricing-framework`。
+- 公告、业绩会、指引、监管文件:分别推荐 `major_announcement_impact_skill`、`conference_call_takeaway_skill`、`guidance_change_impact_skill`、`sec_filing_question_answer_skill`。
+- 市场状态 / 板块轮动 / 机构持仓:分别推荐 `market_regime_switch_skill`、`sector_rotation_radar_skill`、`institutional_position_shift_skill`。
+- 题材龙头 / 题材从头 / 热门题材谁最强:推荐 `theme_leader_identification_skill`。
+- 短中线候选 / 低吸 / 长线核心池:分别推荐 `breakout_candidate_finder_skill`、`pullback_opportunity_finder_skill`、`high_quality_compounder_finder_skill`。
+- 下单前计划 / 仓位 / 止损 / 止盈:分别推荐 `trade_plan_builder_skill`、`position_sizing_decision_skill`、`stop_loss_discipline_skill`、`take_profit_ladder_skill`。
 - WindClaw 分析类 skill 默认也建议配 `wind-mcp-skill` 作数据底座,除非用户明确只要模板或方法论。
 
 ---
