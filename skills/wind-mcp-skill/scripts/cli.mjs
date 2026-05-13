@@ -298,28 +298,9 @@ function getErrorHint(code, fallback) {
   return fallback || '未知错误，参考后端原文 + 联系万得支持。';
 }
 
-function appendFallbackHint(code, hint, server_type) {
-  const noFallbackCodes = new Set([
-    'INVALID_PARAMS_JSON',
-    'UNKNOWN_SERVER_TYPE',
-    'UNKNOWN_SCOPE',
-    'KEY_MISSING',
-    'KEY_INVALID',
-    'KEY_FORBIDDEN_SERVER',
-    'RATE_LIMIT_DAILY',
-    'RATE_LIMIT_QPS',
-    'BALANCE_INSUFFICIENT',
-    'NETWORK_ERROR',
-    'RESPONSE_PARSE_ERROR',
-    'SERVER_5XX',
-  ]);
-  if (!server_type || server_type === 'analytics_data' || noFallbackCodes.has(code)) return hint;
-  return `${hint} 请先按 SKILL.md 工具表检查 server_type、tool_name 和入参后重试一次；若仍为工具调用错误，可改用 analytics_data.get_financial_data，并将 question 简化为结构化取数问题。`;
-}
-
 function formatError(code, backendMsg, ctx = {}) {
   const { server_type, apiKey, extraHint } = ctx;
-  const hint = appendFallbackHint(code, extraHint || getErrorHint(code), server_type);
+  const hint = extraHint || getErrorHint(code);
   return [
     `❌ MCP 错误 [${code}]`,
     ``,
