@@ -69,15 +69,16 @@ examples:
 node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 ```
 
-> **Windows 注意**：上面的单引号写法只在 Bash / Git Bash / WSL 下生效。原生 PowerShell / cmd 走以下写法之一：
+> **⚠️ Shell 转义是 `INVALID_PARAMS_JSON` 错误的首要原因。** JSON 第三参数中的双引号和花括号会被不同 shell 差异化处理，必须按当前 shell 类型选择正确写法，否则 JSON 被截断或变形：
 >
-> ```powershell
-> # PowerShell：内部双引号用反斜杠转义
-> node scripts/cli.mjs call stock_data get_stock_quote '{\"windcode\":\"600519.SH\"}'
+> | Shell | 写法 | 示例 |
+> |---|---|---|
+> | **Bash / Git Bash / WSL** | 外层单引号包裹，内部双引号无需转义 | `node scripts/cli.mjs call stock_data get_stock_quote '{"windcode":"600519.SH"}'` |
+> | **PowerShell 5.x** | 外层单引号包裹，**内部每个双引号前加反斜杠 `\"` 转义** | `node scripts/cli.mjs call stock_data get_stock_quote '{\"windcode\":\"600519.SH\"}'` |
+> | **PowerShell 7+** | `--%` 停止解析符号后直接写 JSON（最可靠） | `node scripts/cli.mjs call stock_data get_stock_quote --% '{"windcode":"600519.SH"}'` |
+> | **cmd.exe** | 同 PowerShell 5.x，反斜杠转义内部双引号 | `node scripts/cli.mjs call stock_data get_stock_quote '{\"windcode\":\"600519.SH\"}'` |
 >
-> # PowerShell 7+：用 --% 停止解析
-> node scripts/cli.mjs call stock_data get_stock_quote --% '{"windcode":"600519.SH"}'
-> ```
+> **判断当前 shell**：如果不确定 agent 所在 shell 类型，用 PowerShell 5.x 的反斜杠转义写法最安全（在 Bash 中也兼容）。
 
 ### Codex 沙箱联网要求
 
@@ -97,10 +98,39 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 
 | 类型             | 入参                                                                                      | 适用工具                                                                                                                                 |
 | ---------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **行情类** | `{windcode, ...}` 结构化字段                                                            | `get_stock_price_indicators` / `get_stock_kline` / `get_stock_quote` / `get_global_stock_price_indicators` / `get_global_stock_kline` / `get_global_stock_quote` / `get_fund_price_indicators` / `get_fund_kline` / `get_fund_quote` / `get_index_price_indicators` / `get_index_kline` / `get_index_quote` |
+| **行情类** | `{windcode, ...}` 结构化字段                                                            | `*_price_indicators` / `*_kline` / `*_quote`（仅 stock / global_stock / fund / index）                                             |
 | **NL 类**  | `{question, lang?}` 自然语言（`lang` enum 在不同 server_type 下取值不同，见各段说明） | 其余工具（含 `bond_data` 全部 / `financial_docs` / `economic_data` / `analytics_data`，部分入参字段名 / 取值有差异，详见工具表） |
 
 ---
+
+## 意图判定与路由顺序（强制）
+
+每次接到用户问题时，必须先完成意图判定，再决定 `server_type + tool_name`。按以下固定顺序执行，禁止跳步、禁止并行抢路由：
+
+1. **文档类优先（`financial_docs`）**
+   - 命中新闻/媒体/快讯/报道/评论/消息等语义：`financial_docs.get_financial_news`
+   - 命中公告/年报/半年报/季报/招股书/监管披露等语义：`financial_docs.get_company_announcements`
+
+2. **宏观指标（`economic_data`）**
+   - 命中 GDP / CPI / PPI / PMI / 社融 / 利率 / 失业率 / 进出口等经济指标语义：
+     `economic_data.get_economic_data`
+
+3. **行情时序（`stock_data` / `global_stock_data` / `fund_data` / `index_data`）**
+   - 命中最新价 / 涨跌幅 / 成交量 / K 线 / 分钟线 / 日内走势等行情语义时：
+     先判标的类型与市场，再选对应 server 的行情类工具（`*_price_indicators` / `*_kline` / `*_quote`）。
+
+4. **深度业务 NL（对应专项 server）**
+   - 命中财务 / 股本 / 股东 / 事件 / 技术指标 / 风险 / 持仓 / 业绩 / 主体财务等深度业务语义时：
+     走对应 server 的 NL 工具（如 `*_fundamentals` / `*_events` / `*_technicals` / `*_risk_metrics` 等）。
+
+5. **通用兜底（`analytics_data`）**
+   - 仅当前 1~4 步都无法命中时，才可使用：
+     `analytics_data.get_financial_data`
+
+**硬约束：**
+- `analytics_data` 不得抢占已明确意图（只允许兜底）。
+- 同一问句只允许一次主路由；本节不定义追问流程。
+- 路由判定必须先于参数构造与调用执行。
 
 ## 3. 工具表
 
