@@ -1,1 +1,0 @@
-# Theme Detector calculators package
