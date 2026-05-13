@@ -74,11 +74,11 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 > | Shell | 写法 | 示例 |
 > |---|---|---|
 > | **Bash / Git Bash / WSL** | 外层单引号包裹，内部双引号无需转义 | `node scripts/cli.mjs call stock_data get_stock_quote '{"windcode":"600519.SH"}'` |
-> | **PowerShell 5.x** | 外层单引号包裹，**内部每个双引号前加反斜杠 `\"` 转义** | `node scripts/cli.mjs call stock_data get_stock_quote '{\"windcode\":\"600519.SH\"}'` |
-> | **PowerShell 7+** | `--%` 停止解析符号后直接写 JSON（最可靠） | `node scripts/cli.mjs call stock_data get_stock_quote --% '{"windcode":"600519.SH"}'` |
-> | **cmd.exe** | 同 PowerShell 5.x，反斜杠转义内部双引号 | `node scripts/cli.mjs call stock_data get_stock_quote '{\"windcode\":\"600519.SH\"}'` |
+> | **PowerShell 5.x / Windows PowerShell** | 外层单引号包裹，内部每个双引号前加反斜杠 `\"` 转义 | `node scripts/cli.mjs call stock_data get_stock_quote '{\"windcode\":\"600519.SH\"}'` |
+> | **PowerShell stop-parsing** | `--%` 后不要再套单引号；JSON 内部双引号仍写成 `\"` | `node scripts/cli.mjs call stock_data get_stock_quote --% {\"windcode\":\"600519.SH\"}` |
+> | **cmd.exe** | 外层双引号包裹整个 JSON，内部双引号用反斜杠转义 | `node scripts/cli.mjs call stock_data get_stock_quote "{\"windcode\":\"600519.SH\"}"` |
 >
-> **判断当前 shell**：如果不确定 agent 所在 shell 类型，用 PowerShell 5.x 的反斜杠转义写法最安全（在 Bash 中也兼容）。
+> **不要混用 shell 写法。** PowerShell 中裸写 `'{"windcode":"600519.SH"}'` 或 `--% '{"windcode":"600519.SH"}'` 会导致双引号丢失；PowerShell 5.x 中把 `ConvertTo-Json` 结果作为变量裸传给 Node 也会导致双引号丢失。若不确定当前 shell，先用 `node -e "console.log(process.argv.slice(1))" <params_json>` 回显确认 Node 实际收到的参数。
 
 ### Codex 沙箱联网要求
 
@@ -98,7 +98,7 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 
 | 类型             | 入参                                                                                      | 适用工具                                                                                                                                 |
 | ---------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **行情类** | `{windcode, ...}` 结构化字段                                                            | `*_price_indicators` / `*_kline` / `*_quote`（仅 stock / global_stock / fund / index）                                             |
+| **行情类** | `{windcode, ...}` 结构化字段                                                            | `get_stock_price_indicators` / `get_stock_kline` / `get_stock_quote` / `get_global_stock_price_indicators` / `get_global_stock_kline` / `get_global_stock_quote` / `get_fund_price_indicators` / `get_fund_kline` / `get_fund_quote` / `get_index_price_indicators` / `get_index_kline` / `get_index_quote` |
 | **NL 类**  | `{question, lang?}` 自然语言（`lang` enum 在不同 server_type 下取值不同，见各段说明） | 其余工具（含 `bond_data` 全部 / `financial_docs` / `economic_data` / `analytics_data`，部分入参字段名 / 取值有差异，详见工具表） |
 
 ---
