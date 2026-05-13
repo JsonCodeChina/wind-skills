@@ -81,6 +81,8 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 > **不要混用 shell 写法。** PowerShell 中裸写 `'{"windcode":"600519.SH"}'` 或 `--% '{"windcode":"600519.SH"}'` 会导致双引号丢失；PowerShell 5.x 中 `'{\"question\":\"海光信息 688041 公司基本资料\"}'` 会在空格处被拆成多个参数；PowerShell 5.x 中把 `ConvertTo-Json` 结果作为变量裸传给 Node 也会导致双引号丢失。若不确定当前 shell，先用 `node -e "console.log(process.argv.slice(1))" <params_json>` 回显确认 Node 实际收到的参数。
 >
 > **PowerShell 查询语句含空格时的正确示例**：`node scripts/cli.mjs call stock_data get_stock_basicinfo '{\"question\":\"海光信息\u0020688041\u0020公司基本资料\u0020所属行业\",\"lang\":\"中文\"}'`。`JSON.parse` 会把 `\u0020` 还原为空格，后端收到的问题仍是 `海光信息 688041 公司基本资料 所属行业`。
+>
+> **PowerShell 读取本文档时请显式使用 UTF-8。** 本文件为 UTF-8 编码；Windows PowerShell 5.x 的 `Get-Content` 可能按系统 ANSI/GBK 读取无 BOM 的 UTF-8 文件，显示为 `璁块棶...` 等乱码。请使用 `Get-Content -Encoding utf8 -LiteralPath 'skills/wind-mcp-skill/SKILL.md'`，或使用 PowerShell 7 / `rg` 读取。
 
 ### Codex 沙箱联网要求
 
