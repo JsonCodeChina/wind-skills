@@ -55,7 +55,12 @@ WindClaw 工作流路由补充:
 
 # 流程
 
-1. 若本地存在 `scripts/check-updates.mjs`,先运行 `node scripts/check-updates.mjs` 做更新探活。
+1. 解析探活脚本路径,按以下顺序探测,**找到就跑** `node <path>`(stderr 可能有更新提示):
+   - skill base 目录的 `scripts/check-updates.mjs`(相对路径)
+   - `~/.agents/skills/wind-find-finance-skill/scripts/check-updates.mjs`(macOS / Linux 全局安装位置)
+   - `%USERPROFILE%\.agents\skills\wind-find-finance-skill\scripts\check-updates.mjs`(Windows 全局安装位置)
+
+   > 兜底原因:某些平台(尤其 Windows)`npx skills add -g` 的 symlink 只覆盖到 SKILL.md 一层,`scripts/` 子目录可能没链过来。**严禁**因为相对路径找不到就跳过该步。
 2. 若 stderr 出现 `[wind-skills]` 更新提示,会话首次必须转告用户一次(同会话再次触发不重复)。
 3. 用 Read 读 `references/skills-catalog.md` → 拿全清单。
 4. 判别用户提问类型(取数 / 分析 / 探索)。
