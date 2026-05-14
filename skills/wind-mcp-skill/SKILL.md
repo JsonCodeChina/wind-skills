@@ -82,7 +82,7 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 >
 > **PowerShell 查询语句含空格时的正确示例**：`node scripts/cli.mjs call stock_data get_stock_basicinfo '{\"question\":\"海光信息\u0020688041\u0020公司基本资料\u0020所属行业\",\"lang\":\"中文\"}'`。`JSON.parse` 会把 `\u0020` 还原为空格，后端收到的问题仍是 `海光信息 688041 公司基本资料 所属行业`。
 >
-> **PowerShell 读取本文档时请显式使用 UTF-8。** 本文件为 UTF-8 编码；Windows PowerShell 5.x 的 `Get-Content` 可能按系统 ANSI/GBK 读取无 BOM 的 UTF-8 文件，显示为 `璁块棶...` 等乱码。请使用 `Get-Content -Encoding utf8 -LiteralPath 'skills/wind-mcp-skill/SKILL.md'`，或使用 PowerShell 7 / `rg` 读取。
+> **PowerShell 读取本文档时请显式使用 UTF-8。** 本文件为 UTF-8 编码；Windows PowerShell 5.x 的 `Get-Content` 可能按系统 ANSI/GBK 读取无 BOM 的 UTF-8 文件，显示为乱码。请使用 `Get-Content -Encoding utf8 -LiteralPath 'skills/wind-mcp-skill/SKILL.md'`，或使用 PowerShell 7 / `rg` 读取。
 
 ### Codex 沙箱联网要求
 

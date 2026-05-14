@@ -19,6 +19,7 @@ description: AIMarket 平台 skill 清单本地副本。由 npx skills update -g
 | wind-mcp-skill | 数据-行情/基金/股票/宏观/文档 | API Key | 访问万得 Wind 金融数据:A 股 / 港股股票(行情与财务) + ETF / 公募基金(行情与全维数据) + 公司公告 + 财经新闻 + 宏观经济指标 |
 | ifind-finance-data | 数据-行情/基金/宏观/新闻公告/智能选股 | API Key | 访问同花顺 iFinD 金融数据:股票、基金、宏观经济、行业经济、新闻公告,并支持智能选股、选基与指标搜索 |
 | mx-finance-data | 数据-结构化查询/行情/财务/估值/多资产 | 依赖 + API Key | 访问东方财富数据库:覆盖 A 股 / 港股 / 美股、基金、债券等多资产结构化数据,输出 xlsx 与结果说明文件 |
+| tushare-finance-skill | 数据-行情/财务/宏观/多资产 | 依赖 + Token | 访问 Tushare Pro 金融数据:覆盖 A 股、港股、美股、基金、期货、债券、财务报表与宏观经济指标 |
 
 ---
 
@@ -65,7 +66,7 @@ description: AIMarket 平台 skill 清单本地副本。由 npx skills update -g
 
 | category | 含 skill 数 | 代表 skill |
 |---|---|---|
-| 数据-行情/基金/股票/宏观/文档 | 3 | wind-mcp-skill |
+| 数据-行情/基金/股票/宏观/文档 | 4 | wind-mcp-skill |
 | 估值 | 4 | dcf-model |
 | 个股研究 | 5 | equity-investment-thesis |
 | 事件/公告/财报文档 | 4 | major_announcement_impact_skill |
