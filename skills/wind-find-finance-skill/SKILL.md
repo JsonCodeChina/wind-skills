@@ -54,6 +54,20 @@ WindClaw 工作流路由补充:
 
 ---
 
+# 平台 skill 名单规则(强制)
+
+`references/skills-catalog.md` 中"名称"列是 AIMarket / Wind 远端仓库可安装 skill 的唯一 skill 名单。
+
+- 只有名称列里**精确出现**的 skill,才允许回答"平台有这个 skill"或"可以安装这个 skill"。
+- 只有 skill 名单内的 skill,才允许给出安装步骤或安装命令；给出前必须逐字确认 `<name>` 在 catalog 名称列中。
+- 本机已安装 skill 只用于判断"已安装 / 未安装",不能反向证明远端仓库存在,也不能作为生成 AIMarket 安装命令的依据。
+- 若用户询问的是**具体 skill 名**且该名称不在 skill 名单中,只回答"未在 AIMarket skill 清单中找到"；不得输出任何安装命令、安装步骤、可执行命令片段或相近替代 skill。
+- 只有当用户明确询问"有没有相近能力 / 替代 skill / 可以用什么替代"时,才可以从 skill 名单中推荐相近替代 skill,但不得说用户询问的原 skill 存在。
+
+反例:用户询问某个本地已安装但不在 catalog 名称列中的 skill 时,必须回答未在 AIMarket skill 清单中找到；不得输出任何安装命令或替代推荐。
+
+---
+
 # 流程
 
 1. 解析探活脚本路径,按以下顺序探测,**找到就跑** `node <path>`(stderr 可能有更新提示):
