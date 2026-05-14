@@ -19,7 +19,7 @@ const CACHE_SCHEMA_VERSION = 2;
 const TTL_UP_TO_DATE_MS    = 60 * 60 * 1000;
 const TTL_AVAILABLE_MS     = 12 * 60 * 60 * 1000;
 const TTL_UNKNOWN_MS       = 24 * 60 * 60 * 1000;
-const TTL_TRANSIENT_MS     =  6 * 60 * 60 * 1000;
+const TTL_TRANSIENT_MS     =  5 * 60 * 1000;
 
 const NETWORK_TIMEOUT_MS = 5_000;
 
@@ -60,9 +60,18 @@ function writeBaseline(baseline) {
   } catch {}
 }
 
-function isCacheFresh(cache) {
+function isCacheFresh(cache, currentSignature) {
   if (!cache?.lastCheck || !cache?.ttlMs) return false;
+  if (cache.lockSignature !== currentSignature) return false;
   return Date.now() - new Date(cache.lastCheck).getTime() < cache.ttlMs;
+}
+
+function buildLockSignature(entries) {
+  if (!entries || entries.length === 0) return null;
+  return entries
+    .map(({ entry, lockPath }) => `${lockPath}|${entry.updatedAt || entry.installedAt || ''}`)
+    .sort()
+    .join('\n');
 }
 
 function walkUp(startDir) {
@@ -193,14 +202,16 @@ function printNotice(state) {
 
 async function main() {
   const cache = readCache();
-  if (isCacheFresh(cache)) {
+  const entries = collectEntries();
+  const lockSignature = buildLockSignature(entries);
+
+  if (isCacheFresh(cache, lockSignature)) {
     printNotice(cache);
     return;
   }
 
-  const entries = collectEntries();
   if (entries.length === 0) {
-    const state = { status: 'unknown', reason: 'lock_missing', ttlMs: TTL_UNKNOWN_MS };
+    const state = { status: 'unknown', reason: 'lock_missing', ttlMs: TTL_UNKNOWN_MS, lockSignature };
     writeCache(state);
     printNotice(state);
     return;
@@ -267,7 +278,7 @@ async function main() {
   writeBaseline(newBaseline);
 
   if (outdated.length > 0) {
-    const state = { status: 'update_available', outdated, ttlMs: TTL_AVAILABLE_MS };
+    const state = { status: 'update_available', outdated, ttlMs: TTL_AVAILABLE_MS, lockSignature };
     writeCache(state);
     printNotice(state);
     return;
@@ -275,7 +286,7 @@ async function main() {
 
   const totalHandled = unknownDetails.length + (transientError ? 1 : 0);
   if (totalHandled < entries.length) {
-    writeCache({ status: 'up_to_date', ttlMs: TTL_UP_TO_DATE_MS });
+    writeCache({ status: 'up_to_date', ttlMs: TTL_UP_TO_DATE_MS, lockSignature });
     return;
   }
 
@@ -285,6 +296,7 @@ async function main() {
       reason: transientError.reason,
       sourceUrl: transientError.sourceUrl,
       ttlMs: TTL_TRANSIENT_MS,
+      lockSignature,
     };
     writeCache(state);
     printNotice(state);
@@ -296,6 +308,7 @@ async function main() {
     reason: unknownDetails[0].reason,
     details: unknownDetails,
     ttlMs: TTL_UNKNOWN_MS,
+    lockSignature,
   };
   writeCache(state);
   printNotice(state);

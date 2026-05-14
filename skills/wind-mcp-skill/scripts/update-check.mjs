@@ -23,7 +23,7 @@ const CACHE_SCHEMA_VERSION = 2;
 const TTL_UP_TO_DATE_MS    = 60 * 60 * 1000;        // 60 min
 const TTL_AVAILABLE_MS     = 12 * 60 * 60 * 1000;   // 12 h
 const TTL_UNKNOWN_MS       = 24 * 60 * 60 * 1000;   // 24 h(配置类问题,下次大概率仍 unknown)
-const TTL_TRANSIENT_MS     =  6 * 60 * 60 * 1000;   //  6 h(网络抖,下次重试)
+const TTL_TRANSIENT_MS     =  5 * 60 * 1000;       //  5 min(网络抖,下次重试)
 
 const NETWORK_TIMEOUT_MS = 5_000;
 
@@ -66,9 +66,18 @@ function writeBaseline(baseline) {
   } catch {}
 }
 
-function isCacheFresh(cache) {
+function isCacheFresh(cache, currentSignature) {
   if (!cache?.lastCheck || !cache?.ttlMs) return false;
+  if (cache.lockSignature !== currentSignature) return false;
   return Date.now() - new Date(cache.lastCheck).getTime() < cache.ttlMs;
+}
+
+function buildLockSignature(entries) {
+  if (!entries || entries.length === 0) return null;
+  return entries
+    .map(({ entry, lockPath }) => `${lockPath}|${entry.updatedAt || entry.installedAt || ''}`)
+    .sort()
+    .join('\n');
 }
 
 // ───── lock 文件探测(4 路径策略)─────
@@ -192,14 +201,15 @@ function shortHash(h) {
 // ───── 主逻辑 ─────
 
 async function main() {
-  // Step 1. cache 还新鲜 → 不做事
+  // Step 1. 收集 entries + 算 lockSignature(用于 cache 失效判定),再判断 cache 是否还新鲜
   const cache = readCache();
-  if (isCacheFresh(cache)) return;
-
-  // Step 2. 读 lock 找本 skill
   const entries = collectEntries();
+  const lockSignature = buildLockSignature(entries);
+  if (isCacheFresh(cache, lockSignature)) return;
+
+  // Step 2. 没装本 skill → unknown
   if (entries.length === 0) {
-    writeCache({ status: 'unknown', reason: 'lock_missing', ttlMs: TTL_UNKNOWN_MS });
+    writeCache({ status: 'unknown', reason: 'lock_missing', ttlMs: TTL_UNKNOWN_MS, lockSignature });
     return;
   }
 
@@ -274,6 +284,7 @@ async function main() {
       status: 'update_available',
       outdated,
       ttlMs: TTL_AVAILABLE_MS,
+      lockSignature,
     });
     return;
   }
@@ -281,7 +292,7 @@ async function main() {
   // 没有 outdated。若任何一条成功比对(没进 unknown 也没进 transient)→ up_to_date
   const totalHandled = unknownDetails.length + (transientError ? 1 : 0);
   if (totalHandled < entries.length) {
-    writeCache({ status: 'up_to_date', ttlMs: TTL_UP_TO_DATE_MS });
+    writeCache({ status: 'up_to_date', ttlMs: TTL_UP_TO_DATE_MS, lockSignature });
     return;
   }
 
@@ -292,6 +303,7 @@ async function main() {
       reason: transientError.reason,
       sourceUrl: transientError.sourceUrl,
       ttlMs: TTL_TRANSIENT_MS,
+      lockSignature,
     });
     return;
   }
@@ -301,6 +313,7 @@ async function main() {
     reason: unknownDetails[0].reason,
     details: unknownDetails,
     ttlMs: TTL_UNKNOWN_MS,
+    lockSignature,
   });
 }
 
