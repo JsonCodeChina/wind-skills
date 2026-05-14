@@ -49,7 +49,7 @@ examples:
 | `economic_data` | EDB 宏观 / 行业经济指标（含 `freq` / `magnitude` / `currency` / `searchType` 等精细化字段控制） | `get_economic_data` |
 | `analytics_data` | 自然语言通用入口，覆盖整个 Wind 数据库（跨域综合 / 衍生品 / 商品等） | `get_financial_data` |
 
-> ⚠️ **调用工具前，必须将工具名与上表「工具清单」列逐字核对；如果工具名不在清单中，说明推断有误，必须从清单中重新查找正确的工具名后再调用，严禁调用清单中不存在的工具。**
+> 工具组合以 `references/tool-manifest.json` 为准；CLI 会在 `call` 前校验 `server_type + tool_name`，错误组合会本地拒绝并输出候选工具。
 
 **❌ 不触发**：欧股 / 日股 / 其它非中概非美股；汇率 / 期货盘口 / 加密货币；非金融数据。
 
@@ -352,6 +352,7 @@ node scripts/cli.mjs call analytics_data get_financial_data '{"question":"查询
 | 行情类 `indexes` 字段**只接中文名**，从 `references/indicators.md` 复制粘贴            | 自创字段名 / 写英文报错                                                                                                  |
 | `aftype` 只接受 `"0"` / `"1"`（无"不复权"）                                                | 其他值报错                                                                                                               |
 | A 股查 `stock_data`，港股 / 美股查 `global_stock_data`，**别混**                       | A 股财务工具会拒港股 / 美股                                                                                              |
+| `server_type + tool_name` 必须存在于 `references/tool-manifest.json`                         | CLI 会在真正调用后端前返回 `UNKNOWN_TOOL_NAME`；按 stderr 候选工具重选，不要改走 `analytics_data` 试错                    |
 | 单工具调用**只支持单标的**                                                                 | 逗号分隔多代码后端只识别第 1 个，其余静默忽略                                                                            |
 | Codex 中调用 Wind 后端联网必须使用 `require_escalated`                                         | 否则沙箱内可能 `fetch failed`                                                                                          |
 | 结果末尾**必须标注**「数据来源于万得 Wind 金融数据服务」                                   | 合规要求                                                                                                                 |
@@ -384,7 +385,7 @@ cli.mjs 大部分错误会自动输出错误码 + 处理建议（stderr），照
 
 `cli.mjs` 只输出错误码、后端消息和 `处理建议:`，不再附带额外的机器可读重试协议。处理时按 stderr 的 `处理建议:` 执行，并遵守以下规则：
 
-- JSON 解析、未知 `server_type`、Key、权限、限流、余额、网络、后端 5xx 等错误，不得改走 `analytics_data`；应先修正调用方式、配置或等待后端恢复。
+- JSON 解析、未知 `server_type`、未知 `tool_name`、Key、权限、限流、余额、网络、后端 5xx 等错误，不得改走 `analytics_data`；应先修正调用方式、配置或等待后端恢复。
 - 专项工具报字段、工具或口径类错误时，先按 `## 3. 工具表` 检查 `server_type` / `tool_name` / `params_json` 并重试一次。
 - 若专项工具重试后仍为工具调用错误，且问题属于结构化取数，可改用 `analytics_data.get_financial_data`；fallback 前必须把复杂问题拆成简单取数问题，不要机械照搬复杂原话。
 - 如果 `analytics_data.get_financial_data` 也返回未知错误或没找到数据，停止继续 fallback，把后端原文、错误码和已尝试路径简要告知用户。
@@ -392,7 +393,7 @@ cli.mjs 大部分错误会自动输出错误码 + 处理建议（stderr），照
 | 错误                                           | 解法                                                               |
 | ---------------------------------------------- | ------------------------------------------------------------------ |
 | `indexes` 字段不识别 / 字段名不存在          | 按 `references/indicators.md` 复制表内字段名（不要自己拼）；仍不可用则改用对应 NL 工具或说明快照字段不可用 |
-| 工具不存在 / 未知 server_type / schema 对不上  | 先按 `## 1. 数据范围` 的工具清单和 `## 3. 工具表` 重新核对 `server_type` / `tool_name` / `params_json` 并重试一次；仍不通过再建议升级 skill |
+| 工具不存在 / 未知 server_type / 未知 tool_name / schema 对不上  | 先查看 `references/tool-manifest.json` 或 CLI stderr 输出的候选工具，再按 `## 1. 数据范围` 和 `## 3. 工具表` 重新核对 `server_type` / `tool_name` / `params_json` 并重试一次；仍不通过再建议升级 skill |
 | 美股 / 港股调用 `stock_data` 工具返空 / 报错 | 切到 `global_stock_data` 同名工具（参数签名一致）                |
 | 调用似乎啥都没报                               | 检查命令是否在本 SKILL.md 所在目录下执行                           |
 

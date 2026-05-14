@@ -54,6 +54,7 @@ node scripts/cli.mjs open-portal
 ## 使用注意
 
 - `analytics_data` 只是兜底入口；公告 / 新闻、宏观、行情、财务基本面等明确意图应优先走对应 `server_type`。
+- `references/tool-manifest.json` 是 CLI 校验 `server_type + tool_name` 的权威清单；错误组合会在真正调用后端前被本地拒绝。
 - Windows PowerShell 5.x 中 JSON 转义容易导致 `INVALID_PARAMS_JSON`。如果遇到该错误，请优先看 [SKILL.md](./SKILL.md) 里的 Shell 转义说明。
 - K 线工具必须同时传 `begin_date` / `end_date`；分钟级行情工具字段名是 `begin` / `end`。
 - 行情类 `indexes` 建议从 [references/indicators.md](./references/indicators.md) 复制表内字段名。
@@ -78,7 +79,8 @@ npx skills update wind-mcp-skill -g -y
 wind-mcp-skill/
 ├── SKILL.md                     # AI 加载的核心守则（数据范围 / 使用方法 / 工具表 / 注意事项 / 使用技巧 / 出错怎么办）
 ├── references/
-│   └── indicators.md            # 行情字段 indexes 中文清单（按类别分组）
+│   ├── indicators.md            # 行情字段 indexes 中文清单（按类别分组）
+│   └── tool-manifest.json       # CLI 前置校验的 server_type / tool_name 权威清单
 ├── scripts/
 │   ├── cli.mjs                  # MCP 调用主入口
 │   └── update-check.mjs         # 升级感知探活

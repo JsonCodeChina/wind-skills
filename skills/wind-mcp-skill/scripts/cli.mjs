@@ -56,6 +56,7 @@ const SKILL_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
 
 const UPDATE_CHECK_PATH = join(SKILL_DIR, 'scripts', 'update-check.mjs');
 const UPDATE_STATE_FILE = join(homedir(), '.cache', 'wind-aimarket', 'update-state.json');
+const TOOL_MANIFEST_PATH = join(SKILL_DIR, 'references', 'tool-manifest.json');
 
 // 异步 spawn 探活子进程,detached + 静默,不阻塞主流程
 function spawnUpdateCheck() {
@@ -230,6 +231,47 @@ function getServer(server_type) {
   return server;
 }
 
+function loadToolManifest() {
+  try {
+    const manifest = JSON.parse(readFileSync(TOOL_MANIFEST_PATH, 'utf8'));
+    if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
+      throw new Error('manifest 顶层必须是对象');
+    }
+    for (const [serverType, tools] of Object.entries(manifest)) {
+      if (!SERVERS[serverType]) {
+        throw new Error(`manifest 包含未知 server_type: ${serverType}`);
+      }
+      if (!Array.isArray(tools) || tools.some(tool => typeof tool !== 'string' || !tool)) {
+        throw new Error(`manifest 中 ${serverType} 的工具清单必须是非空字符串数组`);
+      }
+    }
+    for (const serverType of Object.keys(SERVERS)) {
+      if (!Array.isArray(manifest[serverType])) {
+        throw new Error(`manifest 缺少 server_type: ${serverType}`);
+      }
+    }
+    return manifest;
+  } catch (err) {
+    die('TOOL_MANIFEST_INVALID', `工具清单读取失败: ${err.message}`, {
+      extraHint: `检查 ${TOOL_MANIFEST_PATH} 是否存在且为合法 JSON；CLI 以该文件作为 server_type + tool_name 的权威清单。`,
+    });
+  }
+}
+
+function validateToolSelection(server_type, toolName) {
+  getServer(server_type);
+  const manifest = loadToolManifest();
+  const tools = manifest[server_type];
+  if (!tools.includes(toolName)) {
+    die('UNKNOWN_TOOL_NAME', `工具名不属于 ${server_type}: ${toolName}`, {
+      server_type,
+      extraHint:
+        `请不要继续试错调用。先按 SKILL.md 意图路由重新判断 server_type + tool_name。\n` +
+        `当前 server_type 可用工具: ${tools.join(' / ')}`,
+    });
+  }
+}
+
 // ───── 认证 ─────
 
 function getApiKey() {
@@ -280,6 +322,8 @@ const ERROR_PATTERNS = [
   // ── client 端错误（cli.mjs 主动 die）──
   ['KEY_MISSING',          /WIND_API_KEY 未配置/,                                   'API Key 未配置。先 `node scripts/cli.mjs open-portal` 拿 Key，再选三种方式之一配置。'],
   ['UNKNOWN_SERVER_TYPE',  /未知 server_type/,                                      'server_type 不在可用列表内。先 `cli.mjs` 看 USAGE 列表，按列表填。'],
+  ['UNKNOWN_TOOL_NAME',    /工具名不属于/,                                           'tool_name 不在该 server_type 的工具清单内。按 SKILL.md 和 references/tool-manifest.json 重新选择。'],
+  ['TOOL_MANIFEST_INVALID', /工具清单读取失败/,                                      '本地工具清单文件异常。检查 references/tool-manifest.json。'],
   ['INVALID_PARAMS_JSON',  /params JSON 解析失败/,                                  '`call` 命令第三参数必须是合法 JSON 字符串。注意 shell 转义（建议外层用单引号包裹整个 JSON）。'],
 ];
 
@@ -302,6 +346,8 @@ function appendFallbackHint(code, hint, server_type) {
   const noFallbackCodes = new Set([
     'INVALID_PARAMS_JSON',
     'UNKNOWN_SERVER_TYPE',
+    'UNKNOWN_TOOL_NAME',
+    'TOOL_MANIFEST_INVALID',
     'UNKNOWN_SCOPE',
     'KEY_MISSING',
     'KEY_INVALID',
@@ -479,6 +525,8 @@ async function cmdCall(server_type, toolName, paramsJson) {
     );
   }
 
+  validateToolSelection(server_type, toolName);
+
   let args;
   try {
     args = JSON.parse(paramsJson);
@@ -634,7 +682,9 @@ if (cmd === 'call') {
 }
 
 commands[cmd]()
-  .then(maybePrintUpdateNotice)
+  .then(() => {
+    if (cmd === 'call') maybePrintUpdateNotice();
+  })
   .catch((err) => {
     die('UNKNOWN', `执行失败：${err.message || err}`, {
       extraHint: err.stack ? `stack:\n${err.stack}` : '未知异常，建议联系万得支持。',
