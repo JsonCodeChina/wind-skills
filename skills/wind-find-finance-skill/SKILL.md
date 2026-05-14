@@ -1,6 +1,6 @@
 ---
 name: wind-find-finance-skill
-description: AIMarket 金融能力发现器。当用户问金融数据 / 分析 / 工具相关问题,且 AI 不确定用哪个具体 skill 时,触发本 skill 列举平台可用能力并给出安装命令。
+description: AIMarket 金融能力发现器。当用户问金融数据 / 分析 / 工具相关问题,且 AI 不确定用哪个具体 skill 时,触发本 skill 发现相关能力；若相关 skill 未安装,先询问用户是否安装,用户确认后由 AI 直接执行安装。
 ---
 
 
@@ -38,7 +38,8 @@ description: AIMarket 金融能力发现器。当用户问金融数据 / 分析 
 
 - 需要同花顺 iFinD 数据、智能选股/选基、宏观行业指标搜索、资讯公告语义检索时,可推荐 `ifind-finance-data`。
 - 需要东方财富结构化数据、多资产查数、批量指标查询、xlsx 结果文件时,可推荐 `mx-finance-data`。
-- 推荐安装命令统一使用远端 monorepo 形式,不要使用任何本地路径。
+- 用户明确要求 Tushare、需要 Tushare Pro 接口、或希望使用 Python / pandas 方式获取 A 股、港股、美股、基金、期货、债券、财务报表或宏观数据时,可推荐 `tushare-finance-skill`。
+- 安装相关 skill 时统一使用远端 monorepo 形式,不要使用任何本地路径。
 
 WindClaw 工作流路由补充:
 
@@ -64,12 +65,36 @@ WindClaw 工作流路由补充:
 2. 若 stderr 出现 `[wind-skills]` 更新提示,会话首次必须转告用户一次(同会话再次触发不重复)。
 3. 用 Read 读 `references/skills-catalog.md` → 拿全清单。
 4. 判别用户提问类型(取数 / 分析 / 探索)。
-5. 按推荐策略筛 1-5 个相关 skill。
-6. 每个推荐 skill 输出**装包卡片**(见模板)。
+5. 按推荐策略筛 1-5 个相关 skill,并检测本机是否已安装。
+6. 若相关 skill 已安装,直接走对应 skill；若相关 skill 未安装,输出**安装确认卡片**(见模板),询问用户是否安装。
+7. 用户确认安装后,不要再只给命令；应直接运行安装命令。
+8. 安装成功后,继续处理用户原始金融问题；若需要 API Key 或其它配置,再按对应数据 skill 的前置条件引导用户补齐。
 
 ---
 
-# 装包卡片模板
+# 未安装 skill 的处理规则
+
+- 对“帮我条件选股 / 条件选股 / 筛选股票 / 选股”等问题,若检测到 `breakout_candidate_finder_skill`、`pullback_opportunity_finder_skill`、`high_quality_compounder_finder_skill`、`theme_leader_identification_skill` 等相关选股 skill 未安装,必须先询问用户是否安装检测到的 skill。
+- 若用户回复“是 / 好 / 安装 / 可以 / 帮我装 / 确认”等明确同意,直接执行安装命令,不要把命令交给用户自己复制。
+- 默认全局安装,使用 GitHub 源；若 GitHub 安装失败,再尝试 Gitee 镜像。
+- 若用户明确说“只装当前项目 / 不要全局”,去掉 `-g` 后安装到当前项目。
+- 若用户拒绝安装,只输出可用的框架性建议或说明缺少对应 skill 会影响执行质量。
+
+安装命令:
+
+```bash
+npx skills add Wind-Information-Co-Ltd/wind-skills --skill <name> -g -y
+```
+
+GitHub 源不可用时使用 Gitee 镜像:
+
+```bash
+npx skills add https://gitee.com/wind_info/wind-skills.git --skill <name> -g -y
+```
+
+---
+
+# 安装确认卡片模板
 
 每个推荐的 skill 按以下格式给:
 
@@ -77,14 +102,11 @@ WindClaw 工作流路由补充:
 推荐 <name> · <一句话描述>
 为什么:<基于用户问题的一句话解释>
 
-安装命令(全局,推荐 — GitHub):
-  npx skills add Wind-Information-Co-Ltd/wind-skills --skill <name> -g -y
+当前未安装。是否现在帮你安装？
+确认后我会直接执行安装,默认全局安装。
 
-安装命令(全局,推荐 — Gitee 镜像):
-  npx skills add https://gitee.com/wind_info/wind-skills.git --skill <name> -g -y
-
-[如果用户问"我只想在当前项目用"或类似,追加这一段:]
-仅当前项目:把上面命令的 -g 去掉即可(只装到当前目录)。
+[如果用户问"我只想在当前项目用"或类似,改为:]
+确认后我会直接安装到当前项目。
 
 [如果 catalog "装好需配置" 列 = "API Key",追加这一段:]
 首次使用提示:装好后向我提一个金融数据问题,我会引导你登录
@@ -102,6 +124,7 @@ aimarket.wind.com.cn/#/user/overview 拿 API Key
 - **去掉 `-g`**:仅当前项目 — 装到当前目录,只有当前项目的 AI 能识别,不污染其它项目 / agent。
 - **`-y` / `--yes`**:**必加**,跳过交互菜单(不加会卡)
 - **`--skill <name>`**:从 monorepo 抽指定子 skill 装;不写会装全部 skill
+- 用户确认安装后,这些参数由 AI 直接用于执行安装命令,不要仅展示给用户。
 
 ---
 
