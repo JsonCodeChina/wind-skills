@@ -38,6 +38,7 @@ description: AIMarket 金融能力发现器。当用户问金融数据 / 分析 
 
 - 需要同花顺 iFinD 数据、智能选股/选基、宏观行业指标搜索、资讯公告语义检索时,可推荐 `ifind-finance-data`。
 - 需要东方财富结构化数据、多资产查数、批量指标查询、xlsx 结果文件时,可推荐 `mx-finance-data`。
+- 用户明确要求 Tushare、需要 Tushare Pro 接口、或希望使用 Python / pandas 方式获取 A 股、港股、美股、基金、期货、债券、财务报表或宏观数据时,可推荐 `tushare-finance-skill`。
 - 安装相关 skill 时统一使用远端 monorepo 形式,不要使用任何本地路径。
 
 WindClaw 工作流路由补充:
