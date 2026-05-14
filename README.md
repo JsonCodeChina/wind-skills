@@ -1,6 +1,6 @@
 # wind-skills
 
-> **Wind 万得金融 Skill 集合（monorepo）** · 通过 MCP 协议把万得金融数据接入 Claude / OpenClaw / Hermes 等 AI Agent，并一站式收录 wind 自家数据 + 社区分析工作流共 34 个金融 skill
+> **Wind 万得金融 Skill 集合（monorepo）** · 通过 MCP 协议把万得金融数据接入 Claude / OpenClaw / Hermes 等 AI Agent，并一站式收录 wind 自家数据 + 社区分析工作流共 36 个金融 skill
 
 [![GitHub](https://img.shields.io/badge/GitHub-Wind--Information--Co--Ltd%2Fwind--skills-blue?logo=github)](https://github.com/Wind-Information-Co-Ltd/wind-skills)
 
@@ -8,29 +8,56 @@
 
 ## 📦 收录的 Skill
 
-### 数据发现类
+### 技能发现类
 
-| Skill | 能力域 |
-|---|---|
-| [`wind-find-finance-skill`](./skills/wind-find-finance-skill) | **金融能力入口**：列举平台所有 skill 并按用户问题推荐，引导安装 / 升级 |
-| [`wind-mcp-skill`](./skills/wind-mcp-skill) | **访问万得 Wind 金融数据**：股票（A 股/港股/美股行情与财务）、基金（行情与全维数据）、指数/板块、债券、公司公告与新闻、宏观经济指标 |
-| [`ifind-finance-data`](./skills/ifind-finance-data) | **访问同花顺 iFinD 金融数据**：股票、基金、宏观经济、行业经济、新闻公告，支持智能选股/选基 |
-| [`mx-finance-data`](./skills/mx-finance-data) | **访问东方财富金融数据**：A 股/港股/美股、基金、债券等多资产行情与财务，输出 xlsx |
+| Skill                                                         | 能力域                                                                                                                              |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| [`wind-find-finance-skill`](./skills/wind-find-finance-skill) | **金融能力入口**：列举平台所有 skill 并按用户问题推荐，引导安装 / 升级                                                              |
 
-### 金融分析类
+### 数据获取类
 
-| Skill | 一句话 |
-|---|---|
-| [`a-share-primary-theme-identification`](./skills/a-share-primary-theme-identification) | A 股市场主线识别（题材周期 / 资金行为） |
-| [`backtest-expert`](./skills/backtest-expert) | 量化策略系统化回测（压力测试） |
-| [`dcf-model`](./skills/dcf-model) | DCF 估值建模（WACC + 敏感性分析） |
-| [`earnings-analysis`](./skills/earnings-analysis) | 季报点评（beat/miss + 估值更新） |
-| [`equity-investment-thesis`](./skills/equity-investment-thesis) | 个股投资逻辑深度研究（券商研究员风格） |
-| [`market-environment-analysis`](./skills/market-environment-analysis) | 全球市场环境分析（risk-on / risk-off） |
-| [`position-sizer`](./skills/position-sizer) | 仓位管理（风险 / Kelly / ATR） |
-| [`post-market-debrief`](./skills/post-market-debrief) | 盘后复盘（市场全景 / 主线轮动） |
-| [`theme-detector`](./skills/theme-detector) | 跨板块主题检测（FINVIZ + 生命周期） |
-| [`valuation-pricing-framework`](./skills/valuation-pricing-framework) | 估值与定价框架（重估空间判断） |
+| Skill                                                     | 能力域                                                                                                                              |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| [`wind-mcp-skill`](./skills/wind-mcp-skill)                   | **访问万得 Wind 金融数据**：股票（A 股/港股/美股行情与财务）、基金（行情与全维数据）、指数/板块、债券、公司公告与新闻、宏观经济指标 |
+| [`ifind-finance-data`](./skills/ifind-finance-data)           | **访问同花顺 iFinD 金融数据**：股票、基金、宏观经济、行业经济、新闻公告，支持智能选股/选基                                          |
+| [`mx-finance-data`](./skills/mx-finance-data)                 | **访问东方财富金融数据**：A 股/港股/美股、基金、债券等多资产行情与财务，输出 xlsx                                                   |
+| [`tushare-finance-skill`](./skills/tushare-finance-skill)     | **访问 Tushare Pro 金融数据**：A 股、港股、美股、基金、期货、债券、财务报表与宏观经济指标                                           |
+| [`finance-stream-fetch`](./skills/finance-stream-fetch)       | **金融流式接口调用**：通过本地 Node 脚本向金融 Agent 接口发起 SSE / streamable fetch 请求                                           |
+
+### 金融技能类
+
+| Skill                                                                                   | 一句话                                                       |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| [`a-share-primary-theme-identification`](./skills/a-share-primary-theme-identification) | A 股市场主线识别（题材周期 / 资金行为）                      |
+| [`backtest-expert`](./skills/backtest-expert)                                           | 量化策略系统化回测（压力测试）                               |
+| [`breakout_candidate_finder_skill`](./skills/breakout_candidate_finder_skill)           | 筛选形态成熟、放量待发的突破候选股，并给出触发条件           |
+| [`bull_bear_case_builder_skill`](./skills/bull_bear_case_builder_skill)                 | 同步搭建看多与看空逻辑，压缩确认偏误并找出核心分歧           |
+| [`business_model_decoder_skill`](./skills/business_model_decoder_skill)                 | 把公司如何获客、赚钱、扩张和受限讲清楚                       |
+| [`conference_call_takeaway_skill`](./skills/conference_call_takeaway_skill)             | 提炼业绩会关键信息、管理层表态和警讯，服务会后快速吸收要点   |
+| [`dcf-model`](./skills/dcf-model)                                                       | DCF 估值建模（WACC + 敏感性分析）                            |
+| [`earnings-analysis`](./skills/earnings-analysis)                                       | 季报点评（beat/miss + 估值更新）                             |
+| [`equity-investment-thesis`](./skills/equity-investment-thesis)                         | 个股投资逻辑深度研究（券商研究员风格）                       |
+| [`guidance_change_impact_skill`](./skills/guidance_change_impact_skill)                 | 解释业绩指引上修下修的含义、可信度与后续影响                 |
+| [`high_quality_compounder_finder_skill`](./skills/high_quality_compounder_finder_skill) | 筛选高 ROE、高护城河、可长期复利的核心候选股                 |
+| [`institutional_position_shift_skill`](./skills/institutional_position_shift_skill)     | 识别机构持仓变化与共识迁移，服务季报持仓研究                 |
+| [`major_announcement_impact_skill`](./skills/major_announcement_impact_skill)           | 分析并购、减持、定增等重大公告的核心影响，服务突发事件判断   |
+| [`market_regime_switch_skill`](./skills/market_regime_switch_skill)                     | 判断市场处于进攻、防守、震荡或切换阶段，服务总仓位与风格判断 |
+| [`market-environment-analysis`](./skills/market-environment-analysis)                   | 全球市场环境分析（risk-on / risk-off）                       |
+| [`moat_strength_review_skill`](./skills/moat_strength_review_skill)                     | 评估公司竞争优势是否真实、可持续且能转化为回报               |
+| [`peer_comparison_decision_skill`](./skills/peer_comparison_decision_skill)             | 横向比较候选公司质量、成长、估值与催化，辅助二选一           |
+| [`position_sizing_decision_skill`](./skills/position_sizing_decision_skill)             | 按风险预算和波动水平给出单笔仓位与分批建议                   |
+| [`position-sizer`](./skills/position-sizer)                                             | 仓位管理（风险 / Kelly / ATR）                               |
+| [`post-market-debrief`](./skills/post-market-debrief)                                   | 盘后复盘（市场全景 / 主线轮动）                              |
+| [`pullback_opportunity_finder_skill`](./skills/pullback_opportunity_finder_skill)       | 寻找回调充分但趋势未破坏的候选股，定位低吸观察区             |
+| [`sec_filing_question_answer_skill`](./skills/sec_filing_question_answer_skill)         | 从 10-K、10-Q、招股书等长文档中精准答疑，服务监管文件快读    |
+| [`sector_rotation_radar_skill`](./skills/sector_rotation_radar_skill)                   | 识别板块强弱切换、资金迁移与风格变化，服务市场主线判断       |
+| [`stop_loss_discipline_skill`](./skills/stop_loss_discipline_skill)                     | 设计价格、逻辑、时间三类止损规则与执行动作                   |
+| [`take_profit_ladder_skill`](./skills/take_profit_ladder_skill)                         | 为盈利仓设计分层兑现、保本上移与尾仓持有规则                 |
+| [`theme_leader_identification_skill`](./skills/theme_leader_identification_skill)       | 识别热门题材中的龙头、中军和跟随股，判断谁最值得跟踪         |
+| [`theme-detector`](./skills/theme-detector)                                             | 跨板块主题检测（FINVIZ + 生命周期）                          |
+| [`trade_plan_builder_skill`](./skills/trade_plan_builder_skill)                         | 下单前生成包含入场、仓位、止损止盈的完整计划                 |
+| [`valuation_snapshot_skill`](./skills/valuation_snapshot_skill)                         | 快速判断个股估值高低、所处分位与重估触发条件                 |
+| [`valuation-pricing-framework`](./skills/valuation-pricing-framework)                   | 估值与定价框架（重估空间判断）                               |
 
 > `wind-find-finance-skill` 是入口型 meta-skill，不调 MCP server、不需要 API Key。
 > `wind-mcp-skill` 用于访问万得 Wind 金融数据，按数据域分类调用。
@@ -42,6 +69,7 @@
 ### 📍 关于安装位置（先看一眼）
 
 下方所有命令默认带 `-g`（全局）：
+
 - ✅ **全局** `-g`：装一次，所有项目 + 机器上**所有已识别的 AI agent** 都能用（Claude Code / Cursor / OpenClaw / Hermes 等）。
 - 🔒 **仅当前项目**：把命令里的 `-g` **去掉**即可。只装到当前目录，不影响其它项目 / agent。
 
@@ -153,18 +181,18 @@ AI 会根据问题自动选择可用能力。取数类问题优先使用 `wind-m
 
 ## 🧭 wind-mcp-skill 的 server_type 选择守则
 
-| 你想问 | server_type |
-|---|---|
-| A 股**最新价 / K 线 / 分钟级行情** | `stock_data`（行情类工具） |
-| A 股**财报 / 营收 / 净利润 / ROE / 股本 / 技术指标 / 风险** | `stock_data`（NL 类工具） |
-| 港股 / 美股**行情与财务** | `global_stock_data` |
-| ETF / 基金**最新价 / K 线** | `fund_data`（行情类工具） |
-| 任何**基金**（档案 / 持仓 / 业绩 / 经理） | `fund_data`（NL 类工具） |
-| 指数 / 板块**行情 / PE/PB / 技术指标** | `index_data` |
-| 债券**档案 / 行情估值 / 发债主体** | `bond_data` |
-| **公告 / 年报 / 招股书 / 财经新闻** | `financial_docs` |
-| **GDP / CPI / M2 / 行业经济**指标 | `economic_data` |
-| 不确定 / 跨域综合查询 | `analytics_data` |
+| 你想问                                                      | server_type                |
+| ----------------------------------------------------------- | -------------------------- |
+| A 股**最新价 / K 线 / 分钟级行情**                          | `stock_data`（行情类工具） |
+| A 股**财报 / 营收 / 净利润 / ROE / 股本 / 技术指标 / 风险** | `stock_data`（NL 类工具）  |
+| 港股 / 美股**行情与财务**                                   | `global_stock_data`        |
+| ETF / 基金**最新价 / K 线**                                 | `fund_data`（行情类工具）  |
+| 任何**基金**（档案 / 持仓 / 业绩 / 经理）                   | `fund_data`（NL 类工具）   |
+| 指数 / 板块**行情 / PE/PB / 技术指标**                      | `index_data`               |
+| 债券**档案 / 行情估值 / 发债主体**                          | `bond_data`                |
+| **公告 / 年报 / 招股书 / 财经新闻**                         | `financial_docs`           |
+| **GDP / CPI / M2 / 行业经济**指标                           | `economic_data`            |
+| 不确定 / 跨域综合查询                                       | `analytics_data`           |
 
 > `stock_data` / `global_stock_data` / `fund_data` 各包含两类工具：行情类（结构化代码参数）+ NL 类（自然语言）。
 
@@ -182,15 +210,37 @@ wind-skills/
     ├── wind-mcp-skill/             ← 万得 Wind 金融数据访问
     ├── ifind-finance-data/         ← 同花顺 iFinD 金融数据
     ├── mx-finance-data/            ← 东方财富金融数据
+    ├── tushare-finance-skill/      ← Tushare Pro 金融数据
+    ├── finance-stream-fetch/       ← 金融流式接口调用
     ├── a-share-primary-theme-identification/
     ├── backtest-expert/
+    ├── breakout_candidate_finder_skill/
+    ├── bull_bear_case_builder_skill/
+    ├── business_model_decoder_skill/
+    ├── conference_call_takeaway_skill/
     ├── dcf-model/
     ├── earnings-analysis/
     ├── equity-investment-thesis/
+    ├── guidance_change_impact_skill/
+    ├── high_quality_compounder_finder_skill/
+    ├── institutional_position_shift_skill/
+    ├── major_announcement_impact_skill/
+    ├── market_regime_switch_skill/
     ├── market-environment-analysis/
+    ├── moat_strength_review_skill/
+    ├── peer_comparison_decision_skill/
+    ├── position_sizing_decision_skill/
     ├── position-sizer/
     ├── post-market-debrief/
+    ├── pullback_opportunity_finder_skill/
+    ├── sec_filing_question_answer_skill/
+    ├── sector_rotation_radar_skill/
+    ├── stop_loss_discipline_skill/
+    ├── take_profit_ladder_skill/
+    ├── theme_leader_identification_skill/
     ├── theme-detector/
+    ├── trade_plan_builder_skill/
+    ├── valuation_snapshot_skill/
     └── valuation-pricing-framework/
 ```
 

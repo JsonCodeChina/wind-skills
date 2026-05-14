@@ -17,11 +17,13 @@ const SKILL_NAME = 'wind-mcp-skill';
 
 const CACHE_DIR = join(homedir(), '.cache', 'wind-aimarket');
 const CACHE_FILE = join(CACHE_DIR, 'update-state.json');
+const BASELINE_FILE = join(CACHE_DIR, 'update-baseline.json');
+const CACHE_SCHEMA_VERSION = 2;
 
 const TTL_UP_TO_DATE_MS    = 60 * 60 * 1000;        // 60 min
 const TTL_AVAILABLE_MS     = 12 * 60 * 60 * 1000;   // 12 h
 const TTL_UNKNOWN_MS       = 24 * 60 * 60 * 1000;   // 24 h(配置类问题,下次大概率仍 unknown)
-const TTL_TRANSIENT_MS     =  6 * 60 * 60 * 1000;   //  6 h(网络抖,下次重试)
+const TTL_TRANSIENT_MS     =  5 * 60 * 1000;       //  5 min(网络抖,下次重试)
 
 const NETWORK_TIMEOUT_MS = 5_000;
 
@@ -31,23 +33,51 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 
 function readCache() {
   if (!existsSync(CACHE_FILE)) return null;
-  try { return JSON.parse(readFileSync(CACHE_FILE, 'utf8')); } catch { return null; }
+  try {
+    const data = JSON.parse(readFileSync(CACHE_FILE, 'utf8'));
+    if (data?.schemaVersion !== CACHE_SCHEMA_VERSION) return null;
+    return data;
+  } catch { return null; }
 }
 
 function writeCache(state) {
   try {
     if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
     const prev = readCache();
-    const merged = { ...state, lastCheck: new Date().toISOString() };
+    const merged = { ...state, schemaVersion: CACHE_SCHEMA_VERSION, lastCheck: new Date().toISOString() };
     if (prev?.snoozedUntil) merged.snoozedUntil = prev.snoozedUntil;
     if (typeof prev?.snoozeLevel === 'number') merged.snoozeLevel = prev.snoozeLevel;
     writeFileSync(CACHE_FILE, JSON.stringify(merged, null, 2));
   } catch {}
 }
 
-function isCacheFresh(cache) {
+function readBaseline() {
+  if (!existsSync(BASELINE_FILE)) return {};
+  try {
+    const data = JSON.parse(readFileSync(BASELINE_FILE, 'utf8'));
+    return (data && typeof data === 'object' && !Array.isArray(data)) ? data : {};
+  } catch { return {}; }
+}
+
+function writeBaseline(baseline) {
+  try {
+    if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
+    writeFileSync(BASELINE_FILE, JSON.stringify(baseline, null, 2));
+  } catch {}
+}
+
+function isCacheFresh(cache, currentSignature) {
   if (!cache?.lastCheck || !cache?.ttlMs) return false;
+  if (cache.lockSignature !== currentSignature) return false;
   return Date.now() - new Date(cache.lastCheck).getTime() < cache.ttlMs;
+}
+
+function buildLockSignature(entries) {
+  if (!entries || entries.length === 0) return null;
+  return entries
+    .map(({ entry, lockPath }) => `${lockPath}|${entry.updatedAt || entry.installedAt || ''}`)
+    .sort()
+    .join('\n');
 }
 
 // ───── lock 文件探测(4 路径策略)─────
@@ -100,10 +130,6 @@ function collectEntries() {
 }
 
 // ───── 条目解析 ─────
-
-function getHash(entry) {
-  return entry.skillFolderHash || entry.computedHash || null;
-}
 
 // 解析 sourceUrl → { host, owner, repo } 或 null
 // 支持: https://github.com/<o>/<r>(.git)?  /  https://gitee.com/<o>/<r>(.git)?
@@ -175,29 +201,28 @@ function shortHash(h) {
 // ───── 主逻辑 ─────
 
 async function main() {
-  // Step 1. cache 还新鲜 → 不做事
+  // Step 1. 收集 entries + 算 lockSignature(用于 cache 失效判定),再判断 cache 是否还新鲜
   const cache = readCache();
-  if (isCacheFresh(cache)) return;
-
-  // Step 2. 读 lock 找本 skill
   const entries = collectEntries();
+  const lockSignature = buildLockSignature(entries);
+  if (isCacheFresh(cache, lockSignature)) return;
+
+  // Step 2. 没装本 skill → unknown
   if (entries.length === 0) {
-    writeCache({ status: 'unknown', reason: 'lock_missing', ttlMs: TTL_UNKNOWN_MS });
+    writeCache({ status: 'unknown', reason: 'lock_missing', ttlMs: TTL_UNKNOWN_MS, lockSignature });
     return;
   }
 
   // Step 3. 对每条 entry 独立判定(理论上只有一条,但 project + global 同装时可能多条)
+  // baseline 策略: 不再拿 lock 的 hash 跟远端比(SHA-256 vs SHA-1,永远不等),
+  // 改为远端 SHA 跟 baseline 自比；lock.updatedAt 变化即视为用户重装/升级,重置 baseline
+  const oldBaseline = readBaseline();
+  const newBaseline = {};
   const outdated = [];
   const unknownDetails = [];
   let transientError = null;
 
   for (const { entry, lockPath } of entries) {
-    const hash = getHash(entry);
-    if (!hash) {
-      unknownDetails.push({ reason: 'no_hash_field', lockPath });
-      continue;
-    }
-
     const sourceUrl = entry.sourceUrl;
     if (!sourceUrl) {
       // 典型: project lock + Gitee 装(只有 source 短形式 + sourceType='git')
@@ -224,19 +249,34 @@ async function main() {
       continue;
     }
 
-    if (remoteSha === hash) {
-      // 这条 entry 已是最新 — 但下方还会聚合判定,这里先不直接 return
+    const lockUpdatedAt = entry.updatedAt || entry.installedAt || null;
+    const key = lockPath;
+    const existing = oldBaseline[key];
+
+    // 情况 1: 没基准 / 用户重装升级了 → 重置基准,不报
+    if (!existing || existing.lockUpdatedAt !== lockUpdatedAt) {
+      newBaseline[key] = { lockUpdatedAt, baselineRemoteSha: remoteSha, sourceUrl };
       continue;
     }
 
+    // 情况 2: 基准一致 → up_to_date
+    if (existing.baselineRemoteSha === remoteSha) {
+      newBaseline[key] = existing;
+      continue;
+    }
+
+    // 情况 3: 远端真有新 commit → 报(保留旧 baseline,等用户升级才重置)
+    newBaseline[key] = existing;
     outdated.push({
       name: SKILL_NAME,
-      current: shortHash(hash),
+      current: shortHash(existing.baselineRemoteSha),
       latest: shortHash(remoteSha),
       sourceUrl,
       host: parsed.host,
     });
   }
+
+  writeBaseline(newBaseline);
 
   // Step 4. 聚合: outdated 有就 available,否则若全 unknown 走 unknown,否则 up_to_date
   if (outdated.length > 0) {
@@ -244,6 +284,7 @@ async function main() {
       status: 'update_available',
       outdated,
       ttlMs: TTL_AVAILABLE_MS,
+      lockSignature,
     });
     return;
   }
@@ -251,7 +292,7 @@ async function main() {
   // 没有 outdated。若任何一条成功比对(没进 unknown 也没进 transient)→ up_to_date
   const totalHandled = unknownDetails.length + (transientError ? 1 : 0);
   if (totalHandled < entries.length) {
-    writeCache({ status: 'up_to_date', ttlMs: TTL_UP_TO_DATE_MS });
+    writeCache({ status: 'up_to_date', ttlMs: TTL_UP_TO_DATE_MS, lockSignature });
     return;
   }
 
@@ -262,6 +303,7 @@ async function main() {
       reason: transientError.reason,
       sourceUrl: transientError.sourceUrl,
       ttlMs: TTL_TRANSIENT_MS,
+      lockSignature,
     });
     return;
   }
@@ -271,6 +313,7 @@ async function main() {
     reason: unknownDetails[0].reason,
     details: unknownDetails,
     ttlMs: TTL_UNKNOWN_MS,
+    lockSignature,
   });
 }
 
