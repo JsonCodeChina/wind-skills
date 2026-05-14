@@ -13,6 +13,8 @@ const SKILL_NAME = 'wind-find-finance-skill';
 
 const CACHE_DIR = join(homedir(), '.cache', 'wind-aimarket');
 const CACHE_FILE = join(CACHE_DIR, 'wind-find-update-state.json');
+const BASELINE_FILE = join(CACHE_DIR, 'wind-find-update-baseline.json');
+const CACHE_SCHEMA_VERSION = 2;
 
 const TTL_UP_TO_DATE_MS    = 60 * 60 * 1000;
 const TTL_AVAILABLE_MS     = 12 * 60 * 60 * 1000;
@@ -25,17 +27,36 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 
 function readCache() {
   if (!existsSync(CACHE_FILE)) return null;
-  try { return JSON.parse(readFileSync(CACHE_FILE, 'utf8')); } catch { return null; }
+  try {
+    const data = JSON.parse(readFileSync(CACHE_FILE, 'utf8'));
+    if (data?.schemaVersion !== CACHE_SCHEMA_VERSION) return null;
+    return data;
+  } catch { return null; }
 }
 
 function writeCache(state) {
   try {
     if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
     const prev = readCache();
-    const merged = { ...state, lastCheck: new Date().toISOString() };
+    const merged = { ...state, schemaVersion: CACHE_SCHEMA_VERSION, lastCheck: new Date().toISOString() };
     if (prev?.snoozedUntil) merged.snoozedUntil = prev.snoozedUntil;
     if (typeof prev?.snoozeLevel === 'number') merged.snoozeLevel = prev.snoozeLevel;
     writeFileSync(CACHE_FILE, JSON.stringify(merged, null, 2));
+  } catch {}
+}
+
+function readBaseline() {
+  if (!existsSync(BASELINE_FILE)) return {};
+  try {
+    const data = JSON.parse(readFileSync(BASELINE_FILE, 'utf8'));
+    return (data && typeof data === 'object' && !Array.isArray(data)) ? data : {};
+  } catch { return {}; }
+}
+
+function writeBaseline(baseline) {
+  try {
+    if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
+    writeFileSync(BASELINE_FILE, JSON.stringify(baseline, null, 2));
   } catch {}
 }
 
@@ -85,10 +106,6 @@ function collectEntries() {
     } catch {}
   }
   return found;
-}
-
-function getHash(entry) {
-  return entry.skillFolderHash || entry.computedHash || null;
 }
 
 function parseSourceUrl(sourceUrl) {
@@ -189,17 +206,13 @@ async function main() {
     return;
   }
 
+  const oldBaseline = readBaseline();
+  const newBaseline = {};
   const outdated = [];
   const unknownDetails = [];
   let transientError = null;
 
   for (const { entry, lockPath } of entries) {
-    const hash = getHash(entry);
-    if (!hash) {
-      unknownDetails.push({ reason: 'no_hash_field', lockPath });
-      continue;
-    }
-
     const sourceUrl = entry.sourceUrl;
     if (!sourceUrl) {
       unknownDetails.push({ reason: 'no_source_url', lockPath, source: entry.source });
@@ -224,18 +237,34 @@ async function main() {
       continue;
     }
 
-    if (remoteSha === hash) {
+    const lockUpdatedAt = entry.updatedAt || entry.installedAt || null;
+    const key = lockPath;
+    const existing = oldBaseline[key];
+
+    // 情况 1: 没基准 / 用户重装升级了 → 重置基准,不报
+    if (!existing || existing.lockUpdatedAt !== lockUpdatedAt) {
+      newBaseline[key] = { lockUpdatedAt, baselineRemoteSha: remoteSha, sourceUrl };
       continue;
     }
 
+    // 情况 2: 基准一致 → up_to_date
+    if (existing.baselineRemoteSha === remoteSha) {
+      newBaseline[key] = existing;
+      continue;
+    }
+
+    // 情况 3: 远端真有新 commit → 报(保留旧 baseline,等用户升级才重置)
+    newBaseline[key] = existing;
     outdated.push({
       name: SKILL_NAME,
-      current: shortHash(hash),
+      current: shortHash(existing.baselineRemoteSha),
       latest: shortHash(remoteSha),
       sourceUrl,
       host: parsed.host,
     });
   }
+
+  writeBaseline(newBaseline);
 
   if (outdated.length > 0) {
     const state = { status: 'update_available', outdated, ttlMs: TTL_AVAILABLE_MS };
