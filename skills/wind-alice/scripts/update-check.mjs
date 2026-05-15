@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // update-check.mjs — wind-skills 升级感知探活脚本(lock-driven)
-// 由 cli.mjs 异步 spawn,读 lock 条目 → 用 sourceUrl 解析 host → 调对应 tree API 比对 hash
+// 由 wind-alice.mjs 异步 spawn,读 lock 条目 → 用 sourceUrl 解析 host → 调对应 tree API 比对 hash
 // 设计: 完全静默,绝不阻塞主流程,任何异常吞掉
 //
 // 状态: up_to_date / update_available / unknown / transient_error
@@ -153,7 +153,7 @@ function parseSourceUrl(sourceUrl) {
 async function fetchJson(url) {
   try {
     const resp = await fetch(url, {
-      headers: { 'User-Agent': 'wind-mcp-skill-update-check' },
+      headers: { 'User-Agent': 'wind-alice-update-check' },
       signal: AbortSignal.timeout(NETWORK_TIMEOUT_MS),
     });
     if (!resp.ok) return { error: `http_${resp.status}` };

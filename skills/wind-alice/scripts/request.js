@@ -1,4 +1,5 @@
 import randomUUID from "./uuidv7.js";
+import { spawnUpdateCheck, maybePrintUpdateNotice } from "./update-notify.mjs";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
@@ -835,6 +836,9 @@ async function main() {
     return;
   }
 
+  // 每次有效提问都 spawn 探针（对齐 cli.mjs 每次 call）；TTL 在 update-check.mjs 内判定
+  spawnUpdateCheck();
+
   let skillName = null;
   if (skill && skill.trim()) {
     const resolved = resolveSkillName(skill);
@@ -853,6 +857,7 @@ async function main() {
 
   const MAX_RETRIES = 10;
 
+  try {
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     if (attempt > 0) {
       const delay = Math.min(1000 * attempt, 10000);
@@ -931,6 +936,9 @@ async function main() {
     consumeNonStreamBody(bodyText);
     printDownloadHints();
     return;
+  }
+  } finally {
+    maybePrintUpdateNotice();
   }
 }
 

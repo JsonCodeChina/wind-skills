@@ -48,14 +48,15 @@ Using "<英文 Skill 名>" skill:<原 prompt>
    - 用户点名 Skill → 直接传该 Skill 的**中文名或英文名**到 `--skill`（脚本会自动归一化并回填英文名）；
    - 用户没点名但问题明显属于某 Skill（如「核查事实」「公司调研问题清单」「财报点评」）→ 可建议并征询后再指定；
    - 否则不传 `--skill`，走 auto。
-2. 执行（任一种写法都可以）：
+2. **发起调用前**用一句话告知用户：Alice 专业 Skill 耗时常为 **数分钟到十几分钟**（复杂研报、一页纸、可比分析等更久），属正常现象，请耐心等待，**不要中途取消命令或重复发起相同请求**。
+3. 执行（任一种写法都可以）：
 
 ```bash
 node scripts/wind-alice.mjs --prompt "<USER_QUESTION>" --skill "<中文 Skill 名>"
 node scripts/wind-alice.mjs --prompt "<USER_QUESTION>" --skill "<英文 Skill 名>"
 ```
 
-3. 等流式输出结束后，基于 `agentResult.value` 汇总回复给用户。
+4. 等流式输出结束后，基于 `agentResult.value` 汇总回复给用户。等待期间若终端长时间无新输出，仍应继续等至进程退出，勿误判为卡死。
 
 > 也可以先列已知 Skill 给用户挑：
 >
@@ -103,7 +104,8 @@ CLI 在每次调用结束时会自动扫描 value 中的可下载文件链接（
 2. **Prompt 必须非空**：空白或缺失时直接退出码 2，不发请求。
 3. **不得把 Key 打印到日志**：脚本仅在 `Authorization` 头里使用，不会输出到 stdout/stderr。
 4. **流式必须等到结束**：CLI 已在父子进程间 `await` 子进程退出；切勿改成"发完即返"。
-5. **不要凭空构造 `selectedSkillIds` / `agentCard` 之类的旧字段去指定 Skill** — 已实测不生效，必须走文本前缀。
+5. **耗时预期与耐心提示**：调用前须提醒用户 Alice Skill 可能较慢；执行中不得因等待过久而中断 CLI、改走其它工具或并行重复调用同一任务。
+6. **不要凭空构造 `selectedSkillIds` / `agentCard` 之类的旧字段去指定 Skill** — 已实测不生效，必须走文本前缀。
 
 
 ## 保持最新
