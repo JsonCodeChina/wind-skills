@@ -21,5 +21,8 @@ Thumbs.db
 *.tmp
 *.bak
 
+# wind-alice 本地调试/端到端输出，可能包含报告链接、本机路径或业务内容
+skills/wind-alice/*.txt
+
 # 本地私有 skill（推送流程工具，仅本机使用，不入远端）
 skills/push-dev-repos/

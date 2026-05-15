@@ -10,18 +10,11 @@
 
 ---
 
-## 关键机制
+## 使用注意
 
-实测：Alice 服务端**不靠 `selectedSkillIds` 选 Skill**，而是看 prompt 文本前缀：
-
-```text
-Using "<英文 Skill 名>" skill:<原 prompt>
-```
-
-同时把 `chatMode` 切到 `"12"`、`originalChatMode` 设为 `"4"`，**不携带** `metadata.agentCard`。本 CLI 已在 `scripts/request.js` 的 `buildBody` 里封装：
-
-- 传了 `--skill` → 自动按上面格式拼前缀 + 精简 data。
-- 没传 `--skill` → 沿用经过验证的 auto 旧格式（`chatMode:"0"` + 简化 `agentCard`），不影响普通问答。
+- 不要把真实 `WIND_API_KEY` 写入文档、工单、邮件或聊天记录；示例统一使用 `<WIND_API_KEY>` / `<KEY>` 占位。
+- `config.json`、`%USERPROFILE%\.wind-aimarket\config` 和本地环境变量只用于本机配置。
+- Alice 返回的报告链接可用于当前用户下载报告；产品文档和公开示例中使用占位 URL 即可。
 
 ---
 
@@ -32,10 +25,12 @@ Using "<英文 Skill 名>" skill:<原 prompt>
 - `wind-alice`
 - 短别名 `wa`
 
-### 方式一：`npm link`（推荐本机开发）
+### 方式一：`npm link`
+
+先进入 `wind-alice` 目录。`<wind-skills-repo>` 指包含 `skills\wind-alice` 的仓库根目录或项目目录；如果已经在该目录下，也可以直接 `cd skills\wind-alice`：
 
 ```powershell
-cd C:\Users\yshi.samshi\.cursor\skills\wind-alice
+cd <wind-skills-repo>\skills\wind-alice
 npm link
 ```
 
@@ -48,8 +43,10 @@ wa list-skills
 
 ### 方式二：不 link，用 npx 指向本目录
 
+同样先进入 `wind-alice` 目录：
+
 ```powershell
-cd C:\Users\yshi.samshi\.cursor\skills\wind-alice
+cd <wind-skills-repo>\skills\wind-alice
 npx . --prompt "贵州茅台调研问题清单" --skill "Stock DD List"
 ```
 
@@ -136,7 +133,7 @@ wind-alice --prompt "今日 A 股要点"
 
 ## 已知 Skill
 
-> `--skill` 同时接受中文名（第一列）和英文名（第二列），下表两列都是 `request.js` 中登记的字段，与 portal 显示保持一致。
+> `--skill` 同时接受中文名（第一列）和英文名（第二列），下表为当前内置的已知 Skill 清单。
 
 | 中文名 | 英文 Skill 名（`--skill` 传值） | 一句话说明 |
 | --- | --- | --- |
@@ -155,7 +152,7 @@ wind-alice --prompt "今日 A 股要点"
 | 可比公司分析 | `fsi-comps-analysis` | 机构级 Comps Analysis（Excel + 文字报告） |
 | 事实核验 | `Fact Check` | 粘贴文本逐点核查金融数据/声明/事件，输出结构化报告 |
 
-> 服务端如新增 / 改名 Skill，请在 `scripts/request.js` 顶部 `KNOWN_SKILLS` 里追加或修改对应条目的 `nameEn`。
+> 服务端如新增 / 改名 Skill，请以 `wind-alice list-skills` 的输出为准。
 
 ---
 
@@ -163,14 +160,15 @@ wind-alice --prompt "今日 A 股要点"
 
 ```text
 wind-alice/
-├── SKILL.md                  # AI 触发 + 调用守则
-├── README.md                 # 当前说明
-├── package.json              # 声明 type=module 与 bin
+├── README.md              # 使用说明
+├── SKILL.md               # Agent 调用规则
+├── package.json           # 命令入口声明
 └── scripts/
-    ├── wind-alice.mjs        # CLI 入口（spawn request.js 并 await 退出）
-    ├── request.js            # 真正的 fetch + SSE 解析 + agentResult.value 提取
-    └── uuidv7.js             # UUID v7 生成
-    └── update-check.mjs         # 升级感知探活
+    ├── wind-alice.mjs     # CLI 入口
+    ├── request.js         # 请求、流式解析与结果输出
+    ├── uuidv7.js          # ID 生成
+    ├── update-check.mjs   # 更新检查
+    └── update-notify.mjs  # 更新提示
 ```
 
 ---
@@ -180,17 +178,17 @@ wind-alice/
 许多 Skill 的输出（如「公司一页纸」「上市公司调研问题清单」「全球上市公司季报点评」「市场规模测算」「可比公司分析」）末尾会附一个 Markdown 链接，例如：
 
 ```text
-[兰生股份_600826_SH_一页纸投资报告_20260514.md](https://alice.wind.com.cn/weaver/files/<uuid>/<filename>)
+[贵州茅台_600519_SH_一页纸投资报告_20260514.md](https://alice.wind.com.cn/weaver/files/<uuid>/贵州茅台_600519_SH_一页纸投资报告_20260514.md)
 ```
 
 这个 `alice.wind.com.cn/weaver/files/...` 接口受**同一份 `WIND_API_KEY`** 鉴权（与调用 Agent 用的是同一个 Key）；浏览器外直接 GET 会 401/403。
 
-`wind-alice` 在每次调用结束时会**自动扫描 `agentResult.value` 中的可下载文件链接**（基于 `/files/` 路径或常见文件后缀），并把带鉴权头格式的下载提示打印到 **stderr**，不会污染 stdout 的主输出。示例：
+`wind-alice` 在每次调用结束时会**自动扫描 `agentResult.value` 中的可下载文件链接**（基于 `/files/` 路径或常见文件后缀），并把带鉴权头格式的下载提示打印到 **stderr**，不会污染 stdout 的主输出。文档示例使用占位 URL；实际使用时按 CLI 输出的链接下载即可：
 
 ```text
 === 检测到 1 个可下载文件 ===
-- 兰生股份_600826_SH_一页纸投资报告_20260514.md
-  URL: https://alice.wind.com.cn/weaver/files/.../兰生股份_..._.md
+- 贵州茅台_600519_SH_一页纸投资报告_20260514.md
+  URL: https://alice.wind.com.cn/weaver/files/<uuid>/贵州茅台_600519_SH_一页纸投资报告_20260514.md
 
 下载方式：HTTP GET，请求头携带 Bearer Token
   Authorization: Bearer <WIND_API_KEY>
@@ -203,18 +201,6 @@ wind-alice/
 - 文件名按 URL path 末段 `decodeURIComponent` 取得；URL 末尾的标点（`)`、`,` 等）会自动剥离。
 - 文件接口与 Agent 接口**共用同一份 `WIND_API_KEY`**，下载请求必须带 `Authorization: Bearer <KEY>`，否则 401/403。
 
-## 实现要点
-
-- **指定 Skill 走文本前缀**
-  - `parts[0].text = 'Using "<nameEn>" skill:<原 prompt>'`
-  - `parts[1].data = { chatMode:"12", originalChatMode:"4", switchMode:"auto", timezone:"Asia/Shanghai" }`
-  - 不带 `metadata.agentCard`、不带 `selectedSkillIds`、不带 `activatedSkills`。
-- **auto 模式（不指定）维持旧格式**：`chatMode:"0"` + 简化 `agentCard`，与历史已验证调用一致。
-- **`switchMode` 固定 `auto`**：实测 `manual` 会立即返回 `200 + 空 SSE 流`。
-- **环境变量覆盖**：`WIND_ALICE_API_URL` 可覆盖默认接口地址；`WIND_API_KEY` 是必填鉴权。
-- **稳定退出**：CLI 入口 `wind-alice.mjs` 通过 `await once(child, "exit")` 等子进程结束，避免 Windows 终端下父进程提前退出导致只看到 `status/headers`。
-
-
 ## 升级
 
 ```bash
@@ -222,4 +208,3 @@ npx skills update wind-alice -g -y
 ```
 
 调用时 stderr 若提示有新版，按提示走即可。
-
