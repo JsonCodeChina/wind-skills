@@ -69,6 +69,27 @@ examples:
 node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 ```
 
+### CLI JSON 输出契约
+
+`cli.mjs` 的主输出固定为 **stdout JSON envelope**，不要再从 stderr 解析错误、帮助或更新提示。
+
+1. `ok`：判断主命令成功或失败。
+2. `ok:true` 时优先读取 `data.parsed`；必要时回看完整 `data.result`。
+3. `ok:false` 时必须读取 `error.code`、`error.retryable`、`error.fallback_allowed`、`error.agent_action`。
+4. `notices` 只是附加提醒，不改变主命令成功/失败判断。
+
+失败处理优先级：
+
+1. `error.code`：稳定错误分支。
+2. `error.retryable` / `error.fallback_allowed`：决定是否原样重试、是否允许 fallback。
+3. `error.agent_action`：默认优先遵循的下一步动作。
+4. `error.hint`：错误原因和补充解释，不得单独覆盖 `agent_action`。
+5. `error.context`：候选工具、server、tool 等上下文。
+
+`call` 成功时 CLI 会保留完整原始 MCP 返回 `data.result`，新闻、公告、宏观等长内容不得默认截断或摘要。若 `data.parsed` 不存在或不是表格结构，再读取 `data.result.content`。
+
+错误码字典见 `references/error-codes.json`。
+
 > **⚠️ Shell 转义是 `INVALID_PARAMS_JSON` 错误的首要原因。** JSON 第三参数中的双引号和花括号会被不同 shell 差异化处理，必须按当前 shell 类型选择正确写法，否则 JSON 被截断或变形：
 >
 > | Shell | 写法 | 示例 |
@@ -96,7 +117,7 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 
 ### API Key
 
-报 `KEY_MISSING` 时按 cli.mjs stderr 给的 extraHint 配置即可（程序自动按多种方式查找 Key）；需要拿 Key 跑 `node scripts/cli.mjs open-portal` 自动打开开发者中心。
+报 `KEY_MISSING` 时读取 stdout JSON 中的 `error.agent_action` / `error.hint` 配置即可（程序自动按多种方式查找 Key）；需要拿 Key 跑 `node scripts/cli.mjs open-portal` 自动打开开发者中心。
 
 ### 入参签名两类
 
@@ -354,7 +375,7 @@ node scripts/cli.mjs call analytics_data get_financial_data '{"question":"查询
 | 行情类 `indexes` 字段**只接中文名**，从 `references/indicators.md` 复制粘贴            | 自创字段名 / 写英文报错                                                                                                  |
 | `aftype` 只接受 `"0"` / `"1"`（无"不复权"）                                                | 其他值报错                                                                                                               |
 | A 股查 `stock_data`，港股 / 美股查 `global_stock_data`，**别混**                       | A 股财务工具会拒港股 / 美股                                                                                              |
-| `server_type + tool_name` 必须存在于 `references/tool-manifest.json`                         | CLI 会在真正调用后端前返回 `UNKNOWN_TOOL_NAME`；按 stderr 候选工具重选，不要改走 `analytics_data` 试错                    |
+| `server_type + tool_name` 必须存在于 `references/tool-manifest.json`                         | CLI 会在真正调用后端前返回 `UNKNOWN_TOOL_NAME`；按 stdout JSON 的 `error.context.available_tools` 重选，不要改走 `analytics_data` 试错                    |
 | 单工具调用**只支持单标的**                                                                 | 逗号分隔多代码后端只识别第 1 个，其余静默忽略                                                                            |
 | Codex 中调用 Wind 后端联网必须使用 `require_escalated`                                         | 否则沙箱内可能 `fetch failed`                                                                                          |
 | 结果末尾**必须标注**「数据来源于万得 Wind 金融数据服务」                                   | 合规要求                                                                                                                 |
@@ -381,17 +402,24 @@ node scripts/cli.mjs call analytics_data get_financial_data '{"question":"查询
 
 ## 7. 出错怎么办
 
-cli.mjs 大部分错误会自动输出错误码 + 处理建议（stderr），照建议走即可。常见 schema 类陷阱：
+cli.mjs 大部分错误会自动输出结构化 JSON。只解析 stdout，不从 stderr 提取错误信息。常见 schema 类陷阱：
 
-### CLI 错误处理
+### CLI 错误处理硬约束
 
-`cli.mjs` 只输出错误码、后端消息和 `处理建议:`，不再附带额外的机器可读重试协议。处理时按 stderr 的 `处理建议:` 执行，并遵守以下规则：
+`cli.mjs` 失败时返回 `ok:false`。默认优先按 `error.agent_action` 处理；如需偏离，必须同时满足以下硬约束，并能明确说明偏离原因：
 
-- JSON 解析、未知 `server_type`、未知 `tool_name`、Key、权限、限流、余额、网络、后端 5xx 等错误，不得改走 `analytics_data`；应先修正调用方式、配置或等待后端恢复。
-- 专项工具报字段、工具或口径类错误时，先按 `## 3. 工具表` 检查 `server_type` / `tool_name` / `params_json` 并重试一次。
-- 若专项工具重试后仍为工具调用错误，且问题属于结构化取数，可改用 `analytics_data.get_financial_data`；fallback 前必须把复杂问题拆成简单取数问题，不要机械照搬复杂原话。
+- 不得只参考 `error.hint`、示例命令或经验写法来覆盖 `error.agent_action`。
+- `error.retryable=false` 时禁止原样重试；必须先修改参数、配置、环境，或等待状态变化。
+- `error.fallback_allowed=false` 时禁止改用 `analytics_data`、wind-alice、Web Search 或其它数据源兜底。
+- `INVALID_PARAMS_JSON` 只能修正 JSON 或 shell 转义后重试同一个 `server_type + tool_name`，不得切换工具。
+- `UNKNOWN_TOOL_NAME` 只能从 `error.context.available_tools` 或 `references/tool-manifest.json` 中重选合法工具，不得直接 fallback。
+- Key、权限、限流、余额、网络、后端 5xx 类错误不得换工具绕过；必须修复根因、等待恢复或告知用户。
+- `PARAM_VALIDATION_ERROR` 先按 `## 3. 工具表`、`references/tool-manifest.json`、`references/indicators.md` 修正字段名、必填项、日期格式、枚举值、server_type 和 tool_name。
+- 只有 `error.fallback_allowed=true` 且符合本文路由约束时，才可考虑 `analytics_data`；fallback 前必须把复杂问题拆成简单取数问题，不要机械照搬复杂原话。
 - `analytics_data.get_financial_data` 失败时（非 Key / 权限 / 网络 / 5xx 类错误），可调整 `question` 措辞重试一次（如拆分子问题、换关键词），不得改变用户原始意图。
 - 如果 `analytics_data.get_financial_data` 重试后仍返回未知错误或没找到数据，停止继续 fallback，把后端原文、错误码和已尝试路径简要告知用户，然后执行以下终极兜底：
+
+错误码字典见 `references/error-codes.json`。
 
 ### 终极兜底：wind-alice
 
@@ -420,7 +448,7 @@ cli.mjs 大部分错误会自动输出错误码 + 处理建议（stderr），照
 | 错误                                           | 解法                                                               |
 | ---------------------------------------------- | ------------------------------------------------------------------ |
 | `indexes` 字段不识别 / 字段名不存在          | 按 `references/indicators.md` 复制表内字段名（不要自己拼）；仍不可用则改用对应 NL 工具或说明快照字段不可用 |
-| 工具不存在 / 未知 server_type / 未知 tool_name / schema 对不上  | 先查看 `references/tool-manifest.json` 或 CLI stderr 输出的候选工具，再按 `## 1. 数据范围` 和 `## 3. 工具表` 重新核对 `server_type` / `tool_name` / `params_json` 并重试一次；仍不通过再建议升级 skill |
+| 工具不存在 / 未知 server_type / 未知 tool_name / schema 对不上  | 先查看 `references/tool-manifest.json` 或 stdout JSON 的 `error.context.available_tools`，再按 `## 1. 数据范围` 和 `## 3. 工具表` 重新核对 `server_type` / `tool_name` / `params_json` 并重试一次；仍不通过再建议升级 skill |
 | 美股 / 港股调用 `stock_data` 工具返空 / 报错 | 切到 `global_stock_data` 同名工具（参数签名一致）                |
 | 调用似乎啥都没报                               | 检查命令是否在本 SKILL.md 所在目录下执行                           |
 
@@ -428,8 +456,9 @@ cli.mjs 大部分错误会自动输出错误码 + 处理建议（stderr），照
 
 ## 8. 保持最新
 
-每次调用 cli.mjs 后，留意 stderr 是否包含 `[wind-skills] 检测到 N 个 skill 有新版`。
+每次调用 cli.mjs 后，留意 stdout JSON 的 `notices` 数组。
 
-**看到该提示时，会话首次必须转告用户一次**（同会话再次调用不重复）：把清单和升级命令完整带给用户，命令已含 `-g -y` 等参数，直接照搬即可。Gitee 装的 skill 升级路径跟 GitHub 不同，按 stderr 提示走。
+- `type="update_available"`：会话首次必须转告用户一次（同会话再次调用不重复），把 `items[].upgrade_command` 完整带给用户，命令已含 `-g -y` 等参数，直接照搬即可。Gitee 装的 skill 升级路径跟 GitHub 不同，按 `upgrade_command` 走。
+- `type="update_check_failed"` / `type="update_check_unknown"`：只是更新检查提醒，不影响当前 Wind 数据调用；可简要告知用户，不能当作主调用失败。
 
-⚠️ 如遇"工具不存在 / 字段不符"等疑似版本相关错误，先按本文档工具清单、工具表和 CLI stderr 建议重新检查 `server_type` / `tool_name` / `params_json` 并重试一次；检查仍不通过或确认本地 schema 与文档不一致后，再建议用户跑 `npx skills update -g -y` 拉最新后重试。
+⚠️ 如遇"工具不存在 / 字段不符"等疑似版本相关错误，先按本文档工具清单、工具表和 stdout JSON 的 `error.agent_action` / `error.context` 重新检查 `server_type` / `tool_name` / `params_json` 并重试一次；检查仍不通过或确认本地 schema 与文档不一致后，再建议用户跑 `npx skills update -g -y` 拉最新后重试。
