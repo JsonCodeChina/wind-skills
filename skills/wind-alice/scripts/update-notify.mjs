@@ -61,6 +61,10 @@ function filterAlreadyUpgraded(outdated) {
   return outdated.filter((o) => {
     const live = installed[o.name];
     if (!live) return true;
+    // 优先用 lock 完整 hash 严格相等(update-check v2 写入 installedHash;
+    // 适配 Gitee 装的 SHA-256 + GitHub 装的 SHA-1,两边同源同算法,严格相等总成立)
+    if (o.installedHash) return live === o.installedHash;
+    // 兼容旧 cache 条目:退化到 shortHash 前缀匹配
     const cur = o.current || "";
     if (!cur) return true;
     return live.startsWith(cur);
@@ -96,6 +100,18 @@ export function maybePrintUpdateNotice() {
     const view = readCacheView();
     if (!view || !view.state) return;
     let state = view.state;
+
+    // 防御:legacy v2 顶层 schema(老版其他 skill 写的)可能含他人 outdated,
+    // 只透传 name===SKILL_NAME 的条目,杜绝跨 skill 通知泄露。v3 path 走
+    // skills[SKILL_NAME] 取节点本就不会含他人,这里主要保护 legacy 兼容路径。
+    if (state.status === "update_available" && Array.isArray(state.outdated)) {
+      const filtered = state.outdated.filter((o) => o?.name === SKILL_NAME);
+      if (filtered.length < state.outdated.length) {
+        state = filtered.length === 0
+          ? { ...state, status: "up_to_date", outdated: [] }
+          : { ...state, outdated: filtered };
+      }
+    }
 
     if (
       state.status === "update_available" &&

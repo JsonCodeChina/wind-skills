@@ -9,6 +9,19 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const CACHE_DIR = join(homedir(), '.cache', 'wind-aifinmarket');
 const CACHE_FILE = join(CACHE_DIR, 'update-state.json');
 
+// 读本机 lock 里 wind-alice 真实的 skillFolderHash,用于让 mock outdated 通过
+// filterAlreadyUpgraded 的"未升级"检查(installedHash 严格相等优先,startsWith 兜底)
+function getRealLockHash() {
+  try {
+    const lockPath = process.env.XDG_STATE_HOME
+      ? join(process.env.XDG_STATE_HOME, 'skills', '.skill-lock.json')
+      : join(homedir(), '.agents', '.skill-lock.json');
+    if (!existsSync(lockPath)) return null;
+    return JSON.parse(readFileSync(lockPath, 'utf8'))?.skills?.['wind-alice']?.skillFolderHash || null;
+  } catch { return null; }
+}
+const REAL_LOCK_HASH = getRealLockHash();
+
 // ───── Helpers ─────
 
 function writeCache(data) {
@@ -77,6 +90,10 @@ describe('update-notify.mjs — readCacheView v3 support', () => {
         current: 'abc1234',
         latest: 'def5678',
         sourceUrl: 'https://github.com/foo/bar',
+        // installedHash 必须等于本机 lock 真实 hash,否则 filterAlreadyUpgraded
+        // 会判定"已升级"过滤掉该条 → 通知不会打。本机无 lock 时退化用假短串,
+        // startsWith 路径仍走原 cur='abc1234' 比对(可能 fail,看本机环境)。
+        installedHash: REAL_LOCK_HASH || 'abc1234',
       }],
     };
     const cache = makeV3CacheNamed('wind-alice', state);
@@ -221,6 +238,7 @@ describe('update-notify.mjs — readCacheView v3 support', () => {
         current: 'abc',
         latest: 'def',
         sourceUrl: 'https://gitee.com/wind_info/wind-skills.git',
+        installedHash: REAL_LOCK_HASH || 'abc',  // 同上,让 filterAlreadyUpgraded 判定"未升级"
       }],
     };
     const cache = makeV3CacheNamed('wind-alice', state);
