@@ -1,9 +1,9 @@
 ---
 name: wind-mcp-skill
 description: >-
-  访问万得 Wind 金融数据。覆盖 A 股 / 港股 / 美股股票行情（最新价 / K 线 / 分钟）与财务基本面（财报 / 股本 / 事件 / 技术指标 / 风险）、ETF / 公募基金行情与全维数据（档案 / 财务 / 持仓 / 业绩 / 持有人 / 管理公司）、指数 / 板块行情与档案 / 基本面 / 技术、债券基本档案 / 发债主体 / 行情估值 / 主体财务、上市公司公告与财经新闻、宏观经济与行业指标。需要 WIND_API_KEY（登录 aimarket.wind.com.cn/#/user/overview 开发者中心获取）。**不包含**：欧股 / 日股、汇率 / 期货盘口、加密货币、非金融数据。
+  访问万得 Wind 金融数据。覆盖 A 股 / 港股 / 美股股票行情（最新价 / K 线 / 分钟）与财务基本面（财报 / 股本 / 事件 / 技术指标 / 风险）、ETF / 公募基金行情与全维数据（档案 / 财务 / 持仓 / 业绩 / 持有人 / 管理公司）、指数 / 板块行情与档案 / 基本面 / 技术、债券基本档案 / 发债主体 / 行情估值 / 主体财务、上市公司公告与财经新闻、宏观经济与行业指标。需要 WIND_API_KEY（登录 aifinmarket.wind.com.cn/#/user/overview 开发者中心获取）。**不包含**：欧股 / 日股、汇率 / 期货盘口、加密货币、非金融数据。
 author: Wind
-homepage: https://aimarket.wind.com.cn
+homepage: https://aifinmarket.wind.com.cn
 auto_invoke: true
 security:
   child_process: true
@@ -90,7 +90,7 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 强制错误动作：
 
 - 若 `error.code == "KEY_MISSING"`，必须立即执行 `node <skill_dir>/scripts/cli.mjs open-portal` 打开开发者中心；不得只把命令或 URL 发给用户。执行后，把返回的 `url` / `flow_note` / `fallback_message` 简短转述给用户，并等待用户提供 Key。
-- 若 `open-portal` 命令本身失败，才允许把 `https://aimarket.wind.com.cn/#/user/overview` 作为手动 fallback 发给用户。
+- 若 `open-portal` 命令本身失败，才允许把 `https://aifinmarket.wind.com.cn/#/user/overview` 作为手动 fallback 发给用户。
 - 用户提供 Key 后，必须询问或沿用用户已明确的存放范围，执行 `node <skill_dir>/scripts/cli.mjs setup-key <KEY> --scope <global|skill>`，然后重试原始数据调用。
 
 `call` 成功时 CLI 只返回一份原始 MCP `data.result`，不再同时返回 `data.parsed`；若 `data.result.content[0].text` 是 JSON 字符串，Agent 自行解析，否则按原始文本处理。

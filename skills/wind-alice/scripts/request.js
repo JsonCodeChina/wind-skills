@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const DEFAULT_API_URL = "https://alice.wind.com.cn/Weaver/ChatAgent";
 const SKILL_DIR = dirname(dirname(fileURLToPath(import.meta.url))); // .../wind-alice
-const WIND_AIMARKET_PORTAL = "https://aimarket.wind.com.cn";
+const WIND_AIMARKET_PORTAL = "https://aifinmarket.wind.com.cn";
 
 /**
  * 体验账户当日额度耗尽时，服务端会通过 status-update / UIState 里的

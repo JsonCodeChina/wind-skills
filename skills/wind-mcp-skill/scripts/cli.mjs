@@ -1,11 +1,26 @@
 #!/usr/bin/env node
-// wind-mcp-skill CLI: thin JSON-envelope wrapper around Wind MCP servers.
+ // wind-mcp-skill CLI: thin JSON-envelope wrapper around Wind MCP servers.
 // Keep this file self-contained for skill portability; heavier reference material lives in SKILL.md/references.
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join, dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { spawn } from 'node:child_process';
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  mkdirSync
+} from 'node:fs';
+import {
+  homedir
+} from 'node:os';
+import {
+  join,
+  dirname,
+  resolve
+} from 'node:path';
+import {
+  fileURLToPath
+} from 'node:url';
+import {
+  spawn
+} from 'node:child_process';
 
 const SKILL_VERSION = '1.6.0';
 const OUTPUT_SCHEMA_VERSION = 1;
@@ -47,9 +62,10 @@ const SERVERS = {
   },
 };
 
-const PORTAL_URL = 'https://aimarket.wind.com.cn/#/user/overview';
+const PORTAL_URL = 'https://aifinmarket.wind.com.cn/#/user/overview';
 
-const SKILL_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
+const SKILL_DIR = dirname(dirname(fileURLToPath(
+  import.meta.url)));
 
 const UPDATE_CHECK_PATH = join(SKILL_DIR, 'scripts', 'update-check.mjs');
 const UPDATE_STATE_FILE = join(homedir(), '.cache', 'wind-aimarket', 'update-state.json');
@@ -70,7 +86,11 @@ const CALL_EXAMPLES = [
 function spawnUpdateCheck() {
   try {
     if (!existsSync(UPDATE_CHECK_PATH)) return;
-    const child = spawn('node', [UPDATE_CHECK_PATH], { detached: true, stdio: 'ignore', windowsHide: true });
+    const child = spawn('node', [UPDATE_CHECK_PATH], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true
+    });
     child.on('error', () => {});
     child.unref();
   } catch {}
@@ -80,9 +100,9 @@ function getInstalledHashes() {
   const result = {};
   const candidates = new Set();
   const xdg = process.env.XDG_STATE_HOME;
-  candidates.add(xdg
-    ? join(xdg, 'skills', '.skill-lock.json')
-    : join(homedir(), '.agents', '.skill-lock.json'));
+  candidates.add(xdg ?
+    join(xdg, 'skills', '.skill-lock.json') :
+    join(homedir(), '.agents', '.skill-lock.json'));
   for (const start of [SKILL_DIR, process.cwd()]) {
     let dir = resolve(start);
     while (true) {
@@ -109,7 +129,7 @@ function filterAlreadyUpgraded(outdated) {
   const installed = getInstalledHashes();
   return outdated.filter(o => {
     const live = installed[o.name];
-    if (!live) return true;            // 找不到 lock,保守保留
+    if (!live) return true; // 找不到 lock,保守保留
     // 优先用同类型的 skillFolderHash 比较（update-check.mjs v2 记录）
     if (o.installedHash) return live === o.installedHash;
     // 兼容旧缓存条目：退化到 shortHash 前缀匹配
@@ -125,10 +145,20 @@ function readCacheView() {
   try {
     const raw = JSON.parse(readFileSync(UPDATE_STATE_FILE, 'utf8'));
     if (raw?.schemaVersion === 3 && raw?.skills && typeof raw.skills === 'object') {
-      return { raw, state: raw.skills[SKILL_NAME] || null, isV3: true };
+      return {
+        raw,
+        state: raw.skills[SKILL_NAME] || null,
+        isV3: true
+      };
     }
-    return { raw, state: raw, isV3: false };
-  } catch { return null; }
+    return {
+      raw,
+      state: raw,
+      isV3: false
+    };
+  } catch {
+    return null;
+  }
 }
 
 function writeCacheView(view, newState) {
@@ -154,9 +184,16 @@ function collectUpdateNotices() {
     if (state.status === 'update_available' && Array.isArray(state.outdated)) {
       const filtered = state.outdated.filter(o => o?.name === SKILL_NAME);
       if (filtered.length < state.outdated.length) {
-        state = filtered.length === 0
-          ? { ...state, status: 'up_to_date', outdated: [] }
-          : { ...state, outdated: filtered };
+        state = filtered.length === 0 ?
+          {
+            ...state,
+            status: 'up_to_date',
+            outdated: []
+          } :
+          {
+            ...state,
+            outdated: filtered
+          };
       }
     }
 
@@ -173,7 +210,10 @@ function collectUpdateNotices() {
         if (typeof view.state.snoozeLevel === 'number') state.snoozeLevel = view.state.snoozeLevel;
         writeCacheView(view, state);
       } else if (stillOutdated.length < state.outdated.length) {
-        state = { ...state, outdated: stillOutdated };
+        state = {
+          ...state,
+          outdated: stillOutdated
+        };
         writeCacheView(view, state);
       }
     }
@@ -186,10 +226,10 @@ function collectUpdateNotices() {
         severity: 'info',
         message: `检测到 ${state.outdated.length} 个 skill 有新版`,
         items: state.outdated.map((o) => {
-        const isGitee = typeof o.sourceUrl === 'string' && o.sourceUrl.includes('gitee.com');
-        const upgradeCmd = isGitee
-          ? `npx skills add ${o.sourceUrl} --skill ${o.name} -g -y  # Gitee 源不支持 update,需重装`
-          : `npx skills update ${o.name} -g -y`;
+          const isGitee = typeof o.sourceUrl === 'string' && o.sourceUrl.includes('gitee.com');
+          const upgradeCmd = isGitee ?
+            `npx skills add ${o.sourceUrl} --skill ${o.name} -g -y  # Gitee 源不支持 update,需重装` :
+            `npx skills update ${o.name} -g -y`;
           return {
             name: o.name,
             current: o.current || null,
@@ -225,15 +265,28 @@ function collectUpdateNotices() {
 
 // ───── 工具函数 ─────
 
-function writeEnvelope({ ok, command = activeCommand, data, error, notices = [] }) {
+function writeEnvelope({
+  ok,
+  command = activeCommand,
+  data,
+  error,
+  notices = []
+}) {
   // All agent-facing output must go through this envelope. Keep stderr free for future verbose logs only.
   const envelope = {
     ok,
     command,
-    ...(data === undefined ? {} : { data }),
-    ...(error ? { error } : {}),
+    ...(data === undefined ? {} : {
+      data
+    }),
+    ...(error ? {
+      error
+    } : {}),
     notices,
-    meta: { cli_version: SKILL_VERSION, schema_version: OUTPUT_SCHEMA_VERSION },
+    meta: {
+      cli_version: SKILL_VERSION,
+      schema_version: OUTPUT_SCHEMA_VERSION
+    },
   };
   process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
 }
@@ -251,7 +304,9 @@ function die(code, message, ctx = {}, exitCode = 1) {
 function exitWithUsage(usage, exitCode = 0) {
   die('USAGE_ERROR', '命令用法不正确', {
     command: activeCommand || 'help',
-    data: { usage },
+    data: {
+      usage
+    },
     extraHint: '按 data.usage 修正命令参数后重试。',
   }, exitCode);
 }
@@ -330,8 +385,7 @@ function validateToolSelection(server_type, toolName) {
       server_type,
       tool: toolName,
       available_tools: tools,
-      extraHint:
-        `请不要继续试错调用。先按 SKILL.md 意图路由重新判断 server_type + tool_name。\n` +
+      extraHint: `请不要继续试错调用。先按 SKILL.md 意图路由重新判断 server_type + tool_name。\n` +
         `当前 server_type 可用工具: ${tools.join(' / ')}`,
     });
   }
@@ -359,8 +413,7 @@ function getApiKey() {
   }
 
   die('KEY_MISSING', 'WIND_API_KEY 未配置', {
-    extraHint:
-      `先获取 Key：node ${join(SKILL_DIR, 'scripts', 'cli.mjs')} open-portal，或手动访问 ${PORTAL_URL}。\n` +
+    extraHint: `先获取 Key：node ${join(SKILL_DIR, 'scripts', 'cli.mjs')} open-portal，或手动访问 ${PORTAL_URL}。\n` +
       `询问用户选择存放位置后执行：node ${join(SKILL_DIR, 'scripts', 'cli.mjs')} setup-key <KEY> --scope <global|skill>，然后重试原调用。`,
   });
 }
@@ -368,18 +421,18 @@ function getApiKey() {
 // ───── 错误码体系 ─────
 
 const ERROR_PATTERNS = [
-  ['RATE_LIMIT_DAILY',     /单日请求次数超限|daily.*limit/i,                       'API Key 当日请求额度已用尽。等次日 0 点刷新或换备用 Key。'],
-  ['BALANCE_INSUFFICIENT', /余额不足|请先充值|insufficient.*balance/i,             'API Key 计费余额不足。开发者中心充值或换备用 Key。'],
-  ['RATE_LIMIT_QPS',       /请求过于频繁|qps.*limit|too.*frequent/i,               '请求过于频繁。等几秒重试（可重试）。'],
-  ['KEY_INVALID',          /密钥无效|key.*invalid|unauthorized|认证失败|auth.*fail/i,   'API Key 无效或过期 → 开发者中心重新生成。'],
-  ['NO_RESULTS',           /未获取到数据|"NO_RESULTS"|no\s*results?|not\s*found|empty\s*result/i, '未获取到匹配数据。先在不改变用户意图的前提下调整关键词或参数。'],
+  ['RATE_LIMIT_DAILY', /单日请求次数超限|daily.*limit/i, 'API Key 当日请求额度已用尽。等次日 0 点刷新或换备用 Key。'],
+  ['BALANCE_INSUFFICIENT', /余额不足|请先充值|insufficient.*balance/i, 'API Key 计费余额不足。开发者中心充值或换备用 Key。'],
+  ['RATE_LIMIT_QPS', /请求过于频繁|qps.*limit|too.*frequent/i, '请求过于频繁。等几秒重试（可重试）。'],
+  ['KEY_INVALID', /密钥无效|key.*invalid|unauthorized|认证失败|auth.*fail/i, 'API Key 无效或过期 → 开发者中心重新生成。'],
+  ['NO_RESULTS', /未获取到数据|"NO_RESULTS"|no\s*results?|not\s*found|empty\s*result/i, '未获取到匹配数据。先在不改变用户意图的前提下调整关键词或参数。'],
   ['PARAM_VALIDATION_ERROR', /参数验证失败|参数.*(错误|非法|无效)|字段.*(不存在|不识别|不支持|非法)|invalid\s*(param|argument|field)|missing\s*(param|argument|field|required)/i, '后端参数验证失败。先按 SKILL.md 工具表核对字段名、必填项、日期格式和枚举值后重试。'],
-  ['TOOL_RUNTIME_ERROR',    /TOOL_ERROR|tool.*error|工具.*(执行|运行).*错误|runtime.*error/i,      '后端工具运行错误。保留后端原文，先检查请求是否过大或口径是否受支持；不要直接切换工具绕过。'],
-  ['KEY_MISSING',          /WIND_API_KEY 未配置/,                                   'API Key 未配置。先 `node scripts/cli.mjs open-portal` 拿 Key，再选三种方式之一配置。'],
-  ['UNKNOWN_SERVER_TYPE',  /未知 server_type/,                                      'server_type 不在可用列表内。先 `cli.mjs` 看 USAGE 列表，按列表填。'],
-  ['UNKNOWN_TOOL_NAME',    /工具名不属于/,                                           'tool_name 不在该 server_type 的工具清单内。按 SKILL.md 和 references/tool-manifest.json 重新选择。'],
-  ['TOOL_MANIFEST_INVALID', /工具清单读取失败/,                                      '本地工具清单文件异常。检查 references/tool-manifest.json。'],
-  ['INVALID_PARAMS_JSON',  /params JSON 解析失败/,                                  '`call` 命令第三参数必须是合法 JSON 字符串。注意 shell 转义（建议外层用单引号包裹整个 JSON）。'],
+  ['TOOL_RUNTIME_ERROR', /TOOL_ERROR|tool.*error|工具.*(执行|运行).*错误|runtime.*error/i, '后端工具运行错误。保留后端原文，先检查请求是否过大或口径是否受支持；不要直接切换工具绕过。'],
+  ['KEY_MISSING', /WIND_API_KEY 未配置/, 'API Key 未配置。先 `node scripts/cli.mjs open-portal` 拿 Key，再选三种方式之一配置。'],
+  ['UNKNOWN_SERVER_TYPE', /未知 server_type/, 'server_type 不在可用列表内。先 `cli.mjs` 看 USAGE 列表，按列表填。'],
+  ['UNKNOWN_TOOL_NAME', /工具名不属于/, 'tool_name 不在该 server_type 的工具清单内。按 SKILL.md 和 references/tool-manifest.json 重新选择。'],
+  ['TOOL_MANIFEST_INVALID', /工具清单读取失败/, '本地工具清单文件异常。检查 references/tool-manifest.json。'],
+  ['INVALID_PARAMS_JSON', /params JSON 解析失败/, '`call` 命令第三参数必须是合法 JSON 字符串。注意 shell 转义（建议外层用单引号包裹整个 JSON）。'],
 ];
 
 // 错误 message 可能来自 HTTP、JSON-RPC 或工具内嵌 JSON，统一映射成稳定错误码。
@@ -464,13 +517,25 @@ function appendFallbackHint(code, hint, server_type) {
 }
 
 function buildErrorObject(code, backendMsg, ctx = {}) {
-  const { server_type, apiKey, extraHint } = ctx;
+  const {
+    server_type,
+    apiKey,
+    extraHint
+  } = ctx;
   const hint = appendFallbackHint(code, extraHint || getErrorHint(code), server_type);
   const context = {
-    ...(server_type ? { server_type } : {}),
-    ...(ctx.tool ? { tool: ctx.tool } : {}),
-    ...(apiKey ? { api_key_masked: maskKey(apiKey) } : {}),
-    ...(ctx.available_tools ? { available_tools: ctx.available_tools } : {}),
+    ...(server_type ? {
+      server_type
+    } : {}),
+    ...(ctx.tool ? {
+      tool: ctx.tool
+    } : {}),
+    ...(apiKey ? {
+      api_key_masked: maskKey(apiKey)
+    } : {}),
+    ...(ctx.available_tools ? {
+      available_tools: ctx.available_tools
+    } : {}),
   };
   return {
     code,
@@ -480,7 +545,9 @@ function buildErrorObject(code, backendMsg, ctx = {}) {
     retryable: RETRYABLE_CODES.has(code),
     fallback_allowed: fallbackAllowed(code, server_type),
     agent_action: AGENT_ACTIONS[code] || AGENT_ACTIONS.UNKNOWN,
-    ...(Object.keys(context).length ? { context } : {}),
+    ...(Object.keys(context).length ? {
+      context
+    } : {}),
   };
 }
 
@@ -490,7 +557,9 @@ function parseSSE(text) {
   const trimmed = text.trim();
   // 后端正常返回 SSE，部分错误场景直接返回纯 JSON。
   if (trimmed.startsWith('{')) {
-    try { return JSON.parse(trimmed); } catch {}
+    try {
+      return JSON.parse(trimmed);
+    } catch {}
   }
   const lines = text.split(/\r?\n/);
   let last = null;
@@ -498,7 +567,9 @@ function parseSSE(text) {
     if (line.startsWith('data: ')) last = line.slice(6);
   }
   if (last) {
-    try { return JSON.parse(last); } catch (e) {
+    try {
+      return JSON.parse(last);
+    } catch (e) {
       throw new Error(`SSE data 行 JSON 解析失败：${e.message}。原文前 200 字符：${text.slice(0, 200)}`);
     }
   }
@@ -506,16 +577,18 @@ function parseSSE(text) {
 }
 
 const HTTP_ERROR_MAP = {
-  401: ['KEY_INVALID',          'API Key 无效或过期 → 开发者中心重新生成'],
+  401: ['KEY_INVALID', 'API Key 无效或过期 → 开发者中心重新生成'],
   403: ['KEY_FORBIDDEN_SERVER', 'API Key 权限不足或该 server 未订阅 → 开发者中心确认'],
-  429: ['RATE_LIMIT_QPS',       '请求过于频繁 → 等几秒重试'],
-  500: ['SERVER_5XX',           '服务端异常 → 稍后重试或查 status.wind.com.cn'],
-  502: ['SERVER_5XX',           '网关异常 → 稍后重试'],
-  503: ['SERVER_5XX',           '服务暂不可用 → 稍后重试'],
-  504: ['SERVER_5XX',           '网关超时 → 稍后重试，或减小请求复杂度'],
+  429: ['RATE_LIMIT_QPS', '请求过于频繁 → 等几秒重试'],
+  500: ['SERVER_5XX', '服务端异常 → 稍后重试或查 status.wind.com.cn'],
+  502: ['SERVER_5XX', '网关异常 → 稍后重试'],
+  503: ['SERVER_5XX', '服务暂不可用 → 稍后重试'],
+  504: ['SERVER_5XX', '网关超时 → 稍后重试，或减小请求复杂度'],
 };
 
-async function mcpRequest(server_type, method, params, { timeoutMs = 60_000 } = {}) {
+async function mcpRequest(server_type, method, params, {
+  timeoutMs = 60_000
+} = {}) {
   const server = getServer(server_type);
   const apiKey = getApiKey();
   const headers = {
@@ -524,7 +597,12 @@ async function mcpRequest(server_type, method, params, { timeoutMs = 60_000 } = 
     'Content-Type': 'application/json',
   };
 
-  const body = JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params });
+  const body = JSON.stringify({
+    jsonrpc: '2.0',
+    id: Date.now(),
+    method,
+    params
+  });
   let resp;
   try {
     resp = await fetch(server.endpoint, {
@@ -535,7 +613,8 @@ async function mcpRequest(server_type, method, params, { timeoutMs = 60_000 } = 
     });
   } catch (err) {
     die('NETWORK_ERROR', err.message, {
-      server_type, apiKey,
+      server_type,
+      apiKey,
       extraHint: '网络不通 / DNS 解析失败 / 代理拦截 / 超时。检查网络后重试。',
     });
   }
@@ -544,7 +623,11 @@ async function mcpRequest(server_type, method, params, { timeoutMs = 60_000 } = 
     const bodyText = await resp.text().catch(() => '');
     const [code, hint] = HTTP_ERROR_MAP[resp.status] || ['UNKNOWN', '检查参数构造'];
     const detail = `HTTP ${resp.status} ${resp.statusText}` + (bodyText ? ` | body: ${bodyText.slice(0, 200)}` : '');
-    die(code, detail, { server_type, apiKey, extraHint: hint });
+    die(code, detail, {
+      server_type,
+      apiKey,
+      extraHint: hint
+    });
   }
 
   const text = await resp.text();
@@ -553,36 +636,53 @@ async function mcpRequest(server_type, method, params, { timeoutMs = 60_000 } = 
     payload = parseSSE(text);
   } catch (err) {
     die('RESPONSE_PARSE_ERROR', err.message, {
-      server_type, apiKey,
+      server_type,
+      apiKey,
       extraHint: '响应格式异常，可能是后端版本变更。把后端原文发给万得支持。',
     });
   }
 
   if (payload.error) {
     const msg = payload.error.message || JSON.stringify(payload.error);
-    die('MCP_PROTOCOL_ERROR', msg, { server_type, apiKey });
+    die('MCP_PROTOCOL_ERROR', msg, {
+      server_type,
+      apiKey
+    });
   }
 
   if (payload.result?.isError) {
     const msg = payload.result.content?.[0]?.text || JSON.stringify(payload.result);
-    die(inferErrorCode(msg), msg, { server_type, apiKey });
+    die(inferErrorCode(msg), msg, {
+      server_type,
+      apiKey
+    });
   }
 
   // 部分工具把业务错误包在 content[0].text 的 JSON 字符串里，必须二次解析。
   const innerText = payload.result?.content?.[0]?.text;
   if (typeof innerText === 'string') {
     let inner;
-    try { inner = JSON.parse(innerText); } catch { inner = null; }
+    try {
+      inner = JSON.parse(innerText);
+    } catch {
+      inner = null;
+    }
     if (inner) {
       if (typeof inner.mcp_tool_error_code === 'number' && inner.mcp_tool_error_code !== 0) {
         const msg = inner.mcp_tool_error_msg || JSON.stringify(inner);
-        die(inferErrorCode(msg), msg, { server_type, apiKey });
+        die(inferErrorCode(msg), msg, {
+          server_type,
+          apiKey
+        });
       }
       if (inner.error && (inner.error.code || inner.error.message)) {
         const errCode = inner.error.code || '';
         const errMsg = inner.error.message || '';
         const combined = errCode ? `${errCode}: ${errMsg}` : errMsg;
-        die(inferErrorCode(combined), combined, { server_type, apiKey });
+        die(inferErrorCode(combined), combined, {
+          server_type,
+          apiKey
+        });
       }
     }
   }
@@ -594,10 +694,17 @@ async function mcpInitializeAndCall(server_type, method, params) {
   await mcpRequest(server_type, 'initialize', {
     protocolVersion: '2025-03-26',
     capabilities: {},
-    clientInfo: { name: 'wind-mcp-skill', version: SKILL_VERSION },
-  }, { timeoutMs: 30_000 });
+    clientInfo: {
+      name: 'wind-mcp-skill',
+      version: SKILL_VERSION
+    },
+  }, {
+    timeoutMs: 30_000
+  });
 
-  return mcpRequest(server_type, method, params, { timeoutMs: 600_000 });
+  return mcpRequest(server_type, method, params, {
+    timeoutMs: 600_000
+  });
 }
 
 // ───── 命令 ─────
@@ -646,8 +753,14 @@ async function cmdSetupKey(...rawArgs) {
   let scope = null;
   for (let i = 1; i < rawArgs.length; i++) {
     const a = rawArgs[i];
-    if (a === '--scope' && rawArgs[i + 1]) { scope = rawArgs[i + 1]; break; }
-    if (a.startsWith('--scope=')) { scope = a.slice(8); break; }
+    if (a === '--scope' && rawArgs[i + 1]) {
+      scope = rawArgs[i + 1];
+      break;
+    }
+    if (a.startsWith('--scope=')) {
+      scope = a.slice(8);
+      break;
+    }
   }
 
   if (!scope) {
@@ -668,7 +781,9 @@ async function cmdSetupKey(...rawArgs) {
   try {
     if (scope === 'global') {
       const dir = join(homedir(), '.wind-aimarket');
-      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+      if (!existsSync(dir)) mkdirSync(dir, {
+        recursive: true
+      });
       file = join(dir, 'config');
       let lines = [];
       if (existsSync(file)) {
@@ -676,15 +791,24 @@ async function cmdSetupKey(...rawArgs) {
           .filter(l => l.length > 0 && !/^\s*(export\s+)?WIND_API_KEY\s*=/.test(l));
       }
       lines.push(`WIND_API_KEY=${key}`);
-      writeFileSync(file, lines.join('\n') + '\n', { mode: 0o600 });
+      writeFileSync(file, lines.join('\n') + '\n', {
+        mode: 0o600
+      });
     } else {
       file = join(SKILL_DIR, 'config.json');
-      writeFileSync(file, JSON.stringify({ wind_api_key: key }, null, 2) + '\n', { mode: 0o600 });
+      writeFileSync(file, JSON.stringify({
+        wind_api_key: key
+      }, null, 2) + '\n', {
+        mode: 0o600
+      });
     }
   } catch (err) {
     die('CONFIG_WRITE_ERROR', `配置写入失败: ${err.message}`, {
       extraHint: '检查目标路径是否可写，或改用 --scope global/skill 的另一种存放位置。',
-      data: { scope, path: file || null },
+      data: {
+        scope,
+        path: file || null
+      },
     });
   }
 
@@ -699,13 +823,24 @@ async function cmdSetupKey(...rawArgs) {
 async function cmdOpenPortal() {
   const platform = process.platform;
   let bin, args;
-  if (platform === 'darwin') { bin = 'open'; args = [PORTAL_URL]; }
-  else if (platform === 'win32') { bin = 'cmd'; args = ['/c', 'start', '', PORTAL_URL]; }
-  else { bin = 'xdg-open'; args = [PORTAL_URL]; }
+  if (platform === 'darwin') {
+    bin = 'open';
+    args = [PORTAL_URL];
+  } else if (platform === 'win32') {
+    bin = 'cmd';
+    args = ['/c', 'start', '', PORTAL_URL];
+  } else {
+    bin = 'xdg-open';
+    args = [PORTAL_URL];
+  }
 
   let spawnError = null;
   try {
-    const child = spawn(bin, args, { stdio: 'ignore', detached: true, windowsHide: true });
+    const child = spawn(bin, args, {
+      stdio: 'ignore',
+      detached: true,
+      windowsHide: true
+    });
     child.unref();
     spawnError = await new Promise((resolve) => {
       child.once('error', resolve);
@@ -755,7 +890,13 @@ const commands = {
 
 if (!cmd) {
   activeCommand = 'help';
-  writeEnvelope({ ok: true, command: 'help', data: { usage: USAGE } });
+  writeEnvelope({
+    ok: true,
+    command: 'help',
+    data: {
+      usage: USAGE
+    }
+  });
   process.exit(0);
 }
 
@@ -765,8 +906,12 @@ if (!commands[cmd]) {
   writeEnvelope({
     ok: false,
     command: cmd,
-    data: { usage: USAGE },
-    error: buildErrorObject('USAGE_ERROR', `未知命令: ${cmd}`, { extraHint: '按 data.usage 选择可用命令后重试。' }),
+    data: {
+      usage: USAGE
+    },
+    error: buildErrorObject('USAGE_ERROR', `未知命令: ${cmd}`, {
+      extraHint: '按 data.usage 选择可用命令后重试。'
+    }),
   });
   process.exit(1);
 }
@@ -778,7 +923,12 @@ if (cmd === 'call') {
 commands[cmd]()
   .then((data) => {
     const notices = cmd === 'call' ? collectUpdateNotices() : [];
-    writeEnvelope({ ok: true, command: cmd, data, notices });
+    writeEnvelope({
+      ok: true,
+      command: cmd,
+      data,
+      notices
+    });
   })
   .catch((err) => {
     die('UNKNOWN', `执行失败：${err.message || err}`, {
