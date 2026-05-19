@@ -57,7 +57,7 @@ const TOOL_MANIFEST_PATH = join(SKILL_DIR, 'references', 'tool-manifest.json');
 const SKILL_NAME = 'wind-mcp-skill';
 
 const CALL_EXAMPLES = [
-  `cli.mjs call stock_data get_stock_basicinfo '{"question":"600519.SH 公司基本档案"}'`,
+  `cli.mjs call stock_data get_stock_basicinfo '{"question":"600519.SH公司基本档案"}'`,
   `cli.mjs call stock_data get_stock_price_indicators '{"windcode":"600519.SH","indexes":"中文简称,最新成交价,涨跌幅"}'`,
   `cli.mjs call fund_data get_fund_kline '{"windcode":"588200.SH","begin_date":"20260401","end_date":"20260430"}'`,
   `cli.mjs call global_stock_data get_global_stock_quote '{"windcode":"AAPL.O"}'`,

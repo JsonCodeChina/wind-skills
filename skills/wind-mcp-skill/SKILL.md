@@ -72,7 +72,7 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 
 ### CLI JSON 输出契约
 
-`cli.mjs` 的主输出固定为 **stdout JSON envelope**，不要再从 stderr 解析错误、帮助或更新提示。
+`cli.mjs` 的主输出固定为 **stdout JSON envelope**，不要再从 stderr 解析错误、帮助或更新提示。`scripts/update-check.mjs` 是内部异步探活脚本，不是 Agent 调用入口。
 
 1. `ok`：判断主命令成功或失败。
 2. `ok:true` 时读取 `data.result`；业务 JSON 通常在 `data.result.content[0].text` 中。
@@ -476,9 +476,9 @@ cli.mjs 大部分错误会自动输出结构化 JSON。只解析 stdout，不从
 
 ## 8. 保持最新
 
-每次调用 cli.mjs 后，留意 stdout JSON 的 `notices` 数组。
+每次调用 `cli.mjs call` 后，留意 stdout JSON 的 `notices` 数组；更新检查异步写缓存，首次调用不保证立刻出现最新提示。
 
-- `type="update_available"`：会话首次必须转告用户一次（同会话再次调用不重复），把 `items[].upgrade_command` 完整带给用户，命令已含 `-g -y` 等参数，直接照搬即可。Gitee 装的 skill 升级路径跟 GitHub 不同，按 `upgrade_command` 走。
+- `type="update_available"`：同一会话首次看到时转告用户一次；优先照搬 `items[].upgrade_command`，Gitee / GitHub 升级路径以该字段为准。
 - `type="update_check_failed"` / `type="update_check_unknown"`：只是更新检查提醒，不影响当前 Wind 数据调用；可简要告知用户，不能当作主调用失败。
 
-⚠️ 如遇"工具不存在 / 字段不符"等疑似版本相关错误，先按本文档工具清单、工具表和 stdout JSON 的 `error.agent_action` / `error.context` 重新检查 `server_type` / `tool_name` / `params_json` 并重试一次；检查仍不通过或确认本地 schema 与文档不一致后，再建议用户跑 `npx skills update -g -y` 拉最新后重试。
+⚠️ 如遇"工具不存在 / 字段不符"等疑似版本相关错误，先按本文档工具清单、工具表和 stdout JSON 的 `error.agent_action` / `error.context` 重新检查并重试一次；仍不通过且无 `upgrade_command` 时，再建议 `npx skills update -g -y`。
