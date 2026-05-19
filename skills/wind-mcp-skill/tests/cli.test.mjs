@@ -314,3 +314,79 @@ describe('cross-skill notice filtering', () => {
     }
   });
 });
+
+// ───── post-upgrade notice suppression(installedHash 严格相等)─────
+
+describe('post-upgrade notice suppression', () => {
+  afterEach(() => {
+    try { if (existsSync(CACHE_FILE)) unlinkSync(CACHE_FILE); } catch {}
+  });
+
+  // 从本机 lock 读真实 wind-mcp-skill skillFolderHash 和构造真实 lockSignature。
+  // 真实 signature 让 spawnUpdateCheck 异步进程 cache-hit 直接退出,不覆盖我们 seed 的 cache。
+  function getRealLockInfo() {
+    const xdg = process.env.XDG_STATE_HOME;
+    const lockPath = xdg
+      ? join(xdg, 'skills', '.skill-lock.json')
+      : join(homedir(), '.agents', '.skill-lock.json');
+    if (!existsSync(lockPath)) return null;
+    try {
+      const lock = JSON.parse(readFileSync(lockPath, 'utf8'));
+      const entry = lock?.skills?.['wind-mcp-skill'];
+      if (!entry) return null;
+      return {
+        hash: entry.skillFolderHash || null,
+        signature: `${lockPath}|${entry.updatedAt || entry.installedAt || ''}`,
+      };
+    } catch { return null; }
+  }
+
+  function seedV3CacheWithInstalledHash(installedHash, lockSignature) {
+    if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
+    writeFileSync(CACHE_FILE, JSON.stringify({
+      schemaVersion: 3,
+      skills: {
+        'wind-mcp-skill': {
+          status: 'update_available',
+          outdated: [{
+            name: 'wind-mcp-skill',
+            current: installedHash.slice(0, 7),
+            latest: 'newhash',
+            sourceUrl: 'https://github.com/Wind-Information-Co-Ltd/wind-skills.git',
+            host: 'github',
+            installedHash,
+          }],
+          ttlMs: 43200000,
+          lockSignature,
+          lastCheck: new Date().toISOString(),
+        },
+      },
+    }, null, 2));
+  }
+
+  it('PRESERVES notice when cache.installedHash matches lock.skillFolderHash (not upgraded)', () => {
+    const info = getRealLockInfo();
+    if (!info?.hash || !info?.signature) return;  // 本机无 lock 条目时跳过(CI 环境)
+
+    seedV3CacheWithInstalledHash(info.hash, info.signature);
+
+    const json = run(['call', 'stock_data', 'get_stock_basicinfo', '{"question":"600519.SH"}']);
+    const updates = (json.notices || []).filter(n => n.type === 'update_available');
+    assert.equal(updates.length, 1, 'should preserve update_available notice when hash matches');
+    assert.equal(updates[0].items[0].name, 'wind-mcp-skill');
+  });
+
+  it('SUPPRESSES notice when cache.installedHash differs from lock.skillFolderHash (user upgraded)', () => {
+    const info = getRealLockInfo();
+    if (!info?.hash || !info?.signature) return;
+
+    // installedHash 设为一个明显不同的假 hash → 模拟用户已经升级,lock 现在的 hash 是新的
+    const fakeOldHash = '0000000000000000000000000000000000000000';
+    seedV3CacheWithInstalledHash(fakeOldHash, info.signature);
+
+    const json = run(['call', 'stock_data', 'get_stock_basicinfo', '{"question":"600519.SH"}']);
+    const updates = (json.notices || []).filter(n => n.type === 'update_available');
+    assert.equal(updates.length, 0,
+      `should suppress notice after upgrade; got ${JSON.stringify(updates)}`);
+  });
+});

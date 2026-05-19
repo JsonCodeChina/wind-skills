@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, utimesSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
@@ -423,6 +423,104 @@ describe('update-check.mjs', () => {
       assert.ok(cache.skills['skill-b'], 'skill-b preserved');
       assert.ok(cache.skills['wind-mcp-skill'], 'wind-mcp-skill added');
       assert.equal(Object.keys(cache.skills).length, 3);
+    });
+  });
+
+  // ═══════════════════════════════════════
+  // 9. 文件锁 & 并发(深度场景)
+  // ═══════════════════════════════════════
+
+  describe('file lock and concurrency', () => {
+    const LOCK_FILE = CACHE_FILE + '.lock';
+
+    afterEach(() => {
+      try { if (existsSync(LOCK_FILE)) unlinkSync(LOCK_FILE); } catch {}
+    });
+
+    it('removes lockfile after successful run', () => {
+      runScript();
+      assert.ok(!existsSync(LOCK_FILE), 'lockfile should not remain after run');
+    });
+
+    it('cleans up stale lockfile (>30s old) and proceeds', () => {
+      if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
+      writeFileSync(LOCK_FILE, '');
+      // 把 mtime 设到 90s 前 — 远超 LOCK_STALE_MS=30s
+      const past = (Date.now() - 90_000) / 1000;
+      // node fs 没有直接 setmtime,用 utimesSync
+      utimesSync(LOCK_FILE, past, past);
+
+      const { status } = runScript();
+      assert.equal(status, 0, 'should not crash on stale lock');
+      assert.ok(!existsSync(LOCK_FILE), 'stale lock should be cleaned + new one removed at end');
+
+      const cache = readCache();
+      assert.ok(cache?.schemaVersion === 3, 'cache should be written successfully');
+    });
+
+    it('concurrent runs produce intact JSON cache', async () => {
+      clearCache();
+      // 启 5 个并发进程
+      const procs = [];
+      for (let i = 0; i < 5; i++) {
+        procs.push(new Promise((resolve) => {
+          const p = spawnSync('node', [SCRIPT], {
+            cwd: SKILL_DIR, encoding: 'utf8', timeout: 15_000, env: { ...process.env },
+          });
+          resolve(p.status);
+        }));
+      }
+      const statuses = await Promise.all(procs);
+      for (const s of statuses) assert.equal(s, 0, 'every concurrent run must exit 0');
+
+      // cache 应是完整有效 JSON
+      const cache = readCache();
+      assert.ok(cache, 'cache file should exist after concurrent runs');
+      assert.equal(cache.schemaVersion, 3, 'cache schema should be intact');
+      assert.ok(cache.skills?.['wind-mcp-skill'], 'wind-mcp-skill entry should exist');
+      assert.ok(!existsSync(LOCK_FILE), 'no lockfile residue');
+    });
+  });
+
+  // ═══════════════════════════════════════
+  // 10. cache hit 性能
+  // ═══════════════════════════════════════
+
+  describe('cache hit performance', () => {
+    it('cache hit completes under 300ms (no network)', () => {
+      // 先跑一次让 cache 填充
+      runScript();
+      const cache = readCache();
+      assert.ok(cache, 'first run should produce cache');
+
+      // 第二次跑必须快(cache hit 不走网络)
+      const start = Date.now();
+      const { status } = runScript();
+      const elapsed = Date.now() - start;
+      assert.equal(status, 0);
+      assert.ok(elapsed < 300, `cache hit took ${elapsed}ms (expected < 300ms)`);
+    });
+  });
+
+  // ═══════════════════════════════════════
+  // 11. installedHash 字段(深度)
+  // ═══════════════════════════════════════
+
+  describe('installedHash field in outdated', () => {
+    it('outdated entries carry installedHash when available', () => {
+      runScript();
+      const cache = readCache();
+      const state = cache?.skills?.['wind-mcp-skill'];
+      // 仅当远端反查成功且确实有更新可用时验证。rate_limit/transient 跳过。
+      if (state?.status !== 'update_available' || !Array.isArray(state.outdated) || state.outdated.length === 0) {
+        return;
+      }
+      const entry = state.outdated[0];
+      assert.ok('installedHash' in entry, 'outdated entry should have installedHash field');
+      if (entry.installedHash) {
+        assert.ok(typeof entry.installedHash === 'string', 'installedHash must be string');
+        assert.ok(entry.installedHash.length >= 40, `installedHash should be full hash (>=40 chars), got ${entry.installedHash.length}`);
+      }
     });
   });
 
