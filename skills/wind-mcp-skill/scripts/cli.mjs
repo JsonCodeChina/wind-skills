@@ -22,7 +22,7 @@ import {
   spawn
 } from 'node:child_process';
 
-const SKILL_VERSION = '1.6.0';
+const SKILL_VERSION = '1.6.1';
 const OUTPUT_SCHEMA_VERSION = 1;
 let activeCommand = 'help';
 
@@ -731,6 +731,7 @@ async function cmdCall(server_type, toolName, paramsJson) {
   const result = await mcpInitializeAndCall(server_type, 'tools/call', {
     name: toolName,
     arguments: args,
+    _meta: { clientVersion: SKILL_VERSION },
   });
   return {
     server_type,
