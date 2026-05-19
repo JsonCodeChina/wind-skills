@@ -2,11 +2,12 @@
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, dirname, resolve } from "node:path";
+import { join, dirname, resolve, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 
 const SKILL_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
+const SKILL_NAME = basename(SKILL_DIR);
 const UPDATE_CHECK_PATH = join(SKILL_DIR, "scripts", "update-check.mjs");
 const UPDATE_STATE_FILE = join(homedir(), ".cache", "wind-aifinmarket", "update-state.json");
 
@@ -66,11 +67,35 @@ function filterAlreadyUpgraded(outdated) {
   });
 }
 
+function readCacheView() {
+  if (!existsSync(UPDATE_STATE_FILE)) return null;
+  try {
+    const raw = JSON.parse(readFileSync(UPDATE_STATE_FILE, "utf8"));
+    if (raw?.schemaVersion === 3 && raw?.skills && typeof raw.skills === "object") {
+      return { raw, state: raw.skills[SKILL_NAME] || null, isV3: true };
+    }
+    return { raw, state: raw, isV3: false };
+  } catch {
+    return null;
+  }
+}
+
+function writeCacheView(view, newState) {
+  try {
+    if (view.isV3) {
+      view.raw.skills[SKILL_NAME] = newState;
+      writeFileSync(UPDATE_STATE_FILE, JSON.stringify(view.raw, null, 2));
+    } else {
+      writeFileSync(UPDATE_STATE_FILE, JSON.stringify(newState, null, 2));
+    }
+  } catch {}
+}
+
 export function maybePrintUpdateNotice() {
   try {
-    if (!existsSync(UPDATE_STATE_FILE)) return;
-    const original = JSON.parse(readFileSync(UPDATE_STATE_FILE, "utf8"));
-    let state = original;
+    const view = readCacheView();
+    if (!view || !view.state) return;
+    let state = view.state;
 
     if (
       state.status === "update_available" &&
@@ -84,18 +109,14 @@ export function maybePrintUpdateNotice() {
           ttlMs: 60 * 60 * 1000,
           lastCheck: new Date().toISOString(),
         };
-        if (original.snoozedUntil) state.snoozedUntil = original.snoozedUntil;
-        if (typeof original.snoozeLevel === "number") {
-          state.snoozeLevel = original.snoozeLevel;
+        if (view.state.snoozedUntil) state.snoozedUntil = view.state.snoozedUntil;
+        if (typeof view.state.snoozeLevel === "number") {
+          state.snoozeLevel = view.state.snoozeLevel;
         }
-        try {
-          writeFileSync(UPDATE_STATE_FILE, JSON.stringify(state, null, 2));
-        } catch {}
+        writeCacheView(view, state);
       } else if (stillOutdated.length < state.outdated.length) {
         state = { ...state, outdated: stillOutdated };
-        try {
-          writeFileSync(UPDATE_STATE_FILE, JSON.stringify(state, null, 2));
-        } catch {}
+        writeCacheView(view, state);
       }
     }
 
