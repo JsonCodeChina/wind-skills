@@ -2,7 +2,7 @@
 name: wind-mcp-skill
 description: >-
   访问万得 Wind 金融数据。覆盖 A 股 / 港股 / 美股股票行情（最新价 / K 线 / 分钟）与财务基本面（财报 / 股本 / 事件 / 技术指标 / 风险）、ETF / 公募基金行情与全维数据（档案 / 财务 / 持仓 / 业绩 / 持有人 / 管理公司）、指数 / 板块行情与档案 / 基本面 / 技术、债券基本档案 / 发债主体 / 行情估值 / 主体财务、上市公司公告与财经新闻、宏观经济与行业指标。需要 WIND_API_KEY（登录 aimarket.wind.com.cn/#/user/overview 开发者中心获取）。**不包含**：欧股 / 日股、汇率 / 期货盘口、加密货币、非金融数据。
-author: Wind AIFin Market
+author: Wind
 homepage: https://aimarket.wind.com.cn
 auto_invoke: true
 security:
@@ -99,12 +99,12 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 
 > **⚠️ Shell 转义是 `INVALID_PARAMS_JSON` 错误的首要原因。** JSON 第三参数中的双引号和花括号会被不同 shell 差异化处理，必须按当前 shell 类型选择正确写法，否则 JSON 被截断或变形：
 >
-> | Shell                                   | 写法                                                                                                | 示例                                                                                    |
-> | --------------------------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-> | **Bash / Git Bash / WSL**               | 外层单引号包裹，内部双引号无需转义                                                                  | `node scripts/cli.mjs call stock_data get_stock_quote '{"windcode":"600519.SH"}'`       |
-> | **PowerShell 5.x / Windows PowerShell** | 外层单引号包裹，内部每个双引号前加反斜杠 `\"` 转义                                      | `node scripts/cli.mjs call stock_data get_stock_quote '{\"windcode\":\"600519.SH\"}'`   |
-> | **PowerShell stop-parsing**             | `--%` 后不要再套单引号；JSON 内部双引号仍写成 `\"`                                      | `node scripts/cli.mjs call stock_data get_stock_quote --% {\"windcode\":\"600519.SH\"}` |
-> | **cmd.exe**                             | 外层双引号包裹整个 JSON，内部双引号用反斜杠转义                                                     | `node scripts/cli.mjs call stock_data get_stock_quote "{\"windcode\":\"600519.SH\"}"`   |
+> | Shell                                   | 写法                                               | 示例                                                                                    |
+> | --------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------- |
+> | **Bash / Git Bash / WSL**               | 外层单引号包裹，内部双引号无需转义                 | `node scripts/cli.mjs call stock_data get_stock_quote '{"windcode":"600519.SH"}'`       |
+> | **PowerShell 5.x / Windows PowerShell** | 外层单引号包裹，内部每个双引号前加反斜杠 `\"` 转义 | `node scripts/cli.mjs call stock_data get_stock_quote '{\"windcode\":\"600519.SH\"}'`   |
+> | **PowerShell stop-parsing**             | `--%` 后不要再套单引号；JSON 内部双引号仍写成 `\"` | `node scripts/cli.mjs call stock_data get_stock_quote --% {\"windcode\":\"600519.SH\"}` |
+> | **cmd.exe**                             | 外层双引号包裹整个 JSON，内部双引号用反斜杠转义    | `node scripts/cli.mjs call stock_data get_stock_quote "{\"windcode\":\"600519.SH\"}"`   |
 >
 > **不要混用 shell 写法。** PowerShell 中裸写 `'{"windcode":"600519.SH"}'` 或 `--% '{"windcode":"600519.SH"}'` 会导致双引号丢失；PowerShell 5.x 中把 `ConvertTo-Json` 结果作为变量裸传给 Node 也会导致双引号丢失。若不确定当前 shell，先用 `node -e "console.log(process.argv.slice(1))" <params_json>` 回显确认 Node 实际收到的参数。
 >
@@ -130,13 +130,13 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 
 不同自然语言工具的字段名不同，必须以 `## 3. 工具表` 中具体工具的参数表为准；禁止把 `query`、`question`、`metricIdsStr` 互相替换。
 
-| 工具类别             | 入参字段              | 适用工具                                                                                                                                                                                                                                                                                                    |
-| -------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **行情类**           | `{windcode, ...}`     | `get_stock_price_indicators` / `get_stock_kline` / `get_stock_quote` / `get_global_stock_price_indicators` / `get_global_stock_kline` / `get_global_stock_quote` / `get_fund_price_indicators` / `get_fund_kline` / `get_fund_quote` / `get_index_price_indicators` / `get_index_kline` / `get_index_quote` |
-| **专项 NL 类**       | `{question, lang?}`   | `stock_data` / `global_stock_data` / `fund_data` / `index_data` / `bond_data` 的 NL 工具                                                                                                                                                                                                                    |
-| **文档 RAG**         | `{query, top_k?}`     | `financial_docs.get_company_announcements` / `financial_docs.get_financial_news`                                                                                                                                                                                                                            |
-| **宏观 EDB**         | `{metricIdsStr, ...}` | `economic_data.get_economic_data`                                                                                                                                                                                                                                                                           |
-| **通用结构化取数**   | `{question, lang?}`   | `analytics_data.get_financial_data`                                                                                                                                                                                                                                                                         |
+| 工具类别           | 入参字段              | 适用工具                                                                                                                                                                                                                                                                                                    |
+| ------------------ | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **行情类**         | `{windcode, ...}`     | `get_stock_price_indicators` / `get_stock_kline` / `get_stock_quote` / `get_global_stock_price_indicators` / `get_global_stock_kline` / `get_global_stock_quote` / `get_fund_price_indicators` / `get_fund_kline` / `get_fund_quote` / `get_index_price_indicators` / `get_index_kline` / `get_index_quote` |
+| **专项 NL 类**     | `{question, lang?}`   | `stock_data` / `global_stock_data` / `fund_data` / `index_data` / `bond_data` 的 NL 工具                                                                                                                                                                                                                    |
+| **文档 RAG**       | `{query, top_k?}`     | `financial_docs.get_company_announcements` / `financial_docs.get_financial_news`                                                                                                                                                                                                                            |
+| **宏观 EDB**       | `{metricIdsStr, ...}` | `economic_data.get_economic_data`                                                                                                                                                                                                                                                                           |
+| **通用结构化取数** | `{question, lang?}`   | `analytics_data.get_financial_data`                                                                                                                                                                                                                                                                         |
 
 ---
 
@@ -240,14 +240,14 @@ node scripts/cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","b
 
 入参 `lang?: "English" | "中文"`，默认 `"中文"`。
 
-| 工具                       | 说明                                                            | question 示例                         |
-| -------------------------- | --------------------------------------------------------------- | ------------------------------------- |
-| `get_stock_basicinfo`      | 公司档案（信息 / 主营 / 行业 / IPO 上市板）                     | `"600519.SH公司基本档案"`            |
-| `get_stock_fundamentals`   | 财务（盈利 / 资产负债 / 利润 / 现金流 / 增长率 / 银行业专项）   | `"贵州茅台2024年ROE和净利润增速"`   |
-| `get_stock_equity_holders` | 股本 + 股东（总股本 / 流通 / 前十大 / 实控人 / 限售）           | `"贵州茅台前十大股东"`                |
-| `get_stock_events`         | 事件 + 资本运作（IPO / 增发 / 配股 / 并购 / ST / 分红）         | `"宁德时代2024年增发和并购事件"`      |
-| `get_stock_technicals`     | 技术指标时间序列（MACD / KDJ / RSI / BOLL / 融资融券 / 龙虎榜） | `"贵州茅台近60日MACD走势"`            |
-| `get_risk_metrics`         | 风险指标（Beta / Jensen Alpha / 波动率 / Sharpe / VaR）         | `"贵州茅台过去1年Beta和波动率"`       |
+| 工具                       | 说明                                                            | question 示例                     |
+| -------------------------- | --------------------------------------------------------------- | --------------------------------- |
+| `get_stock_basicinfo`      | 公司档案（信息 / 主营 / 行业 / IPO 上市板）                     | `"600519.SH公司基本档案"`         |
+| `get_stock_fundamentals`   | 财务（盈利 / 资产负债 / 利润 / 现金流 / 增长率 / 银行业专项）   | `"贵州茅台2024年ROE和净利润增速"` |
+| `get_stock_equity_holders` | 股本 + 股东（总股本 / 流通 / 前十大 / 实控人 / 限售）           | `"贵州茅台前十大股东"`            |
+| `get_stock_events`         | 事件 + 资本运作（IPO / 增发 / 配股 / 并购 / ST / 分红）         | `"宁德时代2024年增发和并购事件"`  |
+| `get_stock_technicals`     | 技术指标时间序列（MACD / KDJ / RSI / BOLL / 融资融券 / 龙虎榜） | `"贵州茅台近60日MACD走势"`        |
+| `get_risk_metrics`         | 风险指标（Beta / Jensen Alpha / 波动率 / Sharpe / VaR）         | `"贵州茅台过去1年Beta和波动率"`   |
 
 #### `global_stock_data` NL（6 个，**港股 / 美股**）
 
@@ -257,14 +257,14 @@ node scripts/cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","b
 
 入参 `lang?: "English" | "中文"`，默认 `"中文"`。
 
-| 工具                              | 说明                                                                           | question 示例                        |
-| --------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------ |
-| `get_global_stock_basicinfo`      | 公司档案（中英文名称 / 注册地 / 经营范围 / 上市交易所 / 行业 / 指数成份）      | `"AAPL.O公司基本档案"`              |
-| `get_global_stock_fundamentals`   | 财务（毛利率 / ROE / 资产 / 利润 / 现金流 / 增长率 / PE / PB / PS / 历史分位） | `"腾讯(00700.HK)2024年ROE和营收"`   |
-| `get_global_stock_equity_holders` | 股本 + 股东（总股本 / 流通 / 主要股东 / 机构持仓 / 限售解禁）                  | `"腾讯(00700.HK)前十大股东"`        |
-| `get_global_stock_events`         | 事件 + 资本运作（IPO / 增发 / 配股 / 并购 / 合规监管 / 分红）                  | `"腾讯(00700.HK)分红历史"`          |
-| `get_global_stock_technicals`     | 技术指标 + 多周期涨跌幅（相对大盘 / MACD / KDJ / RSI / BOLL / 融资融券）       | `"AAPL.O的MACD和RSI"`               |
-| `get_global_stock_risk_metrics`   | 风险指标（Beta / Alpha / 波动率 / Sharpe / 最大回撤 / VaR / 财务安全比率）     | `"AAPL.O过去1年Beta和波动率"`       |
+| 工具                              | 说明                                                                           | question 示例                     |
+| --------------------------------- | ------------------------------------------------------------------------------ | --------------------------------- |
+| `get_global_stock_basicinfo`      | 公司档案（中英文名称 / 注册地 / 经营范围 / 上市交易所 / 行业 / 指数成份）      | `"AAPL.O公司基本档案"`            |
+| `get_global_stock_fundamentals`   | 财务（毛利率 / ROE / 资产 / 利润 / 现金流 / 增长率 / PE / PB / PS / 历史分位） | `"腾讯(00700.HK)2024年ROE和营收"` |
+| `get_global_stock_equity_holders` | 股本 + 股东（总股本 / 流通 / 主要股东 / 机构持仓 / 限售解禁）                  | `"腾讯(00700.HK)前十大股东"`      |
+| `get_global_stock_events`         | 事件 + 资本运作（IPO / 增发 / 配股 / 并购 / 合规监管 / 分红）                  | `"腾讯(00700.HK)分红历史"`        |
+| `get_global_stock_technicals`     | 技术指标 + 多周期涨跌幅（相对大盘 / MACD / KDJ / RSI / BOLL / 融资融券）       | `"AAPL.O的MACD和RSI"`             |
+| `get_global_stock_risk_metrics`   | 风险指标（Beta / Alpha / 波动率 / Sharpe / 最大回撤 / VaR / 财务安全比率）     | `"AAPL.O过去1年Beta和波动率"`     |
 
 #### `fund_data` NL（6 个）
 
@@ -291,11 +291,11 @@ node scripts/cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","b
 
 入参 `lang?: "English" | "中文"`，默认 `"中文"`。
 
-| 工具                     | 说明                                                                      | question 示例                |
-| ------------------------ | ------------------------------------------------------------------------- | ---------------------------- |
-| `get_index_basicinfo`    | 指数档案（发布机构 / 基日 / 基点 / 计算方法 / 成份股数量 / 分类）         | `"沪深300指数档案"`         |
-| `get_index_fundamentals` | 指数基本面（成份股加权 PE / PB / PS / 营收 / 净利润 / 现金流 / 历史分位） | `"沪深300PE/PB历史分位"`    |
-| `get_index_technicals`   | 指数技术指标（多周期涨跌幅 / 趋向 / 反趋向 / 能量 / 量价 / 波动）         | `"中证500的MACD和RSI"`      |
+| 工具                     | 说明                                                                      | question 示例            |
+| ------------------------ | ------------------------------------------------------------------------- | ------------------------ |
+| `get_index_basicinfo`    | 指数档案（发布机构 / 基日 / 基点 / 计算方法 / 成份股数量 / 分类）         | `"沪深300指数档案"`      |
+| `get_index_fundamentals` | 指数基本面（成份股加权 PE / PB / PS / 营收 / 净利润 / 现金流 / 历史分位） | `"沪深300PE/PB历史分位"` |
+| `get_index_technicals`   | 指数技术指标（多周期涨跌幅 / 趋向 / 反趋向 / 能量 / 量价 / 波动）         | `"中证500的MACD和RSI"`   |
 
 #### `bond_data` NL（4 个）
 
@@ -305,12 +305,12 @@ node scripts/cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","b
 
 入参 `lang?: "English" | "中文"`，默认 `"中文"`。
 
-| 工具                      | 说明                                                                        | question 示例                  |
-| ------------------------- | --------------------------------------------------------------------------- | ------------------------------ |
-| `get_bond_basicinfo`      | 基本档案（交易所 / 分类 / 发行日期 / 规模 / 价格 / 票面利率 / 期限 / 兑付） | `"国债2601基本信息"`         |
-| `get_bond_issuer_info`    | 发债主体公司信息（名称 / 注册地 / 行业 / 股权结构 / 企业背景）              | `"国债2601发债主体"`         |
-| `get_bond_market_data`    | 行情数据 + 估值分析（报价 / 估价 / 溢价 / 久期 / 凸性 / 利差）              | `"国债2601久期和凸性"`       |
-| `get_bond_financial_data` | 发债主体财务（营收 / 利润 / 资产 / 负债 + 主体层面财务表现）                | `"国债2601主体2024年营收"`   |
+| 工具                      | 说明                                                                        | question 示例              |
+| ------------------------- | --------------------------------------------------------------------------- | -------------------------- |
+| `get_bond_basicinfo`      | 基本档案（交易所 / 分类 / 发行日期 / 规模 / 价格 / 票面利率 / 期限 / 兑付） | `"国债2601基本信息"`       |
+| `get_bond_issuer_info`    | 发债主体公司信息（名称 / 注册地 / 行业 / 股权结构 / 企业背景）              | `"国债2601发债主体"`       |
+| `get_bond_market_data`    | 行情数据 + 估值分析（报价 / 估价 / 溢价 / 久期 / 凸性 / 利差）              | `"国债2601久期和凸性"`     |
+| `get_bond_financial_data` | 发债主体财务（营收 / 利润 / 资产 / 负债 + 主体层面财务表现）                | `"国债2601主体2024年营收"` |
 
 #### `financial_docs` — 公告 / 新闻（2 个）
 
@@ -319,10 +319,10 @@ node scripts/cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","b
 
 共用入参：
 
-| 字段    | 必填 | 类型   | 说明                                                     |
-| ------- | ---- | ------ | -------------------------------------------------------- |
-| `query` | ✅   | string | 自然语言，如 `"贵州茅台2024年报"` / `"美联储利率政策"`   |
-| `top_k` |      | int    | 返回文档数                                               |
+| 字段    | 必填 | 类型   | 说明                                                   |
+| ------- | ---- | ------ | ------------------------------------------------------ |
+| `query` | ✅   | string | 自然语言，如 `"贵州茅台2024年报"` / `"美联储利率政策"` |
+| `top_k` |      | int    | 返回文档数                                             |
 
 ```bash
 node scripts/cli.mjs call financial_docs get_financial_news '{"query":"美联储利率政策","top_k":5}'
@@ -413,7 +413,7 @@ node scripts/cli.mjs call analytics_data get_financial_data '{"question":"查询
 | 多市场对比（`苹果 vs 腾讯`）            | 美股走 `global_stock_data`，港股走 `global_stock_data`，分别调                                                                                                                                                                                                                                       |
 | 指数行情 vs 指数基本面                  | 行情走 `index_data` 行情类；PE / PB 历史分位走 `get_index_fundamentals`（NL）                                                                                                                                                                                                                        |
 | 债券需要快照？                          | `bond_data` 没有行情类 → 用 `get_bond_market_data`（NL）描述要哪些指标                                                                                                                                                                                                                               |
-| NL `question` / `query` 写法            | **禁止空格**，用标点或直接连接                                                                                                                                                                                                                                                                        |
+| NL `question` / `query` 写法            | **禁止空格**，用标点或直接连接                                                                                                                                                                                                                                                                       |
 
 ---
 
