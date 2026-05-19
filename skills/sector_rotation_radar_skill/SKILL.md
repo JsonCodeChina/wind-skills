@@ -1,4 +1,4 @@
-﻿---
+---
 name: sector_rotation_radar_skill
 description: 识别板块轮动、资金切换与风格迁移方向，帮助判断当前市场主线、补涨方向与轮动持续性。适用于市场风格观察、板块比较、盘后复盘与下一阶段主线判断。
 key words: 板块轮动，sector rotation，风格切换，主线判断，资金迁移

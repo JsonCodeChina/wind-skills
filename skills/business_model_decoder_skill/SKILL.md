@@ -1,4 +1,4 @@
-﻿---
+---
 name: business_model_decoder_skill
 description: 把公司如何获客、交付、定价、赚钱和扩张的逻辑拆解清楚，帮助快速理解业务运转方式。适用于看不懂公司业务、研究前补基础、业务结构梳理等场景。
 key words: 业务模式拆解，business model，公司怎么赚钱，商业模式解读，个股业务理解

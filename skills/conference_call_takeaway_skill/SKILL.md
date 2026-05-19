@@ -1,4 +1,4 @@
-﻿---
+---
 name: conference_call_takeaway_skill
 description: 提炼业绩会中的新信息、管理层语气变化、问答焦点与潜在警讯。适用于听完业绩会、阅读纪要后快速更新观点等场景。
 key words: 业绩会提炼，conference call，业绩会纪要，管理层表态，财报电话会

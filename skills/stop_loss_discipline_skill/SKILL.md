@@ -1,4 +1,4 @@
-﻿---
+---
 name: stop_loss_discipline_skill
 description: 为单笔交易设计价格止损、逻辑止损与时间止损规则，并给出触发后的执行动作与复核顺序。适用于下单前纪律设定、持仓修正与减少犹豫止损场景。
 key words: 止损纪律，stop loss，风控，退出规则，交易纪律

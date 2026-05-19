@@ -1,4 +1,4 @@
-﻿---
+---
 name: sec_filing_question_answer_skill
 description: 从10-K、10-Q、招股书等监管文件中定位依据并回答具体问题。适用于长文档快读、条款核验、经营细节查询与研究答疑等场景。
 key words: 监管文件答疑，filing qa，10-K，10-Q，招股书问答

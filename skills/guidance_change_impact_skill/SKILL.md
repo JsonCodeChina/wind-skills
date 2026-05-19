@@ -1,4 +1,4 @@
-﻿---
+---
 name: guidance_change_impact_skill
 description: 解释业绩指引上修、下修或维持不变的真实含义、可信度与影响链条。适用于管理层更新展望、财报后调预期、经营预警等场景。
 key words: 指引变动，guidance change，业绩指引，指引上修下修，经营展望解读

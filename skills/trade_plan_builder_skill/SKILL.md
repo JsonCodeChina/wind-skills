@@ -1,4 +1,4 @@
-﻿---
+---
 name: trade_plan_builder_skill
 description: 为单笔交易生成包含入场条件、仓位安排、止损止盈、验证节点与应急动作的完整执行计划。适用于下单前预演、候选股比较、盘前计划整理与团队复核场景。
 key words: 交易计划，trade plan，买卖计划，执行预案，风险回报

@@ -1,4 +1,4 @@
-﻿---
+---
 name: major_announcement_impact_skill
 description: 分析并购、减持、定增、重大合同等公告的影响路径、受益受损方与后续风险。适用于突发公告解读、盘后复盘、事件驱动判断等场景。
 key words: 公告影响，major announcement，并购公告，定增解读，重大事项影响

@@ -1,4 +1,4 @@
-﻿---
+---
 name: high_quality_compounder_finder_skill
 description: 筛选具备高资本回报、稳定护城河、长期复利潜力与较强盈利质量的核心候选股，并输出优先级、估值纪律与持续跟踪重点。适用于长线核心仓选股、复利资产池建设、高质量公司比较等场景。
 key words: 高质复利，compounder，长牛股，高ROE，核心仓

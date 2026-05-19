@@ -1,4 +1,4 @@
-﻿---
+---
 name: peer_comparison_decision_skill
 description: 横向比较同业候选公司的业务质量、增长、盈利、估值与催化差异，并给出相对强弱结论。适用于候选股二选一、行业内优中选优、建立优先跟踪顺序等场景。
 key words: 同业比选，peer comparison，候选股对比，二选一，相对强弱
