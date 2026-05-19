@@ -479,6 +479,6 @@ cli.mjs 大部分错误会自动输出结构化 JSON。只解析 stdout，不从
 每次调用 `cli.mjs call` 后，留意 stdout JSON 的 `notices` 数组；更新检查异步写缓存，首次调用不保证立刻出现最新提示。
 
 - `type="update_available"`：同一会话首次看到时转告用户一次；优先照搬 `items[].upgrade_command`，Gitee / GitHub 升级路径以该字段为准。
-- `type="update_check_failed"` / `type="update_check_unknown"`：只是更新检查提醒，不影响当前 Wind 数据调用；可简要告知用户，不能当作主调用失败。
+- `type="update_check_failed"` / `type="update_check_unknown"`：只是更新检查提醒，不影响当前 Wind 数据调用；同一会话首次看到时简要告知用户一次即可，不可重复提示，也不能当作主调用失败。
 
 ⚠️ 如遇"工具不存在 / 字段不符"等疑似版本相关错误，先按本文档工具清单、工具表和 stdout JSON 的 `error.agent_action` / `error.context` 重新检查并重试一次；仍不通过且无 `upgrade_command` 时，再建议 `npx skills update -g -y`。

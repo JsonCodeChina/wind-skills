@@ -81,7 +81,7 @@ npx skills update -g -y
 
 - **轻代码**：核心推荐仍是 markdown + AI 工具能力；Node.js 脚本只做更新提醒
 - **跨 agent 通用**：只要 agent 让 LLM 能 Read 文件 + WebFetch URL 即可
-- 仅写 `~/.cache/wind-aimarket/wind-find-update-state.json` 更新检查缓存，不写业务数据
+- 仅写 `~/.cache/wind-aimarket/update-state.json`（多 skill 共享统一缓存），不写业务数据
 - **平台版本号** 由我们维护，跟 skill 自身 frontmatter version 解耦；改了 monorepo 哪个 skill 就把 skill.md 那一行 +1
 
 ---
