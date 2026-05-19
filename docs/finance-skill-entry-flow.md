@@ -1,8 +1,8 @@
-# Wind AIMarket 金融 Skill 入口流程
+# Wind AIFinMarket 金融 Skill 入口流程
 
 ## 目标
 
-`https://aimarket.wind.com.cn/skill.md` 作为公开入口，只推荐用户安装 `wind-find-finance-skill`。完整能力索引和边界不应长期内置在入口 skill 包里，而应由 `aimarket.wind.com.cn` 提供远程能力中心。
+`https://aifinmarket.wind.com.cn/skill.md` 作为公开入口，只推荐用户安装 `wind-find-finance-skill`。完整能力索引和边界不应长期内置在入口 skill 包里，而应由 `aifinmarket.wind.com.cn` 提供远程能力中心。
 
 用户安装入口 skill 后，客户自己的 Agent 根据远程 `manifest.json` 和必要的 wiki 文档判断该安装 / 调用哪个具体金融 skill。
 
@@ -11,7 +11,7 @@
 ```text
 ┌──────────────────────────────────────────────┐
 │ 1. 公开入口                                  │
-│ https://aimarket.wind.com.cn/skill.md        │
+│ https://aifinmarket.wind.com.cn/skill.md        │
 └───────────────────────┬──────────────────────┘
                         │
                         │ 只推荐安装入口 skill
@@ -36,7 +36,7 @@
                         v
 ┌──────────────────────────────────────────────┐
 │ 5. 入口 skill 拉远程能力地图                 │
-│ https://aimarket.wind.com.cn/skills/manifest.json │
+│ https://aifinmarket.wind.com.cn/skills/manifest.json │
 └───────────────────────┬──────────────────────┘
                         │
                         v
@@ -120,6 +120,6 @@ wiki / index.md
 ## 设计原则
 
 - 完整 wiki 不放进 `wind-find-finance-skill` 包里。
-- 权威能力和边界放在 `aimarket.wind.com.cn`。
+- 权威能力和边界放在 `aifinmarket.wind.com.cn`。
 - 客户自己的 Agent 负责最终判断、安装、调用。
-- Wind AIMarket 负责提供清楚、稳定、机器可读的能力地图。
+- Wind AIFinMarket 负责提供清楚、稳定、机器可读的能力地图。

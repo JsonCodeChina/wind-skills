@@ -1,4 +1,4 @@
-# AIMarket Skill 安装与配置流程
+# AIFinMarket Skill 安装与配置流程
 
 ## 完整流程图
 
@@ -127,13 +127,13 @@
 
 ## 说明
 
-Agent 读取 `skill.md` 后，应先向用户说明 AIMarket 需要一次性安装两个基础能力：
+Agent 读取 `skill.md` 后，应先向用户说明 AIFinMarket 需要一次性安装两个基础能力：
 
 - `wind-find-finance-skill`：用于发现和推荐金融能力。
 - `wind-mcp-skill`：用于连接 Wind 数据底座，执行真实金融取数。
 
 安装前应让用户选择安装范围：当前 agent、指定 agent，或本机所有支持的 agent。`-g` 只表示用户级安装，不等于自动安装到所有 agent；目标 agent 应通过 `--agent` 或安装器支持的选择机制显式指定。
 
-安装完成后，Agent 应主动检查是否存在 `WIND_API_KEY`。如果已配置，就执行轻量取数验证；如果未配置，则引导用户访问 AIMarket 开发者中心获取 Key，并配置到推荐的全局位置。
+安装完成后，Agent 应主动检查是否存在 `WIND_API_KEY`。如果已配置，就执行轻量取数验证；如果未配置，则引导用户访问 AIFinMarket 开发者中心获取 Key，并配置到推荐的全局位置。
 
 配置完成且验证通过后即可开始使用。一般不需要默认要求重启；只有当前 agent 没有识别到新 skill 时，再提示用户刷新或重启对应 agent。

@@ -1,4 +1,4 @@
-# Wind AIMarket 金融 Skill 下一步 TODO
+# Wind AIFinMarket 金融 Skill 下一步 TODO
 
 ## 背景
 
@@ -12,12 +12,12 @@
 
 ## TODO 1：定义 `manifest.json` v1 合约
 
-目标：让 `aimarket.wind.com.cn` 提供一个机器可读的金融能力地图。
+目标：让 `aifinmarket.wind.com.cn` 提供一个机器可读的金融能力地图。
 
 建议路径：
 
 ```text
-https://aimarket.wind.com.cn/skills/manifest.json
+https://aifinmarket.wind.com.cn/skills/manifest.json
 ```
 
 建议最小结构：
@@ -43,7 +43,7 @@ https://aimarket.wind.com.cn/skills/manifest.json
   "markets": ["A股", "港股"],
   "capabilities": ["latest_quote", "kline", "minute_bar", "sector_members"],
   "install": "npx skills add Wind-Information-Co-Ltd/wind-skills --skill wind-quote-skill -g -y",
-  "docs_url": "https://aimarket.wind.com.cn/skills/wiki/skills/wind-quote-skill.md"
+  "docs_url": "https://aifinmarket.wind.com.cn/skills/wiki/skills/wind-quote-skill.md"
 }
 ```
 
@@ -95,7 +95,7 @@ wind-find-finance-skill/
 
 ```text
 route "<用户问题>"
-  -> 拉 https://aimarket.wind.com.cn/skills/manifest.json
+  -> 拉 https://aifinmarket.wind.com.cn/skills/manifest.json
   -> 命中远程 manifest 则使用远程版本
   -> 拉取失败但有缓存，则使用缓存
   -> 拉取失败且无缓存，则使用 fallback-manifest.json
@@ -142,7 +142,7 @@ K 线 -> wind-quote-skill
 等 `manifest.json` 路径稳定后，`skill.md` 应保持很短：
 
 ```text
-这是 Wind AIMarket 金融能力入口。
+这是 Wind AIFinMarket 金融能力入口。
 请安装 wind-find-finance-skill。
 入口 skill 会读取 /skills/manifest.json 判断能力边界。
 ```
@@ -153,7 +153,7 @@ K 线 -> wind-quote-skill
 
 ```text
 1. 定义 manifest.json v1 schema
-2. 在 aimarket.wind.com.cn 发布静态 manifest + wiki
+2. 在 aifinmarket.wind.com.cn 发布静态 manifest + wiki
 3. 改造 wind-find-finance-skill remote-first
 4. 建 routing-cases.json 回归测试
 5. 收敛 skill.md 内容
