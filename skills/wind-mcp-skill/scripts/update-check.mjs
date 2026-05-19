@@ -7,7 +7,7 @@
 // 与 baseline 方案(v1)的区别:
 //   - v1: 用 baseline 文件存"上次远端 SHA",首次 check 把当下当基准 → "装老版本"漏报
 //   - v2: 不用 baseline,反查 lock.updatedAt 时刻的真实 commit,精确对比
-// 统一缓存: ~/.cache/wind-aimarket/update-state.json (schema v3, 多 skill 共享)
+// 统一缓存: ~/.cache/wind-aifinmarket/update-state.json (schema v3, 多 skill 共享)
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, openSync, closeSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const SKILL_NAME = basename(dirname(SCRIPT_DIR));
 
-const CACHE_DIR = join(homedir(), '.cache', 'wind-aimarket');
+const CACHE_DIR = join(homedir(), '.cache', 'wind-aifinmarket');
 const CACHE_FILE = join(CACHE_DIR, 'update-state.json');
 const CACHE_SCHEMA_VERSION = 3;
 

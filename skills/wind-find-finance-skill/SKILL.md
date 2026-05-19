@@ -100,4 +100,4 @@ npx skills add https://gitee.com/wind_info/wind-skills.git --skill <name> -g -y
 
 ## 边界
 
-本 skill 不直接取数、不输出金融事实结论、不写业务数据。更新探活只写 `~/.cache/wind-aimarket/wind-find-update-state.json` 等缓存。`references/skills-catalog.md` 是随 skill 包发布的本地快照；更新通过 `npx skills update -g -y` 完成。
+本 skill 不直接取数、不输出金融事实结论、不写业务数据。更新探活只写 `~/.cache/wind-aifinmarket/wind-find-update-state.json` 等缓存。`references/skills-catalog.md` 是随 skill 包发布的本地快照；更新通过 `npx skills update -g -y` 完成。

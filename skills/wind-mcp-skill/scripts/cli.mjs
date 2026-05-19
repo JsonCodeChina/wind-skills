@@ -68,7 +68,7 @@ const SKILL_DIR = dirname(dirname(fileURLToPath(
   import.meta.url)));
 
 const UPDATE_CHECK_PATH = join(SKILL_DIR, 'scripts', 'update-check.mjs');
-const UPDATE_STATE_FILE = join(homedir(), '.cache', 'wind-aimarket', 'update-state.json');
+const UPDATE_STATE_FILE = join(homedir(), '.cache', 'wind-aifinmarket', 'update-state.json');
 const TOOL_MANIFEST_PATH = join(SKILL_DIR, 'references', 'tool-manifest.json');
 const SKILL_NAME = 'wind-mcp-skill';
 
@@ -404,7 +404,7 @@ function getApiKey() {
     } catch {}
   }
 
-  const globalConfig = join(homedir(), '.wind-aimarket', 'config');
+  const globalConfig = join(homedir(), '.wind-aifinmarket', 'config');
   if (existsSync(globalConfig)) {
     try {
       const env = parseDotenv(readFileSync(globalConfig, 'utf8'));
@@ -781,7 +781,7 @@ async function cmdSetupKey(...rawArgs) {
   let file;
   try {
     if (scope === 'global') {
-      const dir = join(homedir(), '.wind-aimarket');
+      const dir = join(homedir(), '.wind-aifinmarket');
       if (!existsSync(dir)) mkdirSync(dir, {
         recursive: true
       });

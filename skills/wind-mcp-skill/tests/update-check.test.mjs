@@ -9,7 +9,7 @@ import { homedir } from 'node:os';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = join(__dirname, '..');
 const SCRIPT = join(SKILL_DIR, 'scripts', 'update-check.mjs');
-const CACHE_DIR = join(homedir(), '.cache', 'wind-aimarket');
+const CACHE_DIR = join(homedir(), '.cache', 'wind-aifinmarket');
 const CACHE_FILE = join(CACHE_DIR, 'update-state.json');
 
 // ───── Helpers ─────

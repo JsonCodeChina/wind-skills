@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const DEFAULT_API_URL = "https://alice.wind.com.cn/Weaver/ChatAgent";
 const SKILL_DIR = dirname(dirname(fileURLToPath(import.meta.url))); // .../wind-alice
-const WIND_AIMARKET_PORTAL = "https://aifinmarket.wind.com.cn";
+const WIND_AIFINMARKET_PORTAL = "https://aifinmarket.wind.com.cn";
 
 /**
  * 体验账户当日额度耗尽时，服务端会通过 status-update / UIState 里的
@@ -283,7 +283,7 @@ function getApiKey() {
   }
 
   // 全局 Key 存储位置（与其它 wind 技能可共用）
-  const globalConfig = join(homedir(), ".wind-aimarket", "config");
+  const globalConfig = join(homedir(), ".wind-aifinmarket", "config");
   if (existsSync(globalConfig)) {
     try {
       const env = parseDotenv(readFileSync(globalConfig, "utf8"));
@@ -293,9 +293,9 @@ function getApiKey() {
 
   die("KEY_MISSING", "WIND_API_KEY 未配置", {
     extraHint:
-      `① 获取 Key：访问 ${WIND_AIMARKET_PORTAL}（未登录通常会跳转登录页）。\n` +
+      `① 获取 Key：访问 ${WIND_AIFINMARKET_PORTAL}（未登录通常会跳转登录页）。\n` +
       `② 选择 Key 存放位置：\n` +
-      `   A. 全局共享【推荐 — 所有 wind skill 共用】：%USERPROFILE%\\.wind-aimarket\\config\n` +
+      `   A. 全局共享【推荐 — 所有 wind skill 共用】：%USERPROFILE%\\.wind-aifinmarket\\config\n` +
       `      内容：WIND_API_KEY=<KEY>\n` +
       `   B. 仅当前 skill：${join(SKILL_DIR, "config.json")}\n` +
       `      内容：{"wind_api_key":"<KEY>"}\n` +
@@ -462,7 +462,7 @@ function usage() {
     "",
     "Config:",
     `  ${join(SKILL_DIR, "config.json")}   (JSON: {"wind_api_key":"..."})`,
-    `  ${join(homedir(), ".wind-aimarket", "config")}  (dotenv: WIND_API_KEY=...)`,
+    `  ${join(homedir(), ".wind-aifinmarket", "config")}  (dotenv: WIND_API_KEY=...)`,
   ].join("\n");
 }
 
@@ -732,9 +732,9 @@ const KEY_MISSING_CODE = -32603;
 function dieKeyMissing() {
   die("KEY_MISSING", "WIND_API_KEY 未配置或已失效", {
     extraHint:
-      `① 获取 Key：访问 ${WIND_AIMARKET_PORTAL}（未登录通常会跳转登录页）。\n` +
+      `① 获取 Key：访问 ${WIND_AIFINMARKET_PORTAL}（未登录通常会跳转登录页）。\n` +
       `② 选择 Key 存放位置：\n` +
-      `   A. 全局共享【推荐 — 所有 wind skill 共用】：%USERPROFILE%\\.wind-aimarket\\config\n` +
+      `   A. 全局共享【推荐 — 所有 wind skill 共用】：%USERPROFILE%\\.wind-aifinmarket\\config\n` +
       `      内容：WIND_API_KEY=<KEY>\n` +
       `   B. 仅当前 skill：${join(SKILL_DIR, "config.json")}\n` +
       `      内容：{"wind_api_key":"<KEY>"}\n` +

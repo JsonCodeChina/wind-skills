@@ -10,7 +10,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = join(__dirname, '..');
 const CLI = join(SKILL_DIR, 'scripts', 'cli.mjs');
 const MANIFEST_PATH = join(SKILL_DIR, 'references', 'tool-manifest.json');
-const CACHE_DIR = join(homedir(), '.cache', 'wind-aimarket');
+const CACHE_DIR = join(homedir(), '.cache', 'wind-aifinmarket');
 const CACHE_FILE = join(CACHE_DIR, 'update-state.json');
 
 // Run CLI, return parsed JSON stdout. env overrides merged onto process.env.

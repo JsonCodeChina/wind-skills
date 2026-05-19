@@ -8,7 +8,7 @@ import { spawn } from "node:child_process";
 
 const SKILL_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
 const UPDATE_CHECK_PATH = join(SKILL_DIR, "scripts", "update-check.mjs");
-const UPDATE_STATE_FILE = join(homedir(), ".cache", "wind-aimarket", "update-state.json");
+const UPDATE_STATE_FILE = join(homedir(), ".cache", "wind-aifinmarket", "update-state.json");
 
 export function spawnUpdateCheck() {
   try {
