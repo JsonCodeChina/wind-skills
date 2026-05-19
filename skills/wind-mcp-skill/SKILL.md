@@ -87,6 +87,12 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 4. `error.hint`：错误原因和补充解释，不得单独覆盖 `agent_action`。
 5. `error.context`：候选工具、server、tool 等上下文。
 
+强制错误动作：
+
+- 若 `error.code == "KEY_MISSING"`，必须立即执行 `node <skill_dir>/scripts/cli.mjs open-portal` 打开开发者中心；不得只把命令或 URL 发给用户。执行后，把返回的 `url` / `flow_note` / `fallback_message` 简短转述给用户，并等待用户提供 Key。
+- 若 `open-portal` 命令本身失败，才允许把 `https://aimarket.wind.com.cn/#/user/overview` 作为手动 fallback 发给用户。
+- 用户提供 Key 后，必须询问或沿用用户已明确的存放范围，执行 `node <skill_dir>/scripts/cli.mjs setup-key <KEY> --scope <global|skill>`，然后重试原始数据调用。
+
 `call` 成功时 CLI 只返回一份原始 MCP `data.result`，不再同时返回 `data.parsed`；若 `data.result.content[0].text` 是 JSON 字符串，Agent 自行解析，否则按原始文本处理。
 
 错误码字典见 `references/error-codes.json`。
@@ -118,7 +124,7 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 
 ### API Key
 
-报 `KEY_MISSING` 时读取 stdout JSON 中的 `error.agent_action` / `error.hint` 配置即可（程序自动按多种方式查找 Key）；需要拿 Key 跑 `node scripts/cli.mjs open-portal` 自动打开开发者中心。
+报 `KEY_MISSING` 时读取 stdout JSON 中的 `error.agent_action` / `error.hint`，并强制先执行 `node scripts/cli.mjs open-portal` 自动打开开发者中心；不得只提示用户自行打开。拿到 Key 后执行 `node scripts/cli.mjs setup-key <KEY> --scope <global|skill>` 配置（程序自动按多种方式查找 Key），然后重试原调用。
 
 ### 入参签名按工具确定
 
