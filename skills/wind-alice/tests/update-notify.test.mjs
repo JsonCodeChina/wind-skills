@@ -257,6 +257,68 @@ describe('update-notify.mjs — readCacheView v3 support', () => {
   });
 });
 
+describe('update-notify.mjs — legacy v2 filter', () => {
+  afterEach(removeCache);
+
+  it('v2 cache: filters out other skill outdated items', async () => {
+    // v2 flat cache with outdated items from OTHER skills only
+    const v2Cache = {
+      status: 'update_available',
+      ttlMs: 43200000,
+      lastCheck: new Date().toISOString(),
+      outdated: [{
+        name: 'wind-mcp-skill',
+        current: 'abc',
+        latest: 'def',
+        sourceUrl: 'https://github.com/foo/bar',
+      }],
+    };
+    writeCache(v2Cache);
+    const captured = await runMaybePrintNotice(v2Cache);
+    assert.equal(captured, '', 'Should not print notices for other skills in v2 cache');
+  });
+
+  it('v2 cache: keeps only wind-alice outdated items', async () => {
+    // v2 flat cache with mixed outdated items
+    const v2Cache = {
+      status: 'update_available',
+      ttlMs: 43200000,
+      lastCheck: new Date().toISOString(),
+      outdated: [
+        { name: 'wind-mcp-skill', current: 'abc', latest: 'def', sourceUrl: 'https://github.com/foo/bar' },
+        { name: 'wind-alice', current: 'aaa', latest: 'bbb', sourceUrl: 'https://github.com/foo/bar' },
+      ],
+    };
+    const captured = await runMaybePrintNotice(v2Cache);
+    assert.ok(!captured.includes('wind-mcp-skill'), 'Should not include other skill in output');
+    assert.ok(captured.includes('wind-alice'), 'Should include wind-alice in output');
+  });
+
+  it('v3 cache: no cross-skill leakage even without legacy filter', async () => {
+    // v3 cache where wind-alice has update_available but with another skill's outdated item
+    // (shouldn't happen in practice, but tests the isolation)
+    const cache = {
+      schemaVersion: 3,
+      skills: {
+        'wind-alice': {
+          status: 'update_available',
+          ttlMs: 43200000,
+          lastCheck: new Date().toISOString(),
+          outdated: [{ name: 'wind-alice', current: 'a', latest: 'b', sourceUrl: 'https://github.com/foo/bar' }],
+        },
+        'wind-mcp-skill': {
+          status: 'up_to_date',
+          ttlMs: 3600000,
+          lastCheck: new Date().toISOString(),
+        },
+      },
+    };
+    const captured = await runMaybePrintNotice(cache);
+    assert.ok(captured.includes('wind-alice'), 'Should include wind-alice');
+    assert.ok(!captured.includes('wind-mcp-skill'), 'Should not include other skill');
+  });
+});
+
 describe('update-notify.mjs — SKILL_NAME detection', () => {
   it('auto-detects skill name from directory', async () => {
     const url = `file://${join(__dirname, '..', 'scripts', 'update-notify.mjs').replace(/\\/g, '/')}?t=${Date.now()}`;
