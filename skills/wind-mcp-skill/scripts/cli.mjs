@@ -148,6 +148,18 @@ function collectUpdateNotices() {
     if (!view || !view.state) return [];
     let state = view.state;
 
+    // 防御:legacy v2 顶层 schema(其他 skill 如 wind-alice 仍用)可能含他人 outdated,
+    // 严格只透传 name===SKILL_NAME 的条目,杜绝跨 skill 通知泄露。v3 path 走
+    // skills[SKILL_NAME] 取节点本就不会含他人,这里主要保护 legacy 兼容路径。
+    if (state.status === 'update_available' && Array.isArray(state.outdated)) {
+      const filtered = state.outdated.filter(o => o?.name === SKILL_NAME);
+      if (filtered.length < state.outdated.length) {
+        state = filtered.length === 0
+          ? { ...state, status: 'up_to_date', outdated: [] }
+          : { ...state, outdated: filtered };
+      }
+    }
+
     // 先修正已升级但缓存仍提示过期的状态，再决定是否返回 notice。
     if (state.status === 'update_available' && Array.isArray(state.outdated) && state.outdated.length > 0) {
       const stillOutdated = filterAlreadyUpgraded(state.outdated);

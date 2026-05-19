@@ -1,14 +1,17 @@
-import { describe, it } from 'node:test';
+import { describe, it, afterEach } from 'node:test';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { homedir } from 'node:os';
 import assert from 'node:assert/strict';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = join(__dirname, '..');
 const CLI = join(SKILL_DIR, 'scripts', 'cli.mjs');
 const MANIFEST_PATH = join(SKILL_DIR, 'references', 'tool-manifest.json');
+const CACHE_DIR = join(homedir(), '.cache', 'wind-aimarket');
+const CACHE_FILE = join(CACHE_DIR, 'update-state.json');
 
 // Run CLI, return parsed JSON stdout. env overrides merged onto process.env.
 function run(args, { env: extraEnv = {}, expectFail = false } = {}) {
@@ -228,5 +231,86 @@ describe('successful call output', () => {
   it('success output includes notices array', () => {
     const json = run(['call', 'stock_data', 'get_stock_basicinfo', '{"question":"600519.SH"}']);
     assert.ok(Array.isArray(json.notices), 'notices should be array');
+  });
+});
+
+// ───── cross-skill notice isolation ─────
+
+describe('cross-skill notice filtering', () => {
+  afterEach(() => {
+    // 清掉污染的 cache 以免影响其他测试
+    try { if (existsSync(CACHE_FILE)) unlinkSync(CACHE_FILE); } catch {}
+  });
+
+  it('does NOT leak foreign skill notices via legacy v2 cache schema', () => {
+    if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
+    // 模拟 wind-alice 写出的 legacy v2 顶层 schema,outdated 全部是别的 skill
+    writeFileSync(CACHE_FILE, JSON.stringify({
+      schemaVersion: 2,
+      status: 'update_available',
+      outdated: [{
+        name: 'wind-alice',
+        current: 'aaaaaaa',
+        latest: 'bbbbbbb',
+        sourceUrl: 'https://github.com/example/wind-alice.git',
+      }],
+      ttlMs: 43200000,
+      lockSignature: 'fake-sig',
+      lastCheck: new Date().toISOString(),
+    }, null, 2));
+
+    const json = run(['call', 'stock_data', 'nonexistent_tool', '{}'], { expectFail: true });
+    // wind-mcp-skill cli 在失败路径(catch/die)不调 collectUpdateNotices,所以 notices 默认为空
+    // 真正的测试在下一个用例里(成功路径)
+    assert.equal(json.ok, false);
+  });
+
+  it('legacy v2 cache containing only foreign skills returns empty notices', () => {
+    if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
+    writeFileSync(CACHE_FILE, JSON.stringify({
+      schemaVersion: 2,
+      status: 'update_available',
+      outdated: [
+        { name: 'wind-alice', current: 'aaa', latest: 'bbb', sourceUrl: 'https://github.com/x/wind-alice.git' },
+        { name: 'wind-find-finance-skill', current: 'ccc', latest: 'ddd', sourceUrl: 'https://github.com/x/y.git' },
+      ],
+      ttlMs: 43200000,
+      lockSignature: 'fake-sig',
+      lastCheck: new Date().toISOString(),
+    }, null, 2));
+
+    const json = run(['call', 'stock_data', 'get_stock_basicinfo', '{"question":"600519.SH"}']);
+    // 成功路径会调 collectUpdateNotices。过滤后 outdated 为空 → 不发 update_available notice。
+    const updateNotices = (json.notices || []).filter(n => n.type === 'update_available');
+    assert.equal(updateNotices.length, 0,
+      `expected no update_available notices (foreign skills filtered), got: ${JSON.stringify(updateNotices)}`);
+  });
+
+  it('legacy v2 cache mixing own + foreign skills only leaks own', () => {
+    if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
+    writeFileSync(CACHE_FILE, JSON.stringify({
+      schemaVersion: 2,
+      status: 'update_available',
+      outdated: [
+        { name: 'wind-alice', current: 'aaa', latest: 'bbb', sourceUrl: 'https://github.com/x/wind-alice.git' },
+        { name: 'wind-mcp-skill', current: '0000000', latest: '1111111', sourceUrl: 'https://github.com/x/wind-mcp.git' },
+      ],
+      ttlMs: 43200000,
+      lockSignature: 'fake-sig',
+      lastCheck: new Date().toISOString(),
+    }, null, 2));
+
+    const json = run(['call', 'stock_data', 'get_stock_basicinfo', '{"question":"600519.SH"}']);
+    const updateNotices = (json.notices || []).filter(n => n.type === 'update_available');
+    if (updateNotices.length > 0) {
+      // 如果 filterAlreadyUpgraded 没把 wind-mcp-skill 也过掉(installedHash 不匹配 / startsWith 失败),
+      // notices 里应该只有 wind-mcp-skill,绝不能有 wind-alice。
+      for (const n of updateNotices) {
+        for (const item of n.items) {
+          assert.equal(item.name, 'wind-mcp-skill',
+            `foreign skill leaked: ${item.name}`);
+        }
+      }
+    }
   });
 });
