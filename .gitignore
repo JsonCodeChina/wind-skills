@@ -1,6 +1,6 @@
 # 用户私密配置（API Key）
 config.json
-.wind-aimarket/
+.wind-aifinmarket/
 
 # Node
 node_modules/
