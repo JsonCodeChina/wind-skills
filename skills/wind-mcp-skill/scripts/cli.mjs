@@ -116,13 +116,26 @@ function spawnUpdateCheck() {
   } catch {}
 }
 
+// global lock 路径(XDG / ~/.agents); 其余视为 project lock。
+// 与 update-check.mjs 中同名函数语义对齐, 用于按 scope 区分 -g 升级命令。
+function globalLockPaths() {
+  const xdg = process.env.XDG_STATE_HOME;
+  return [
+    xdg ? join(xdg, 'skills', '.skill-lock.json') : null,
+    join(homedir(), '.agents', '.skill-lock.json'),
+  ].filter(Boolean);
+}
+
+function classifyLockScope(lockPath) {
+  return globalLockPaths().includes(lockPath) ? 'global' : 'project';
+}
+
+// 按 scope 隔离的 live hash. 返回 { [name]: { global?: hash, project?: hash } }.
+// global 升了 / project 没升 这种半升级状态, filter 必须按 scope 匹配才能正确保留 project 那条。
 function getInstalledHashes() {
   const result = {};
   const candidates = new Set();
-  const xdg = process.env.XDG_STATE_HOME;
-  candidates.add(xdg ?
-    join(xdg, 'skills', '.skill-lock.json') :
-    join(homedir(), '.agents', '.skill-lock.json'));
+  for (const p of globalLockPaths()) candidates.add(p);
   for (const start of [SKILL_DIR, process.cwd()]) {
     let dir = resolve(start);
     while (true) {
@@ -134,11 +147,14 @@ function getInstalledHashes() {
   }
   for (const lockPath of candidates) {
     if (!existsSync(lockPath)) continue;
+    const scope = classifyLockScope(lockPath);
     try {
       const lock = JSON.parse(readFileSync(lockPath, 'utf8'));
       for (const [name, entry] of Object.entries(lock?.skills || {})) {
         const hash = entry?.skillFolderHash || entry?.computedHash;
-        if (hash && !result[name]) result[name] = hash;
+        if (!hash) continue;
+        if (!result[name]) result[name] = {};
+        if (!result[name][scope]) result[name][scope] = hash;
       }
     } catch {}
   }
@@ -148,14 +164,18 @@ function getInstalledHashes() {
 function filterAlreadyUpgraded(outdated) {
   const installed = getInstalledHashes();
   return outdated.filter(o => {
-    const live = installed[o.name];
-    if (!live) return true; // 找不到 lock,保守保留
-    // 优先用同类型的 skillFolderHash 比较（update-check.mjs v2 记录）
-    if (o.installedHash) return live === o.installedHash;
+    const scopeMap = installed[o.name];
+    if (!scopeMap) return true; // 找不到任何 lock,保守保留
+    // outdated 缺 scope (旧缓存) → 跨 scope 取首个可用 hash, 维持原行为
+    const liveHash = o.scope
+      ? scopeMap[o.scope]
+      : (scopeMap.global || scopeMap.project);
+    if (!liveHash) return true; // 该 scope 下没装(异常),保守保留
+    if (o.installedHash) return liveHash === o.installedHash;
     // 兼容旧缓存条目：退化到 shortHash 前缀匹配
     const cur = o.current || '';
     if (!cur) return true;
-    return live.startsWith(cur);
+    return liveHash.startsWith(cur);
   });
 }
 
@@ -246,16 +266,22 @@ export function collectUpdateNotices() {
         severity: 'info',
         message: `检测到 ${state.outdated.length} 个 skill 有新版`,
         items: state.outdated.map((o) => {
-          const isGitee = typeof o.sourceUrl === 'string' && o.sourceUrl.includes('gitee.com');
-          const upgradeCmd = isGitee ?
-            `npx skills add ${o.sourceUrl} --skill ${o.name} -g -y  # Gitee 源不支持 update,需重装` :
-            `npx skills update ${o.name} -g -y`;
+          // scope 决定是否带 -g: global 加, project 不加。
+          // outdated 缺 scope (旧缓存或测试 seed) 时回退 'global' 保兼容。
+          const scope = o.scope || 'global';
+          const scopeFlag = scope === 'global' ? ' -g' : '';
+          const isGitee = o.host === 'gitee'
+            || (typeof o.sourceUrl === 'string' && o.sourceUrl.includes('gitee.com'));
+          const upgradeCmd = isGitee
+            ? `npx skills add ${o.sourceUrl} --skill ${o.name}${scopeFlag} -y  # Gitee 源不支持 update,需重装`
+            : `npx skills update ${o.name}${scopeFlag} -y`;
           return {
             name: o.name,
             current: o.current || null,
             latest: o.latest || null,
             source: isGitee ? 'gitee' : 'github',
             source_url: o.sourceUrl || null,
+            scope,
             upgrade_command: upgradeCmd,
           };
         }),

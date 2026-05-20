@@ -144,12 +144,23 @@ function walkUp(startDir) {
   return dirs;
 }
 
+// global lock 候选路径(XDG / ~/.agents); 其它都视为 project lock。
+// 用于区分升级命令是否带 -g —— global 装的加 -g, project 装的不加。
+function globalLockPaths() {
+  const xdg = process.env.XDG_STATE_HOME;
+  return [
+    xdg ? join(xdg, 'skills', '.skill-lock.json') : null,
+    join(homedir(), '.agents', '.skill-lock.json'),
+  ].filter(Boolean);
+}
+
+function classifyLockScope(lockPath) {
+  return globalLockPaths().includes(lockPath) ? 'global' : 'project';
+}
+
 function findLockFiles() {
   const candidates = new Set();
-  const xdg = process.env.XDG_STATE_HOME;
-  candidates.add(xdg
-    ? join(xdg, 'skills', '.skill-lock.json')
-    : join(homedir(), '.agents', '.skill-lock.json'));
+  for (const p of globalLockPaths()) candidates.add(p);
   for (const dir of walkUp(SCRIPT_DIR)) {
     candidates.add(join(dir, 'skills-lock.json'));
   }
@@ -168,7 +179,7 @@ function collectEntries() {
     try {
       const lock = JSON.parse(readFileSync(lockPath, 'utf8'));
       const entry = lock?.skills?.[SKILL_NAME];
-      if (entry) found.push({ entry, lockPath });
+      if (entry) found.push({ entry, lockPath, scope: classifyLockScope(lockPath) });
     } catch {}
   }
   return found;
@@ -187,13 +198,23 @@ function parseSourceUrl(sourceUrl) {
   return { host, owner: m[1], repo: m[2] };
 }
 
-// v1 lock 没有 sourceUrl, 只有 source 短形式 (如 "wind_info/wind-skills")。
-// 启发式列出候选 URL: 既试 GitHub 也试 Gitee, 哪个能拉到 tree 就用哪个。
+// 解析 entry 的源 URL 候选。优先级:
+//   1. entry.sourceUrl: v3 lock 必有, 直接用 (单候选, 不瞎试)
+//   2. entry.source 是完整 http(s) URL: 直接用
+//   3. entry.source 是短形式 + entry.sourceType 已知:
+//      - sourceType=github → 直接拼 GitHub
+//      - sourceType=git/gitee → 直接拼 Gitee
+//   4. 短形式但缺 sourceType (极旧 v1 lock): 启发式两候选兜底
 function deriveSourceUrlCandidates(entry) {
   if (entry?.sourceUrl) return [entry.sourceUrl];
   if (typeof entry?.source !== 'string' || !entry.source) return [];
   if (/^https?:\/\//.test(entry.source)) return [entry.source];
-  // 短形式 "owner/repo": 试两个常见 host
+
+  const t = entry.sourceType;
+  if (t === 'github') return [`https://github.com/${entry.source}.git`];
+  if (t === 'git' || t === 'gitee') return [`https://gitee.com/${entry.source}.git`];
+
+  // 兜底: sourceType 完全缺失, 两候选都试
   return [
     `https://github.com/${entry.source}.git`,
     `https://gitee.com/${entry.source}.git`,
@@ -278,18 +299,28 @@ function shortHash(h) {
 
 // ───── 通知打印 ─────
 
+// 升级命令拼装。两条规则:
+//   1. scope=global → 加 -g; scope=project → 不加 (项目级安装升级到全局是错的)
+//   2. Gitee 源不支持 update, 退回 add 重装; GitHub 用 update
+// outdated 缺 scope (旧缓存或测试 seed 数据) 时 fallback 'global' 保持兼容。
+export function buildUpgradeCommand(o) {
+  const scope = o.scope || 'global';
+  const scopeFlag = scope === 'global' ? ' -g' : '';
+  const isGitee = o.host === 'gitee'
+    || (typeof o.sourceUrl === 'string' && o.sourceUrl.includes('gitee.com'));
+  return isGitee
+    ? `npx skills add ${o.sourceUrl} --skill ${o.name}${scopeFlag} -y  # Gitee 源不支持 update,需重装`
+    : `npx skills update ${o.name}${scopeFlag} -y`;
+}
+
 function printNotice(state) {
   if (state.snoozedUntil && new Date(state.snoozedUntil) > new Date()) return;
 
   if (state.status === 'update_available') {
     const lines = ['', `[wind-skills] 检测到 ${state.outdated.length} 个 skill 有新版:`];
     for (const o of state.outdated) {
-      const isGitee = typeof o.sourceUrl === 'string' && o.sourceUrl.includes('gitee.com');
-      const upgradeCmd = isGitee
-        ? `npx skills add ${o.sourceUrl} --skill ${o.name} -g -y  # Gitee 源不支持 update,需重装`
-        : `npx skills update ${o.name} -g -y`;
       lines.push(`  • ${o.name.padEnd(34)} ${o.current || '?'} → ${o.latest}`);
-      lines.push(`    升级: ${upgradeCmd}`);
+      lines.push(`    升级: ${buildUpgradeCommand(o)}`);
     }
     lines.push('');
     process.stderr.write(lines.join('\n') + '\n');
@@ -334,7 +365,7 @@ async function main() {
   let transientError = null;
   let rateLimited = false;
 
-  for (const { entry, lockPath } of entries) {
+  for (const { entry, lockPath, scope } of entries) {
     // 1) 解析候选 sourceUrl: v3 lock 有 sourceUrl 直接用; v1 lock 缺 sourceUrl 时
     //    从 source 短形式启发式生成 GitHub/Gitee 两个候选, 试到能拉 tree 的那个为准
     const urlCandidates = deriveSourceUrlCandidates(entry);
@@ -407,6 +438,7 @@ async function main() {
         latest: shortHash(currentSha),
         sourceUrl, host: parsed.host,
         installedHash: entry.skillFolderHash || entry.computedHash || null,
+        scope,
       });
     } else {
       // v1 path: 没有 installedAt, 用 baseline 策略
@@ -428,6 +460,7 @@ async function main() {
         latest: shortHash(currentSha),
         sourceUrl, host: parsed.host,
         installedHash,
+        scope,
       });
     }
   }
