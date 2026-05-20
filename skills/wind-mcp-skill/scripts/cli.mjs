@@ -16,7 +16,8 @@ import {
   resolve
 } from 'node:path';
 import {
-  fileURLToPath
+  fileURLToPath,
+  pathToFileURL,
 } from 'node:url';
 import {
   spawn
@@ -172,7 +173,7 @@ function writeCacheView(view, newState) {
   } catch {}
 }
 
-function collectUpdateNotices() {
+export function collectUpdateNotices() {
   try {
     const view = readCacheView();
     if (!view || !view.state) return [];
@@ -242,73 +243,59 @@ function collectUpdateNotices() {
       }];
     }
 
-    if (state.status === 'transient_error') {
-      return [{
-        type: 'update_check_failed',
-        severity: 'warn',
-        reason: state.reason || 'unknown',
-        message: '检查更新失败，可能是网络问题',
-      }];
-    }
-
-    if (state.status === 'unknown') {
-      return [{
-        type: 'update_check_unknown',
-        severity: 'warn',
-        reason: state.reason || 'unknown',
-        message: '无法确认 wind skills 是否最新',
-      }];
-    }
+    // transient_error / unknown 不进 notices; 也不再走 meta flag(成功路径无 envelope)。
+    // 失败检查的"提示"暂时放弃跨命令传递,只有 update_available 会进 notices。
   } catch {}
   return [];
 }
 
 // ───── 工具函数 ─────
 
-function writeEnvelope({
-  ok,
-  command = activeCommand,
-  data,
-  error,
-  notices = []
-}) {
-  // All agent-facing output must go through this envelope. Keep stderr free for future verbose logs only.
+// 成功路径: `call` 命令透传 MCP result.content[0].text(若是合法 JSON 字符串则 parse 后输出对象,
+// 否则输出文本原样)。其它命令(help / open-portal / setup-key)直接输出它们的结构化数据。
+// 全部不带任何 envelope / meta 包裹。
+function writeRawCallSuccess(result) {
+  const text = result?.content?.[0]?.text;
+  if (typeof text === 'string') {
+    let parsed = null;
+    try { parsed = JSON.parse(text); } catch {}
+    if (parsed !== null && typeof parsed === 'object') {
+      process.stdout.write(JSON.stringify(parsed, null, 2) + '\n');
+      return;
+    }
+    process.stdout.write(text.endsWith('\n') ? text : text + '\n');
+    return;
+  }
+  // 无 content[0].text 退化为整段 result
+  process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+}
+
+function writePlainSuccess(data) {
+  // help / open-portal / setup-key 等结构化输出,直接 JSON
+  process.stdout.write(JSON.stringify(data, null, 2) + '\n');
+}
+
+// 失败路径: 极简 envelope { ok:false, error:{code, agent_action}, notices }
+function writeErrorEnvelope(code, detail) {
   const envelope = {
-    ok,
-    command,
-    ...(data === undefined ? {} : {
-      data
-    }),
-    ...(error ? {
-      error
-    } : {}),
-    notices,
-    meta: {
-      cli_version: SKILL_VERSION,
-      schema_version: OUTPUT_SCHEMA_VERSION
+    ok: false,
+    error: {
+      code,
+      agent_action: buildAgentAction(code, detail),
     },
+    notices: collectUpdateNotices(),
   };
   process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
 }
 
-function die(code, message, ctx = {}, exitCode = 1) {
-  writeEnvelope({
-    ok: false,
-    command: ctx.command || activeCommand,
-    data: ctx.data,
-    error: buildErrorObject(code, message, ctx),
-  });
+function die(code, detail = null, exitCode = 1) {
+  writeErrorEnvelope(code, detail);
   process.exit(exitCode);
 }
 
 function exitWithUsage(usage, exitCode = 0) {
-  die('USAGE_ERROR', '命令用法不正确', {
-    command: activeCommand || 'help',
-    data: {
-      usage
-    },
-    extraHint: '按 data.usage 修正命令参数后重试。',
-  }, exitCode);
+  // USAGE 文本嵌入 agent_action 让 agent 自包含拿到帮助
+  die('USAGE_ERROR', `USAGE:\n${usage}`, exitCode);
 }
 
 function maskKey(key) {
@@ -341,9 +328,7 @@ function parseDotenv(content) {
 function getServer(server_type) {
   const server = SERVERS[server_type];
   if (!server) {
-    die('UNKNOWN_SERVER_TYPE', `未知 server_type: ${server_type}`, {
-      extraHint: `可用 server_type: ${Object.keys(SERVERS).join(' / ')}`,
-    });
+    die('UNKNOWN_SERVER_TYPE', `未知 server_type: ${server_type}. 可用: ${Object.keys(SERVERS).join(' / ')}`);
   }
   return server;
 }
@@ -370,9 +355,7 @@ function loadToolManifest() {
     }
     return manifest;
   } catch (err) {
-    die('TOOL_MANIFEST_INVALID', `工具清单读取失败: ${err.message}`, {
-      extraHint: `检查 ${TOOL_MANIFEST_PATH} 是否存在且为合法 JSON；CLI 以该文件作为 server_type + tool_name 的权威清单。`,
-    });
+    die('TOOL_MANIFEST_INVALID', `工具清单读取失败: ${err.message}`);
   }
 }
 
@@ -381,13 +364,7 @@ function validateToolSelection(server_type, toolName) {
   const manifest = loadToolManifest();
   const tools = manifest[server_type];
   if (!tools.includes(toolName)) {
-    die('UNKNOWN_TOOL_NAME', `工具名不属于 ${server_type}: ${toolName}`, {
-      server_type,
-      tool: toolName,
-      available_tools: tools,
-      extraHint: `请不要继续试错调用。先按 SKILL.md 意图路由重新判断 server_type + tool_name。\n` +
-        `当前 server_type 可用工具: ${tools.join(' / ')}`,
-    });
+    die('UNKNOWN_TOOL_NAME', `工具名 "${toolName}" 不属于 server_type "${server_type}"。`);
   }
 }
 
@@ -412,10 +389,7 @@ function getApiKey() {
     } catch {}
   }
 
-  die('KEY_MISSING', 'WIND_API_KEY 未配置', {
-    extraHint: `先获取 Key：node ${join(SKILL_DIR, 'scripts', 'cli.mjs')} open-portal，或手动访问 ${PORTAL_URL}。\n` +
-      `询问用户选择存放位置后执行：node ${join(SKILL_DIR, 'scripts', 'cli.mjs')} setup-key <KEY> --scope <global|skill>，然后重试原调用。`,
-  });
+  die('KEY_MISSING', 'WIND_API_KEY 未配置');
 }
 
 // ───── 错误码体系 ─────
@@ -444,111 +418,44 @@ function inferErrorCode(msg) {
   return 'UNKNOWN';
 }
 
-function getErrorHint(code, fallback) {
-  for (const [c, , hint] of ERROR_PATTERNS) {
-    if (c === code) return hint;
-  }
-  if (code === 'TOOL_RUNTIME_ERROR') {
-    return '后端工具运行错误。保留后端原文，先检查请求规模、字段口径和数据覆盖；不要直接切换工具绕过。';
-  }
-  return fallback || '未知错误，参考后端原文 + 联系万得支持。';
-}
-
-// Keep these behavior tables compatible with references/error-codes.json.
-// They remain in-file so the CLI can still produce errors if reference files are missing.
-const NO_FALLBACK_CODES = new Set([
-  'INVALID_PARAMS_JSON', 'UNKNOWN_SERVER_TYPE', 'UNKNOWN_TOOL_NAME', 'TOOL_MANIFEST_INVALID', 'UNKNOWN_SCOPE',
-  'USAGE_ERROR', 'OPEN_PORTAL_FAILED', 'CONFIG_WRITE_ERROR', 'KEY_MISSING', 'KEY_INVALID', 'KEY_FORBIDDEN_SERVER',
-  'RATE_LIMIT_DAILY', 'RATE_LIMIT_QPS', 'BALANCE_INSUFFICIENT', 'NETWORK_ERROR',
-  'SERVER_5XX', 'RESPONSE_PARSE_ERROR', 'MCP_PROTOCOL_ERROR', 'TOOL_RUNTIME_ERROR', 'UNKNOWN',
-]);
-const RETRYABLE_CODES = new Set(['RATE_LIMIT_QPS', 'NETWORK_ERROR', 'SERVER_5XX']);
-const ERROR_CATEGORIES = [
-  ['client', new Set(['USAGE_ERROR', 'INVALID_PARAMS_JSON', 'UNKNOWN_SERVER_TYPE', 'UNKNOWN_TOOL_NAME', 'TOOL_MANIFEST_INVALID', 'UNKNOWN_SCOPE', 'OPEN_PORTAL_FAILED'])],
-  ['schema', new Set(['PARAM_VALIDATION_ERROR'])],
-  ['filesystem', new Set(['CONFIG_WRITE_ERROR'])],
-  ['auth', new Set(['KEY_MISSING', 'KEY_INVALID', 'KEY_FORBIDDEN_SERVER'])],
-  ['quota', new Set(['RATE_LIMIT_DAILY', 'RATE_LIMIT_QPS', 'BALANCE_INSUFFICIENT'])],
-  ['network', new Set(['NETWORK_ERROR'])],
-  ['backend', new Set(['SERVER_5XX', 'RESPONSE_PARSE_ERROR', 'NO_RESULTS', 'MCP_PROTOCOL_ERROR', 'TOOL_RUNTIME_ERROR'])],
-];
+// 每个错误码对应一段 NL 处方：诊断 + 行动 一体。
+// agent 读完 agent_action 就能决定下一步,无需再看其它字段。
+// 后端原始 message 由 buildAgentAction() 拼到前面作为诊断上下文。
 const AGENT_ACTIONS = {
-  USAGE_ERROR: '读取 data.usage，按可用子命令和参数格式重新构造命令。',
-  INVALID_PARAMS_JSON: '修正 params_json 或 shell 转义后重试，不要切换工具。',
-  UNKNOWN_SERVER_TYPE: '从 error.hint 或 SKILL.md 的可用 server_type 中重新选择。',
-  UNKNOWN_TOOL_NAME: '读取 error.context.available_tools，并按意图路由规则为当前 server_type 重新选择合法工具。',
-  TOOL_MANIFEST_INVALID: '检查 references/tool-manifest.json 是否存在且为合法 JSON；本地 skill 安装可能不完整或损坏。',
-  UNKNOWN_SCOPE: '让用户选择 Key 存放位置后，用 --scope global 或 --scope skill 重试 setup-key。',
-  OPEN_PORTAL_FAILED: '把 data.url 告知用户，让用户在自己的浏览器中手动打开。',
-  PARAM_VALIDATION_ERROR: '先按 SKILL.md 和 references 核对字段名、必填项、日期格式、枚举值、server_type 和 tool_name；专项工具修正后仍不适合时，才考虑 analytics_data。',
-  CONFIG_WRITE_ERROR: '检查目标配置路径是否可写，或让用户改选 setup-key 的另一种 scope。',
-  KEY_MISSING: '引导用户获取 WIND_API_KEY 并用 setup-key 配置；不要改用 analytics_data。',
-  KEY_INVALID: '让用户重新生成或替换 API Key，不要通过切换 Wind 工具绕过。',
-  KEY_FORBIDDEN_SERVER: '当前 Key 可能没有该 server 权限；让用户确认权限或选择已授权的数据服务。',
-  RATE_LIMIT_DAILY: '日额度已用尽，等待额度刷新或更换有效 Key。',
-  RATE_LIMIT_QPS: '短暂等待后原样重试，不要为了绕过 QPS 而切换工具。',
-  BALANCE_INSUFFICIENT: '提示用户充值或更换有余额的有效 Key。',
-  NETWORK_ERROR: '检查网络、代理、DNS、超时或 Codex 沙箱联网权限，然后原样重试。',
-  SERVER_5XX: '稍后原样重试；若提示超时，可降低请求复杂度。',
-  RESPONSE_PARSE_ERROR: '后端响应格式异常或发生变化；保留原始错误信息并联系 Wind 支持。',
-  NO_RESULTS: '在不改变用户意图的前提下调整关键词或参数；专项路径仍不适合时，可用 analytics_data 做结构化取数兜底。',
-  MCP_PROTOCOL_ERROR: '检查 error.message；若能明确修正请求形态则修正，否则保留后端原文并联系支持。',
-  TOOL_RUNTIME_ERROR: '保留后端原文，检查请求规模、字段口径和数据覆盖；不能明确修正时停止并告知用户。',
-  UNKNOWN: '不要盲目重试；先检查 error.message 和 context，能明确定位本地问题则修正，否则报告原始错误。',
+  USAGE_ERROR: '命令用法不正确。读取 stdout 中的 USAGE 文本（每条 cli 调用都会输出），按可用子命令和参数格式重新构造命令后重试。',
+  INVALID_PARAMS_JSON: '`call` 命令第三参数必须是合法 JSON 字符串。按当前 shell 类型调整转义（Bash 用外层单引号、PowerShell 用 \\" 转义内部双引号），修正后重试同一 server_type + tool_name；不要切换工具。',
+  UNKNOWN_SERVER_TYPE: 'server_type 不在可用列表内。运行 `node scripts/cli.mjs`（无参）查看 USAGE 列出的合法 server_type，或读 SKILL.md 第 1 节"数据范围"重新选择，再重试。',
+  UNKNOWN_TOOL_NAME: 'tool_name 不属于该 server_type。读取 `references/tool-manifest.json` 查询当前 server_type 的合法 tool 清单，按意图路由规则（SKILL.md "意图判定与路由顺序"）重新选择 tool 后重试；不要直接 fallback 到 analytics_data。',
+  TOOL_MANIFEST_INVALID: '本地 `references/tool-manifest.json` 缺失或非法 JSON。skill 安装可能不完整,提示用户重装：`npx skills update wind-mcp-skill -g -y`。',
+  UNKNOWN_SCOPE: '`setup-key` 命令必须带 --scope global 或 --scope skill。先用 AskUserQuestion 询问用户 Key 存放位置后,带上 --scope 参数重试。',
+  OPEN_PORTAL_FAILED: '本地无法自动打开浏览器。把 stdout 中的 `url` 字段告知用户,让用户在自己的浏览器中手动打开开发者中心。',
+  PARAM_VALIDATION_ERROR: '后端参数验证失败。按 SKILL.md "## 3. 工具表"和 `references/indicators.md` 逐字段核对：字段名、必填项、日期格式、枚举值、server_type、tool_name。修正后重试同一工具；若多次修正仍不通过且属于结构化取数问题,可改用 `analytics_data.get_financial_data`,但 question 必须忠实反映用户原始意图。',
+  CONFIG_WRITE_ERROR: '配置文件写入失败。检查目标路径权限,或用 AskUserQuestion 询问用户改用另一种 scope 后重试 setup-key。',
+  KEY_MISSING: 'WIND_API_KEY 未配置。立即执行 `node scripts/cli.mjs open-portal` 打开万得开发者中心；获取 Key 后执行 `node scripts/cli.mjs setup-key <KEY> --scope <global|skill>`（先用 AskUserQuestion 询问 scope）再重试原调用。不要只把 URL 发给用户,也不要改用 analytics_data 绕过。',
+  KEY_INVALID: 'API Key 无效或过期。引导用户在开发者中心重新生成 Key,用 setup-key 配置后重试；不要通过切换 Wind 工具绕过。',
+  KEY_FORBIDDEN_SERVER: '当前 Key 未订阅该 server 的权限。让用户在开发者中心确认权限,或选择已授权的其他 server；不要换 server 绕过。',
+  RATE_LIMIT_DAILY: 'API Key 当日请求额度已用尽。等次日额度刷新,或让用户更换备用 Key；不要换工具绕过。',
+  RATE_LIMIT_QPS: '请求过于频繁触发 QPS 限流。等待 3-5 秒后原样重试同一工具；不要为绕过限流而切换工具。',
+  BALANCE_INSUFFICIENT: 'API Key 计费余额不足。提示用户在开发者中心充值,或更换有余额的 Key 后重试。',
+  NETWORK_ERROR: '网络请求失败（DNS / 代理 / 超时 / 沙箱拦截）。检查网络环境；在 Codex 环境中确认使用 `sandbox_permissions: "require_escalated"` 联网。修复后原样重试。',
+  SERVER_5XX: '万得后端服务异常。稍后原样重试同一请求；若提示超时,可降低请求复杂度（缩短时间范围、减少字段）。',
+  RESPONSE_PARSE_ERROR: '后端响应格式异常。保留 stdout 错误原文,联系万得支持；不要盲目重试或切换工具。',
+  NO_RESULTS: '查询命中数据为空。先在不改变用户意图的前提下调整关键词或参数重试；若专项路径仍无结果且属于结构化取数,可改用 `analytics_data.get_financial_data` 兜底,question 必须忠实反映用户原始意图。',
+  MCP_PROTOCOL_ERROR: 'MCP 协议层错误。读 stdout 错误原文,若能明确指向请求形态问题则修正后重试,否则保留原文联系万得支持。',
+  TOOL_RUNTIME_ERROR: '后端工具运行错误。读 stdout 错误原文,检查请求规模是否过大、字段口径是否受支持、数据覆盖范围；不能明确修正时停止并告知用户,不要盲目切换工具。',
+  UNKNOWN: '未知错误。不要盲目重试；先读 stdout 错误原文,能定位本地问题（参数 / 配置 / 网络）则修正后重试一次,否则保留原文告知用户并停止。',
 };
 
-function errorCategory(code) {
-  return ERROR_CATEGORIES.find(([, codes]) => codes.has(code))?.[0] || 'unknown';
-}
-
-function fallbackAllowed(code, server_type) {
-  return Boolean(server_type && server_type !== 'analytics_data' && !NO_FALLBACK_CODES.has(code));
-}
-
-function appendFallbackHint(code, hint, server_type) {
-  if (!fallbackAllowed(code, server_type)) return hint;
-  if (code === 'PARAM_VALIDATION_ERROR') {
-    return `${hint} 若修正后仍为工具调用错误，且问题属于结构化取数，可改用 analytics_data.get_financial_data。`;
+// agent_action = 后端原始诊断 + 标准处方,合并为一段 NL 文本。
+// USAGE_ERROR 例外: 嵌入完整 USAGE 不截断,以便 agent 重新构造命令。
+// 其它 code 上限 500 字, 防后端原文过长污染 envelope。
+function buildAgentAction(code, detail) {
+  const template = AGENT_ACTIONS[code] || AGENT_ACTIONS.UNKNOWN;
+  if (detail && typeof detail === 'string' && detail.trim()) {
+    const d = code === 'USAGE_ERROR' ? detail.trim() : detail.trim().slice(0, 500);
+    return `[${d}] ${template}`;
   }
-  if (code === 'NO_RESULTS') {
-    return `${hint} 若专项路径仍无可用结果，且问题属于结构化取数，可改用 analytics_data.get_financial_data。`;
-  }
-  return `${hint} 请先按 SKILL.md 工具表检查 server_type、tool_name 和入参后重试一次；若仍为工具调用错误，可改用 analytics_data.get_financial_data，并将 question 简化为结构化取数问题。`;
-}
-
-function buildErrorObject(code, backendMsg, ctx = {}) {
-  const {
-    server_type,
-    apiKey,
-    extraHint
-  } = ctx;
-  const hint = appendFallbackHint(code, extraHint || getErrorHint(code), server_type);
-  const context = {
-    ...(server_type ? {
-      server_type
-    } : {}),
-    ...(ctx.tool ? {
-      tool: ctx.tool
-    } : {}),
-    ...(apiKey ? {
-      api_key_masked: maskKey(apiKey)
-    } : {}),
-    ...(ctx.available_tools ? {
-      available_tools: ctx.available_tools
-    } : {}),
-  };
-  return {
-    code,
-    message: backendMsg,
-    hint,
-    category: errorCategory(code),
-    retryable: RETRYABLE_CODES.has(code),
-    fallback_allowed: fallbackAllowed(code, server_type),
-    agent_action: AGENT_ACTIONS[code] || AGENT_ACTIONS.UNKNOWN,
-    ...(Object.keys(context).length ? {
-      context
-    } : {}),
-  };
+  return template;
 }
 
 // ───── MCP 调用（裸 HTTP + JSON-RPC + 响应解析兼容 SSE/纯 JSON）─────
@@ -612,22 +519,14 @@ async function mcpRequest(server_type, method, params, {
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (err) {
-    die('NETWORK_ERROR', err.message, {
-      server_type,
-      apiKey,
-      extraHint: '网络不通 / DNS 解析失败 / 代理拦截 / 超时。检查网络后重试。',
-    });
+    die('NETWORK_ERROR', `${err.message} (server=${server_type})`);
   }
 
   if (!resp.ok) {
     const bodyText = await resp.text().catch(() => '');
-    const [code, hint] = HTTP_ERROR_MAP[resp.status] || ['UNKNOWN', '检查参数构造'];
-    const detail = `HTTP ${resp.status} ${resp.statusText}` + (bodyText ? ` | body: ${bodyText.slice(0, 200)}` : '');
-    die(code, detail, {
-      server_type,
-      apiKey,
-      extraHint: hint
-    });
+    const code = HTTP_ERROR_MAP[resp.status]?.[0] || 'UNKNOWN';
+    const detail = `HTTP ${resp.status} ${resp.statusText} (server=${server_type})` + (bodyText ? ` | body: ${bodyText.slice(0, 200)}` : '');
+    die(code, detail);
   }
 
   const text = await resp.text();
@@ -635,27 +534,17 @@ async function mcpRequest(server_type, method, params, {
   try {
     payload = parseSSE(text);
   } catch (err) {
-    die('RESPONSE_PARSE_ERROR', err.message, {
-      server_type,
-      apiKey,
-      extraHint: '响应格式异常，可能是后端版本变更。把后端原文发给万得支持。',
-    });
+    die('RESPONSE_PARSE_ERROR', `${err.message} (server=${server_type})`);
   }
 
   if (payload.error) {
     const msg = payload.error.message || JSON.stringify(payload.error);
-    die('MCP_PROTOCOL_ERROR', msg, {
-      server_type,
-      apiKey
-    });
+    die('MCP_PROTOCOL_ERROR', `${msg} (server=${server_type})`);
   }
 
   if (payload.result?.isError) {
     const msg = payload.result.content?.[0]?.text || JSON.stringify(payload.result);
-    die(inferErrorCode(msg), msg, {
-      server_type,
-      apiKey
-    });
+    die(inferErrorCode(msg), `${msg} (server=${server_type})`);
   }
 
   // 部分工具把业务错误包在 content[0].text 的 JSON 字符串里，必须二次解析。
@@ -670,19 +559,13 @@ async function mcpRequest(server_type, method, params, {
     if (inner) {
       if (typeof inner.mcp_tool_error_code === 'number' && inner.mcp_tool_error_code !== 0) {
         const msg = inner.mcp_tool_error_msg || JSON.stringify(inner);
-        die(inferErrorCode(msg), msg, {
-          server_type,
-          apiKey
-        });
+        die(inferErrorCode(msg), `${msg} (server=${server_type})`);
       }
       if (inner.error && (inner.error.code || inner.error.message)) {
         const errCode = inner.error.code || '';
         const errMsg = inner.error.message || '';
         const combined = errCode ? `${errCode}: ${errMsg}` : errMsg;
-        die(inferErrorCode(combined), combined, {
-          server_type,
-          apiKey
-        });
+        die(inferErrorCode(combined), `${combined} (server=${server_type})`);
       }
     }
   }
@@ -773,9 +656,7 @@ async function cmdSetupKey(...rawArgs) {
   }
 
   if (!['global', 'skill'].includes(scope)) {
-    die('UNKNOWN_SCOPE', `setup-key 未知 scope: ${scope}`, {
-      extraHint: '可选值: global / skill',
-    });
+    die('UNKNOWN_SCOPE', `setup-key 未知 scope: ${scope} (可选: global / skill)`);
   }
 
   let file;
@@ -804,13 +685,7 @@ async function cmdSetupKey(...rawArgs) {
       });
     }
   } catch (err) {
-    die('CONFIG_WRITE_ERROR', `配置写入失败: ${err.message}`, {
-      extraHint: '检查目标路径是否可写，或改用 --scope global/skill 的另一种存放位置。',
-      data: {
-        scope,
-        path: file || null
-      },
-    });
+    die('CONFIG_WRITE_ERROR', `配置写入失败 (scope=${scope}, path=${file || 'n/a'}): ${err.message}`);
   }
 
   return {
@@ -859,16 +734,19 @@ async function cmdOpenPortal() {
     fallback_message: `如果浏览器没有自动弹出，请手动访问：${PORTAL_URL}`,
   };
   if (spawnError) {
-    die('OPEN_PORTAL_FAILED', `本地无法启动浏览器：${spawnError.message}`, {
-      data,
-      extraHint: '请把 data.url 告知用户，让他在自己设备的浏览器里打开。',
-    });
+    die('OPEN_PORTAL_FAILED', `本地无法启动浏览器: ${spawnError.message} | 用户应手动打开 ${data.url}`);
   }
   return data;
 }
 
 // ───── 主入口 ─────
 
+// 仅当作为可执行脚本直接运行时才跑顶层命令分发;被 import (e.g. 单元测试) 时不副作用。
+const IS_MAIN = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (IS_MAIN) runMain();
+
+function runMain() {
 const [cmd, ...args] = process.argv.slice(2);
 
 const USAGE =
@@ -891,30 +769,15 @@ const commands = {
 
 if (!cmd) {
   activeCommand = 'help';
-  writeEnvelope({
-    ok: true,
-    command: 'help',
-    data: {
-      usage: USAGE
-    }
-  });
+  // help: 直接输出 USAGE 纯文本(无包裹)
+  process.stdout.write(USAGE + '\n');
   process.exit(0);
 }
 
 activeCommand = cmd;
 
 if (!commands[cmd]) {
-  writeEnvelope({
-    ok: false,
-    command: cmd,
-    data: {
-      usage: USAGE
-    },
-    error: buildErrorObject('USAGE_ERROR', `未知命令: ${cmd}`, {
-      extraHint: '按 data.usage 选择可用命令后重试。'
-    }),
-  });
-  process.exit(1);
+  die('USAGE_ERROR', `未知命令: ${cmd}\nUSAGE:\n${USAGE}`);
 }
 
 if (cmd === 'call') {
@@ -923,16 +786,15 @@ if (cmd === 'call') {
 
 commands[cmd]()
   .then((data) => {
-    const notices = cmd === 'call' ? collectUpdateNotices() : [];
-    writeEnvelope({
-      ok: true,
-      command: cmd,
-      data,
-      notices
-    });
+    if (cmd === 'call') {
+      // call: 透传 result 内容 (parse JSON if applicable, else raw text)
+      writeRawCallSuccess(data?.result);
+    } else {
+      // open-portal / setup-key: 直接输出结构化数据 (无 envelope 包裹)
+      writePlainSuccess(data);
+    }
   })
   .catch((err) => {
-    die('UNKNOWN', `执行失败：${err.message || err}`, {
-      extraHint: err.stack ? `stack:\n${err.stack}` : '未知异常，建议联系万得支持。',
-    });
+    die('UNKNOWN', `执行失败: ${err.message || err}${err.stack ? ' | stack: ' + err.stack.slice(0, 300) : ''}`);
   });
+}
