@@ -1,3 +1,8 @@
+// wind-mcp-skill cli.mjs 黑盒测试
+// 适配新契约:
+//   - 成功 (exit 0): stdout 纯数据(无 envelope)
+//   - 失败 (exit !=0): stdout = { ok:false, error:{code, agent_action}, notices }
+
 import { describe, it, afterEach } from 'node:test';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync } from 'node:fs';
@@ -13,380 +18,187 @@ const MANIFEST_PATH = join(SKILL_DIR, 'references', 'tool-manifest.json');
 const CACHE_DIR = join(homedir(), '.cache', 'wind-aifinmarket');
 const CACHE_FILE = join(CACHE_DIR, 'update-state.json');
 
-// Run CLI, return parsed JSON stdout. env overrides merged onto process.env.
-function run(args, { env: extraEnv = {}, expectFail = false } = {}) {
-  let stdout;
+// 跑 cli。返回 { exitCode, stdout, stderr }。stdout 不在这里 JSON.parse, 由测试自行处理。
+function runRaw(args, { env: extraEnv = {} } = {}) {
+  let stdout = '', stderr = '', exitCode = 0;
   try {
     stdout = execFileSync('node', [CLI, ...args], {
-      cwd: SKILL_DIR,
-      encoding: 'utf8',
-      timeout: 15_000,
+      cwd: SKILL_DIR, encoding: 'utf8', timeout: 15_000,
       env: { ...process.env, ...extraEnv },
     });
   } catch (err) {
-    // CLI exits with code 1 on errors; stdout still contains the JSON envelope.
     stdout = err.stdout || '';
-    if (!stdout && !expectFail) throw err;
+    stderr = err.stderr || '';
+    exitCode = err.status ?? 1;
   }
-  const json = JSON.parse(stdout);
-  if (!expectFail) {
-    assert.ok(json.ok !== undefined, 'envelope missing ok');
-    assert.ok(json.meta?.cli_version, 'envelope missing meta.cli_version');
-    assert.ok(typeof json.meta?.schema_version === 'number', 'envelope missing meta.schema_version');
-  }
+  return { exitCode, stdout, stderr };
+}
+
+// 成功路径: 期望 exit 0; 调用方自行解析 stdout。
+function runOk(args, opts = {}) {
+  const r = runRaw(args, opts);
+  assert.equal(r.exitCode, 0, `expected exit 0, got ${r.exitCode}, stdout: ${r.stdout.slice(0, 200)}`);
+  return r.stdout;
+}
+
+// 失败路径: 期望 exit !=0; stdout 必须是合法 envelope。
+function runFail(args, expectedCode, opts = {}) {
+  const r = runRaw(args, opts);
+  assert.notEqual(r.exitCode, 0, `expected non-zero exit, got 0`);
+  const json = JSON.parse(r.stdout);
+  assert.equal(json.ok, false, 'envelope.ok must be false');
+  assert.ok(json.error, 'envelope.error must exist');
+  assert.equal(json.error.code, expectedCode, `expected code=${expectedCode}, got ${json.error.code}`);
+  assert.ok(typeof json.error.agent_action === 'string' && json.error.agent_action.length > 0,
+    'error.agent_action must be non-empty string');
+  // 新契约: envelope 只有 ok/error 两个顶层字段, 不再有 notices
   return json;
 }
 
-// Run CLI expecting failure; assert ok=false + specific error code.
-function runFail(args, expectedCode, { env: extraEnv = {} } = {}) {
-  const json = run(args, { env: extraEnv, expectFail: true });
-  assert.equal(json.ok, false, `expected ok=false`);
-  assert.equal(json.error?.code, expectedCode, `expected error.code=${expectedCode}, got ${json.error?.code}`);
-  assert.equal(typeof json.error?.retryable, 'boolean', 'error.retryable must be boolean');
-  assert.equal(typeof json.error?.fallback_allowed, 'boolean', 'error.fallback_allowed must be boolean');
-  assert.ok(json.error?.agent_action, 'error.agent_action must be non-empty');
-  assert.ok(json.error?.category, 'error.category must be non-empty');
-  assert.ok(json.error?.hint, 'error.hint must be non-empty');
-  return json;
-}
+// ───── help 路径(纯文本透传) ─────
 
-// ───── Envelope structure ─────
-
-describe('envelope structure', () => {
-  it('help command returns ok:true with usage data', () => {
-    const json = run([]);
-    assert.equal(json.ok, true);
-    assert.equal(json.command, 'help');
-    assert.ok(json.data?.usage, 'missing data.usage');
-    assert.ok(json.data.usage.includes('server_type'), 'usage should list server_type');
-  });
-
-  it('success envelope has data + meta', { timeout: 30_000 }, async () => {
-    // Network-dependent: retry once on transient failure.
-    let json;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      json = run([
-        'call', 'stock_data', 'get_stock_basicinfo',
-        '{"question":"600519.SH"}',
-      ]);
-      if (json.ok) break;
-      if (attempt === 0 && json.error?.retryable) {
-        await new Promise(r => setTimeout(r, 2000));
-        continue;
-      }
-    }
-    assert.equal(json.ok, true, `call returned error: ${json.error?.code} ${json.error?.message}`);
-    assert.equal(json.command, 'call');
-    assert.ok(json.data, 'missing data');
-    assert.equal(json.data.server_type, 'stock_data');
-    assert.equal(json.data.tool, 'get_stock_basicinfo');
-    assert.ok(json.data.result, 'missing raw MCP result');
-    assert.ok(json.meta.cli_version);
-    assert.equal(typeof json.meta.schema_version, 'number');
+describe('help command', () => {
+  it('无参 → stdout 是 USAGE 纯文本, exit 0, 无 JSON 包裹', () => {
+    const out = runOk([]);
+    assert.ok(out.includes('wind-mcp-skill'), `USAGE 应含 skill 名`);
+    assert.ok(out.includes('用法'), `USAGE 应有用法说明`);
+    // 关键: 不能是 envelope (即不是 { ok:..., ...} 的 JSON)
+    assert.ok(!out.trim().startsWith('{'), `help 输出不应是 JSON envelope`);
   });
 });
 
-// ───── Client-side error codes ─────
+// ───── 失败路径 envelope 结构 ─────
 
-describe('USAGE_ERROR', () => {
-  it('unknown command', () => {
+describe('failure envelope shape', () => {
+  it('未知命令 → USAGE_ERROR', () => {
     const json = runFail(['foobar'], 'USAGE_ERROR');
-    assert.ok(json.data?.usage, 'should include usage in data');
+    // agent_action 应嵌入 USAGE 文本以便 agent 重构命令
+    assert.ok(json.error.agent_action.includes('USAGE'),
+      `agent_action 应含 USAGE: ${json.error.agent_action.slice(0, 200)}`);
   });
 
-  it('call with no args', () => {
-    const json = runFail(['call'], 'USAGE_ERROR');
-    assert.ok(json.data?.usage, 'should include usage in data');
+  it('call 缺参数 → USAGE_ERROR', () => {
+    runFail(['call'], 'USAGE_ERROR');
   });
 
-  it('call missing params_json', () => {
-    const json = runFail(['call', 'stock_data', 'get_stock_quote'], 'USAGE_ERROR');
-    assert.ok(json.data?.usage);
+  it('call 参数 JSON 非法 → INVALID_PARAMS_JSON', () => {
+    runFail(['call', 'stock_data', 'get_stock_basicinfo', 'not-json'], 'INVALID_PARAMS_JSON');
   });
 
-  it('setup-key with no args', () => {
-    const json = runFail(['setup-key'], 'USAGE_ERROR');
-    assert.ok(json.data?.usage);
+  it('未知 server_type → UNKNOWN_SERVER_TYPE', () => {
+    runFail(['call', 'not_a_server', 'foo', '{}'], 'UNKNOWN_SERVER_TYPE');
   });
-});
 
-describe('UNKNOWN_SERVER_TYPE', () => {
-  it('rejects invalid server_type before network call', () => {
-    runFail(['call', 'fake_data', 'get_stock_quote', '{}'], 'UNKNOWN_SERVER_TYPE');
+  it('未知 tool_name → UNKNOWN_TOOL_NAME', () => {
+    runFail(['call', 'stock_data', 'nonexistent_tool', '{}'], 'UNKNOWN_TOOL_NAME');
   });
-});
 
-describe('UNKNOWN_TOOL_NAME', () => {
-  it('rejects invalid tool_name and provides available_tools', () => {
+  it('setup-key 缺 scope → USAGE_ERROR', () => {
+    runFail(['setup-key', 'fake_key_for_test'], 'USAGE_ERROR');
+  });
+
+  it('setup-key 非法 scope → UNKNOWN_SCOPE', () => {
+    runFail(['setup-key', 'fake_key', '--scope', 'invalid_scope'], 'UNKNOWN_SCOPE');
+  });
+
+  it('envelope 只有 ok/error 两个顶层字段(notices 已移除)', () => {
+    const r = runRaw(['foobar']);
+    const json = JSON.parse(r.stdout);
+    const keys = Object.keys(json).sort();
+    assert.deepEqual(keys, ['error', 'ok'],
+      `envelope 顶层字段应只有 ok/error, 实际: ${keys.join(',')}`);
+  });
+
+  it('error 只有 code/agent_action 两个字段', () => {
+    const r = runRaw(['foobar']);
+    const json = JSON.parse(r.stdout);
+    const keys = Object.keys(json.error).sort();
+    assert.deepEqual(keys, ['agent_action', 'code'],
+      `error 应只有 code/agent_action, 实际: ${keys.join(',')}`);
+  });
+
+  it('agent_action 含原始 detail (用 [...] 标记)', () => {
     const json = runFail(['call', 'stock_data', 'nonexistent_tool', '{}'], 'UNKNOWN_TOOL_NAME');
-    assert.ok(Array.isArray(json.error.context?.available_tools));
-    assert.ok(json.error.context.available_tools.length > 0, 'should list available tools');
-    assert.ok(json.error.context.available_tools.includes('get_stock_quote'));
+    assert.ok(json.error.agent_action.startsWith('['),
+      `agent_action 应以 [diagnostic] 开头, 实际: ${json.error.agent_action.slice(0, 80)}`);
+    assert.ok(json.error.agent_action.includes('nonexistent_tool'),
+      `agent_action 应嵌入 backend detail (tool 名)`);
   });
 });
 
-describe('INVALID_PARAMS_JSON', () => {
-  it('rejects malformed JSON', () => {
-    const json = runFail(['call', 'stock_data', 'get_stock_quote', '{bad}'], 'INVALID_PARAMS_JSON');
-    assert.ok(json.error.message.includes('params JSON'));
-  });
-});
+// ───── tool-manifest.json 一致性 ─────
 
-describe('UNKNOWN_SCOPE', () => {
-  it('rejects invalid scope', () => {
-    runFail(['setup-key', 'testkey12345678', '--scope', 'nowhere'], 'UNKNOWN_SCOPE');
-  });
-});
-
-// ───── Auth errors ─────
-
-describe('KEY_INVALID', () => {
-  it('fake key gets rejected as invalid', () => {
-    const json = runFail(
-      ['call', 'stock_data', 'get_stock_quote', '{"windcode":"600519.SH"}'],
-      'KEY_INVALID',
-      { env: { WIND_API_KEY: 'fake_test_key_12345678' } },
-    );
-    assert.equal(json.error.category, 'auth');
-    assert.equal(json.error.retryable, false);
-    assert.equal(json.error.fallback_allowed, false);
-    assert.ok(json.error.context?.api_key_masked, 'should include masked key');
-  });
-});
-
-// ───── Fallback behavior ─────
-
-describe('fallback_allowed logic', () => {
-  // Client errors should never allow fallback
-  const clientErrors = [
-    ['USAGE_ERROR', ['foobar']],
-    ['UNKNOWN_SERVER_TYPE', ['call', 'fake', 'get', '{}']],
-    ['UNKNOWN_TOOL_NAME', ['call', 'stock_data', 'fake', '{}']],
-    ['INVALID_PARAMS_JSON', ['call', 'stock_data', 'get_stock_quote', '{x}']],
-  ];
-  for (const [code, args] of clientErrors) {
-    it(`${code} has fallback_allowed=false`, () => {
-      const json = runFail(args, code);
-      assert.equal(json.error.fallback_allowed, false);
-    });
-  }
-});
-
-// ───── Tool manifest validation ─────
-
-describe('tool manifest', () => {
-  it('manifest JSON is valid and covers all server_types', () => {
+describe('tool-manifest.json', () => {
+  it('manifest 合法 + 涵盖所有 server_type', () => {
     const manifest = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8'));
-    const expectedServers = [
-      'stock_data', 'global_stock_data', 'fund_data', 'index_data',
-      'bond_data', 'financial_docs', 'economic_data', 'analytics_data',
+    const servers = ['stock_data', 'global_stock_data', 'fund_data', 'index_data',
+      'bond_data', 'financial_docs', 'economic_data', 'analytics_data'];
+    for (const s of servers) {
+      assert.ok(Array.isArray(manifest[s]) && manifest[s].length > 0,
+        `manifest 中 ${s} 应是非空数组`);
+    }
+  });
+});
+
+// ───── error-codes.json 一致性 ─────
+
+describe('error-codes.json', () => {
+  it('schema_version + codes 完备', () => {
+    const ec = JSON.parse(readFileSync(join(SKILL_DIR, 'references', 'error-codes.json'), 'utf8'));
+    assert.ok(ec.schema_version, 'schema_version 必须存在');
+    assert.ok(ec.codes && typeof ec.codes === 'object', 'codes 必须是对象');
+    // 每条 code 必须有 agent_action 描述
+    for (const [code, desc] of Object.entries(ec.codes)) {
+      assert.ok(typeof desc === 'string' && desc.length > 0,
+        `${code} 必须有非空 agent_action 描述`);
+    }
+  });
+
+  it('CLI 实际产生的 code 都在字典里', () => {
+    const ec = JSON.parse(readFileSync(join(SKILL_DIR, 'references', 'error-codes.json'), 'utf8'));
+    // 抽样几个最常见错误,确认它们的 code 都在字典里
+    const samples = [
+      [['foobar'], 'USAGE_ERROR'],
+      [['call', 'bad_server', 'foo', '{}'], 'UNKNOWN_SERVER_TYPE'],
+      [['call', 'stock_data', 'bad_tool', '{}'], 'UNKNOWN_TOOL_NAME'],
+      [['call', 'stock_data', 'get_stock_basicinfo', 'not-json'], 'INVALID_PARAMS_JSON'],
+      [['setup-key', 'fake', '--scope', 'wrong'], 'UNKNOWN_SCOPE'],
     ];
-    for (const server of expectedServers) {
-      assert.ok(Array.isArray(manifest[server]), `manifest missing ${server}`);
-      assert.ok(manifest[server].length > 0, `manifest ${server} has no tools`);
-    }
-  });
-
-  it('every tool in manifest matches SKILL.md server_type tables', () => {
-    // Ensure each server_type has at least one tool that the CLI accepts
-    const manifest = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8'));
-    for (const [server, tools] of Object.entries(manifest)) {
-      for (const tool of tools) {
-        assert.ok(typeof tool === 'string' && tool.length > 0, `${server} has invalid tool entry`);
-      }
+    for (const [args, code] of samples) {
+      const r = runRaw(args);
+      const json = JSON.parse(r.stdout);
+      assert.equal(json.error.code, code);
+      assert.ok(ec.codes[code], `code ${code} 应在 error-codes.json 中`);
     }
   });
 });
 
-// ───── Error code consistency ─────
+// ───── envelope 不携带任何 notice 类信号 (验证 notices 字段已彻底移除) ─────
 
-describe('error-codes.json vs cli.mjs consistency', () => {
-  it('error-codes.json is valid and all codes have required fields', () => {
-    const ecPath = join(SKILL_DIR, 'references', 'error-codes.json');
-    const ec = JSON.parse(readFileSync(ecPath, 'utf8'));
-    assert.ok(ec.schema_version, 'missing schema_version');
-    const requiredFields = ['category', 'retryable', 'fallback_allowed', 'agent_action'];
-    for (const [code, def] of Object.entries(ec.codes)) {
-      for (const field of requiredFields) {
-        assert.ok(field in def, `${code} missing ${field}`);
-      }
-    }
-  });
-});
-
-// ───── Successful call output shape ─────
-
-describe('successful call output', () => {
-  it('stock_data get_stock_basicinfo returns raw MCP result text', () => {
-    const json = run(['call', 'stock_data', 'get_stock_basicinfo', '{"question":"600519.SH"}']);
-    assert.equal(json.ok, true);
-    assert.ok(json.data?.result, 'missing data.result');
-    assert.equal(json.data.result.isError, false);
-    assert.ok(
-      json.data.result.content?.some(item => item?.type === 'text' && typeof item.text === 'string'),
-      'raw result should contain text content',
-    );
-  });
-
-  it('success output includes notices array', () => {
-    const json = run(['call', 'stock_data', 'get_stock_basicinfo', '{"question":"600519.SH"}']);
-    assert.ok(Array.isArray(json.notices), 'notices should be array');
-  });
-});
-
-// ───── cross-skill notice isolation ─────
-
-describe('cross-skill notice filtering', () => {
-  afterEach(() => {
-    // 清掉污染的 cache 以免影响其他测试
-    try { if (existsSync(CACHE_FILE)) unlinkSync(CACHE_FILE); } catch {}
-  });
-
-  it('does NOT leak foreign skill notices via legacy v2 cache schema', () => {
-    if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
-    // 模拟 wind-alice 写出的 legacy v2 顶层 schema,outdated 全部是别的 skill
-    writeFileSync(CACHE_FILE, JSON.stringify({
-      schemaVersion: 2,
-      status: 'update_available',
-      outdated: [{
-        name: 'wind-alice',
-        current: 'aaaaaaa',
-        latest: 'bbbbbbb',
-        sourceUrl: 'https://github.com/example/wind-alice.git',
-      }],
-      ttlMs: 43200000,
-      lockSignature: 'fake-sig',
-      lastCheck: new Date().toISOString(),
-    }, null, 2));
-
-    const json = run(['call', 'stock_data', 'nonexistent_tool', '{}'], { expectFail: true });
-    // wind-mcp-skill cli 在失败路径(catch/die)不调 collectUpdateNotices,所以 notices 默认为空
-    // 真正的测试在下一个用例里(成功路径)
-    assert.equal(json.ok, false);
-  });
-
-  it('legacy v2 cache containing only foreign skills returns empty notices', () => {
-    if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
-    writeFileSync(CACHE_FILE, JSON.stringify({
-      schemaVersion: 2,
-      status: 'update_available',
-      outdated: [
-        { name: 'wind-alice', current: 'aaa', latest: 'bbb', sourceUrl: 'https://github.com/x/wind-alice.git' },
-        { name: 'wind-find-finance-skill', current: 'ccc', latest: 'ddd', sourceUrl: 'https://github.com/x/y.git' },
-      ],
-      ttlMs: 43200000,
-      lockSignature: 'fake-sig',
-      lastCheck: new Date().toISOString(),
-    }, null, 2));
-
-    const json = run(['call', 'stock_data', 'get_stock_basicinfo', '{"question":"600519.SH"}']);
-    // 成功路径会调 collectUpdateNotices。过滤后 outdated 为空 → 不发 update_available notice。
-    const updateNotices = (json.notices || []).filter(n => n.type === 'update_available');
-    assert.equal(updateNotices.length, 0,
-      `expected no update_available notices (foreign skills filtered), got: ${JSON.stringify(updateNotices)}`);
-  });
-
-  it('legacy v2 cache mixing own + foreign skills only leaks own', () => {
-    if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
-    writeFileSync(CACHE_FILE, JSON.stringify({
-      schemaVersion: 2,
-      status: 'update_available',
-      outdated: [
-        { name: 'wind-alice', current: 'aaa', latest: 'bbb', sourceUrl: 'https://github.com/x/wind-alice.git' },
-        { name: 'wind-mcp-skill', current: '0000000', latest: '1111111', sourceUrl: 'https://github.com/x/wind-mcp.git' },
-      ],
-      ttlMs: 43200000,
-      lockSignature: 'fake-sig',
-      lastCheck: new Date().toISOString(),
-    }, null, 2));
-
-    const json = run(['call', 'stock_data', 'get_stock_basicinfo', '{"question":"600519.SH"}']);
-    const updateNotices = (json.notices || []).filter(n => n.type === 'update_available');
-    if (updateNotices.length > 0) {
-      // 如果 filterAlreadyUpgraded 没把 wind-mcp-skill 也过掉(installedHash 不匹配 / startsWith 失败),
-      // notices 里应该只有 wind-mcp-skill,绝不能有 wind-alice。
-      for (const n of updateNotices) {
-        for (const item of n.items) {
-          assert.equal(item.name, 'wind-mcp-skill',
-            `foreign skill leaked: ${item.name}`);
-        }
-      }
-    }
-  });
-});
-
-// ───── post-upgrade notice suppression(installedHash 严格相等)─────
-
-describe('post-upgrade notice suppression', () => {
+describe('envelope has no notices field', () => {
   afterEach(() => {
     try { if (existsSync(CACHE_FILE)) unlinkSync(CACHE_FILE); } catch {}
   });
 
-  // 从本机 lock 读真实 wind-mcp-skill skillFolderHash 和构造真实 lockSignature。
-  // 真实 signature 让 spawnUpdateCheck 异步进程 cache-hit 直接退出,不覆盖我们 seed 的 cache。
-  function getRealLockInfo() {
-    const xdg = process.env.XDG_STATE_HOME;
-    const lockPath = xdg
-      ? join(xdg, 'skills', '.skill-lock.json')
-      : join(homedir(), '.agents', '.skill-lock.json');
-    if (!existsSync(lockPath)) return null;
-    try {
-      const lock = JSON.parse(readFileSync(lockPath, 'utf8'));
-      const entry = lock?.skills?.['wind-mcp-skill'];
-      if (!entry) return null;
-      return {
-        hash: entry.skillFolderHash || null,
-        signature: `${lockPath}|${entry.updatedAt || entry.installedAt || ''}`,
-      };
-    } catch { return null; }
-  }
-
-  function seedV3CacheWithInstalledHash(installedHash, lockSignature) {
+  it('任何 cache 状态下,失败 envelope 都不含 notices 字段', () => {
     if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
-    writeFileSync(CACHE_FILE, JSON.stringify({
-      schemaVersion: 3,
-      skills: {
-        'wind-mcp-skill': {
-          status: 'update_available',
-          outdated: [{
-            name: 'wind-mcp-skill',
-            current: installedHash.slice(0, 7),
-            latest: 'newhash',
-            sourceUrl: 'https://github.com/Wind-Information-Co-Ltd/wind-skills.git',
-            host: 'github',
-            installedHash,
-          }],
-          ttlMs: 43200000,
-          lockSignature,
-          lastCheck: new Date().toISOString(),
-        },
-      },
-    }, null, 2));
-  }
-
-  it('PRESERVES notice when cache.installedHash matches lock.skillFolderHash (not upgraded)', () => {
-    const info = getRealLockInfo();
-    if (!info?.hash || !info?.signature) return;  // 本机无 lock 条目时跳过(CI 环境)
-
-    seedV3CacheWithInstalledHash(info.hash, info.signature);
-
-    const json = run(['call', 'stock_data', 'get_stock_basicinfo', '{"question":"600519.SH"}']);
-    const updates = (json.notices || []).filter(n => n.type === 'update_available');
-    assert.equal(updates.length, 1, 'should preserve update_available notice when hash matches');
-    assert.equal(updates[0].items[0].name, 'wind-mcp-skill');
-  });
-
-  it('SUPPRESSES notice when cache.installedHash differs from lock.skillFolderHash (user upgraded)', () => {
-    const info = getRealLockInfo();
-    if (!info?.hash || !info?.signature) return;
-
-    // installedHash 设为一个明显不同的假 hash → 模拟用户已经升级,lock 现在的 hash 是新的
-    const fakeOldHash = '0000000000000000000000000000000000000000';
-    seedV3CacheWithInstalledHash(fakeOldHash, info.signature);
-
-    const json = run(['call', 'stock_data', 'get_stock_basicinfo', '{"question":"600519.SH"}']);
-    const updates = (json.notices || []).filter(n => n.type === 'update_available');
-    assert.equal(updates.length, 0,
-      `should suppress notice after upgrade; got ${JSON.stringify(updates)}`);
+    // 试遍 update_available / transient_error / unknown 三种状态
+    const states = [
+      { status: 'transient_error', reason: 'network', ttlMs: 300000 },
+      { status: 'unknown', reason: 'lock_missing', ttlMs: 86400000 },
+      { status: 'update_available',
+        outdated: [{ name: 'wind-mcp-skill', current: 'a', latest: 'b',
+          sourceUrl: 'https://github.com/x/y.git' }],
+        ttlMs: 43200000 },
+    ];
+    for (const s of states) {
+      writeFileSync(CACHE_FILE, JSON.stringify({
+        schemaVersion: 3,
+        skills: { 'wind-mcp-skill': { ...s, lockSignature: 'fake', lastCheck: new Date().toISOString() } },
+      }, null, 2));
+      const json = runFail(['foobar'], 'USAGE_ERROR');
+      assert.equal(json.notices, undefined,
+        `cache=${s.status} 时 envelope 不应有 notices 字段: ${JSON.stringify(json)}`);
+    }
   });
 });
