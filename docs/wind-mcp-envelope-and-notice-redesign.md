@@ -63,17 +63,16 @@ stdout 输出极简 envelope：
   "error": {
     "code": "KEY_MISSING",
     "agent_action": "[WIND_API_KEY 未配置] WIND_API_KEY 未配置。立即执行 `node scripts/cli.mjs open-portal` 打开万得开发者中心；获取 Key 后执行 `node scripts/cli.mjs setup-key <KEY> --scope <global|skill>`（先用 AskUserQuestion 询问 scope）再重试原调用。不要只把 URL 发给用户,也不要改用 analytics_data 绕过。"
-  },
-  "notices": []
+  }
 }
 ```
 
-**字段说明**：
+**字段说明**（v4 起 envelope 只有 `ok` / `error` 两个顶层字段）：
 
 - `ok`：恒为 `false`（成功路径不出 envelope）
 - `error.code`：稳定错误分类标识符（监控/集成/错误码分支用）
 - `error.agent_action`：诊断（`[后端原始 message]`）+ 标准处方（NL 指令），一段文本搞定 agent 自纠
-- `notices`：保留字段但**永远是 `[]`**（forward compat）；所有更新检查相关信号（`update_available` / `transient_error` / `unknown`）都走 stderr 一次性通道，见第 9.1 节
+- ~~`notices`~~：v4 已彻底移除；所有更新检查相关信号（`update_available` / `transient_error` / `unknown`）都走 stderr 一次性通道，见第 9.1 节
 
 ## 5. 错误码分支策略（SKILL.md 第 7 节）
 
@@ -220,6 +219,35 @@ stdout 输出极简 envelope：
 - PID 回收冲突：sentinel mtime > 24h 视为过期；CLI 启动时清 > 7d 的文件，PID 在 24h 内被回收并恰好分配给新 wind 调用者的概率极低。
 - 同会话超 24h：sentinel 过期，会再打一次。这种用户单次会话极少。
 - 多用户同机：每个用户有独立 `~/.cache/wind-aifinmarket/`，互不干扰。
+
+### 9.3 sessionId 改用 grandparent walk-up（v4 修正）
+
+发现 Claude Code 的 Bash tool 每次调用都 spawn `bash -c "..."` 新 shell → `process.ppid` 每次不同 → sentinel 失配 → stderr 通知每次都打。
+
+修正：`getSessionId()` 走进程树向上，跳过所有 shell 进程（`bash`/`sh`/`zsh`/`dash`/`fish`/`csh`/`ksh`/`tcsh`），用第一个非 shell 祖先的 `pid + starttime` 作为 sessionId。
+
+进程树示意（Claude Code Bash tool）：
+```
+node cli.mjs                 ← 我们的进程
+  ↑ bash (ephemeral)         ← 每次调用都换 PID
+  ↑ claude (stable)          ← 整个对话稳定, sessionId 取这里
+```
+
+Linux 用 `/proc/<pid>/stat` 走树（field 4 = ppid, field 22 = starttime）。macOS/Windows 退化到 `process.ppid`（degraded 但不崩）。
+
+### 9.4 v1 lock 项目本地安装支持（v4 新增）
+
+`npx skills add` 不带 `-g` 装到当前项目时，lock 是 v1 schema（缺 `sourceUrl` / `installedAt`），与全局 v3 lock 不同。
+
+修正：
+- **`sourceUrl` 缺失**：从 `source` 短形式（如 `wind_info/wind-skills`）启发式生成候选 URL：`https://github.com/<source>.git` + `https://gitee.com/<source>.git`，逐个试到能拉 tree 的为准。
+- **`installedAt` 缺失**：走 baseline 策略 —— cache 加 `baselines` 节，key 是 `<lockPath>:<skillName>:<computedHash>`，value 是首次观察到的远端 tree SHA。
+  - 首次见 entry → 拉当前远端 SHA → 存 baseline → 静默 `up_to_date`
+  - 后续见 → 比对当前远端 SHA vs baseline，不等就 `update_available`
+  - 用户重装（`computedHash` 变）→ baseline key 变 → 自动重捕获
+- **v3 lock 路径完全不动**：原 `installedAt-反查` 策略保留，只有缺 `installedAt` 时才 fallback baseline。
+
+**已知漏报**：用户装的就是老版本（远端在装前已有更新）→ 首次 check 在今天才发生 → baseline 取今天的远端 → 误判"up_to_date"。属于 v1 lock 无 `installedAt` 的根本不可解性。后续若远端再前进就能正确检测。商业容忍。
 
 ### 9.2 ~~`update_available` 仅在失败路径出现~~（已解决）
 
