@@ -25,7 +25,7 @@ function writeCache(obj) {
 function clearSentinels() {
   if (!existsSync(CACHE_DIR)) return;
   for (const n of readdirSync(CACHE_DIR)) {
-    if (n.startsWith('failure-shown-')) {
+    if (n.startsWith('failure-shown-') || n.startsWith('update-shown-')) {
       try { unlinkSync(join(CACHE_DIR, n)); } catch {}
     }
   }
@@ -74,7 +74,7 @@ await test('第一次 maybeNotifyFailureOnce → stderr 出', async () => {
   assert.ok(stderr.includes('[wind-skills] 更新检测失败'), `期望 stderr 出,实际: ${JSON.stringify(stderr)}`);
   assert.ok(stderr.includes('reason=network'));
   // sentinel 文件应存在
-  assert.ok(existsSync(mod.sentinelPath()), 'sentinel 应已创建');
+  assert.ok(existsSync(mod.failureSentinelPath()), 'sentinel 应已创建');
 });
 
 await test('第二次同 cache 调用 → stderr 静默', async () => {
@@ -110,7 +110,7 @@ await test('sentinel 文件 mtime 改成 25h 前 → stderr 重新出 + sentinel
   writeCache(makeFreshFailureCache('transient_error'));
   let mod = await loadCli();
   captureStderr(() => mod.maybeNotifyFailureOnce());
-  const sentinel = mod.sentinelPath();
+  const sentinel = mod.failureSentinelPath();
   assert.ok(existsSync(sentinel));
 
   // 把 sentinel mtime 改成 25h 前
@@ -147,10 +147,10 @@ await test('cache 是 up_to_date → 不触发 stderr', async () => {
   const stderr = captureStderr(() => mod.maybeNotifyFailureOnce());
   assert.equal(stderr, '');
   // sentinel 不应被创建
-  assert.equal(existsSync(mod.sentinelPath()), false);
+  assert.equal(existsSync(mod.failureSentinelPath()), false);
 });
 
-await test('cache 是 update_available → 不触发 stderr (notice 走 stdout 通道)', async () => {
+await test('cache 是 update_available → maybeNotifyFailureOnce 不触发 (不是 failure 状态)', async () => {
   clearSentinels();
   writeCache({
     schemaVersion: 3,
@@ -167,6 +167,155 @@ await test('cache 是 update_available → 不触发 stderr (notice 走 stdout �
   const mod = await loadCli();
   const stderr = captureStderr(() => mod.maybeNotifyFailureOnce());
   assert.equal(stderr, '');
+});
+
+// ───── update_available stderr 通知(独立 sentinel,与失败通知并列) ─────
+
+console.log('\n=== U1: cache 是 update_available + 未升级 → maybeNotifyUpdateOnce 触发 stderr ===');
+
+await test('update_available + 未升级 → stderr 出"检测到新版可用"', async () => {
+  clearSentinels();
+  // installedHash 与 lock 真实 hash 相等 → filterAlreadyUpgraded 判定"未升级"保留
+  const lockHash = (() => {
+    try {
+      const lockPath = process.env.XDG_STATE_HOME
+        ? join(process.env.XDG_STATE_HOME, 'skills', '.skill-lock.json')
+        : join(homedir(), '.agents', '.skill-lock.json');
+      return JSON.parse(readFileSync(lockPath, 'utf8'))?.skills?.['wind-mcp-skill']?.skillFolderHash;
+    } catch { return null; }
+  })();
+  if (!lockHash) { console.log('    [skip] 无 lock hash'); return; }
+
+  writeCache({
+    schemaVersion: 3,
+    skills: {
+      'wind-mcp-skill': {
+        status: 'update_available',
+        outdated: [{
+          name: 'wind-mcp-skill',
+          current: lockHash.slice(0, 7),
+          latest: '586226e',
+          sourceUrl: 'https://github.com/Wind-Information-Co-Ltd/wind-skills.git',
+          host: 'github',
+          installedHash: lockHash,
+        }],
+        ttlMs: 43_200_000, lockSignature: 'fake',
+        lastCheck: new Date().toISOString(),
+      },
+    },
+  });
+  const mod = await loadCli();
+  const stderr = captureStderr(() => mod.maybeNotifyUpdateOnce());
+  assert.ok(stderr.includes('[wind-skills] 检测到新版可用'),
+    `期望 stderr 出更新通知, 实际: ${JSON.stringify(stderr)}`);
+  assert.ok(stderr.includes('wind-mcp-skill'), 'stderr 应含 skill 名');
+  assert.ok(stderr.includes('npx skills update'), 'stderr 应含升级命令');
+  // update sentinel 创建
+  assert.ok(existsSync(mod.updateSentinelPath()), 'update sentinel 应已创建');
+});
+
+await test('第二次 maybeNotifyUpdateOnce → 静默(sentinel 占主导)', async () => {
+  const mod = await loadCli();
+  const stderr = captureStderr(() => mod.maybeNotifyUpdateOnce());
+  assert.equal(stderr, '', `第二次应静默, 实际: ${JSON.stringify(stderr)}`);
+});
+
+console.log('\n=== U2: update_available + 已升级(installedHash 不等 lock) → maybeNotifyUpdateOnce 静默 ===');
+
+await test('installedHash != lock 真实 hash → filterAlreadyUpgraded 移除 → stderr 不出', async () => {
+  clearSentinels();
+  writeCache({
+    schemaVersion: 3,
+    skills: {
+      'wind-mcp-skill': {
+        status: 'update_available',
+        outdated: [{
+          name: 'wind-mcp-skill', current: 'a', latest: 'b',
+          sourceUrl: 'https://github.com/x/y.git', host: 'github',
+          installedHash: '0000000000000000000000000000000000000000',  // 显然不等于真实 lock
+        }],
+        ttlMs: 43_200_000, lockSignature: 'fake',
+        lastCheck: new Date().toISOString(),
+      },
+    },
+  });
+  const mod = await loadCli();
+  const stderr = captureStderr(() => mod.maybeNotifyUpdateOnce());
+  assert.equal(stderr, '', `已升级路径应静默, 实际: ${JSON.stringify(stderr)}`);
+});
+
+console.log('\n=== U3: cache 是 transient_error → maybeNotifyUpdateOnce 不触发(只看 update_available) ===');
+
+await test('failure 状态 → maybeNotifyUpdateOnce 静默(不抢失败通道)', async () => {
+  clearSentinels();
+  writeCache(makeFreshFailureCache('transient_error', 'network'));
+  const mod = await loadCli();
+  const stderr = captureStderr(() => mod.maybeNotifyUpdateOnce());
+  assert.equal(stderr, '');
+  // update sentinel 不应创建
+  assert.equal(existsSync(mod.updateSentinelPath()), false);
+});
+
+console.log('\n=== U4: snoozedUntil 在未来 → maybeNotifyUpdateOnce 静默 ===');
+
+await test('snooze 期间 update stderr 也静默', async () => {
+  clearSentinels();
+  const future = new Date(Date.now() + 86_400_000).toISOString();
+  writeCache({
+    schemaVersion: 3,
+    skills: {
+      'wind-mcp-skill': {
+        status: 'update_available',
+        outdated: [{ name: 'wind-mcp-skill', current: 'a', latest: 'b',
+          sourceUrl: 'https://github.com/x/y.git' }],
+        ttlMs: 43_200_000, snoozedUntil: future,
+        lockSignature: 'fake', lastCheck: new Date().toISOString(),
+      },
+    },
+  });
+  const mod = await loadCli();
+  const stderr = captureStderr(() => mod.maybeNotifyUpdateOnce());
+  assert.equal(stderr, '');
+});
+
+console.log('\n=== U5: 两个 sentinel 独立 ===');
+
+await test('failure 触发后 update sentinel 仍允许首次, 反之亦然', async () => {
+  clearSentinels();
+  // 先触发 failure
+  writeCache(makeFreshFailureCache('transient_error', 'network'));
+  let mod = await loadCli();
+  captureStderr(() => mod.maybeNotifyFailureOnce());
+  assert.ok(existsSync(mod.failureSentinelPath()));
+  assert.equal(existsSync(mod.updateSentinelPath()), false, 'failure 触发不应创建 update sentinel');
+
+  // 再切到 update_available, update 仍能首次触发
+  const lockHash = (() => {
+    try {
+      const lockPath = process.env.XDG_STATE_HOME
+        ? join(process.env.XDG_STATE_HOME, 'skills', '.skill-lock.json')
+        : join(homedir(), '.agents', '.skill-lock.json');
+      return JSON.parse(readFileSync(lockPath, 'utf8'))?.skills?.['wind-mcp-skill']?.skillFolderHash;
+    } catch { return null; }
+  })();
+  if (!lockHash) { console.log('    [skip] 无 lock hash'); return; }
+  writeCache({
+    schemaVersion: 3,
+    skills: {
+      'wind-mcp-skill': {
+        status: 'update_available',
+        outdated: [{ name: 'wind-mcp-skill', current: lockHash.slice(0, 7), latest: 'newhash',
+          sourceUrl: 'https://github.com/x/y.git', host: 'github', installedHash: lockHash }],
+        ttlMs: 43_200_000, lockSignature: 'fake',
+        lastCheck: new Date().toISOString(),
+      },
+    },
+  });
+  mod = await loadCli();
+  const stderr = captureStderr(() => mod.maybeNotifyUpdateOnce());
+  assert.ok(stderr.includes('检测到新版可用'),
+    `update sentinel 应独立于 failure sentinel 工作, 实际: ${JSON.stringify(stderr)}`);
+  assert.ok(existsSync(mod.updateSentinelPath()));
 });
 
 console.log('\n=== T5: snooze 期间不出 ===');

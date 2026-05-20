@@ -80,11 +80,14 @@ const UPDATE_STATE_FILE = join(CACHE_DIR, 'update-state.json');
 const TOOL_MANIFEST_PATH = join(SKILL_DIR, 'references', 'tool-manifest.json');
 const SKILL_NAME = 'wind-mcp-skill';
 
-// 失败通知 sentinel: ~/.cache/wind-aifinmarket/failure-shown-<ppid>
-// mtime ≤ 24h: 视为"本会话已展示" → 静默
-// mtime > 24h: 视为过期(同 ppid 重用风险) → 重新允许展示
+// 失败 / 更新通知 sentinel: ~/.cache/wind-aifinmarket/{failure,update}-shown-<ppid>
+// 两个独立 sentinel,语义完全平行:
+//   mtime ≤ 24h: 视为"本会话已展示" → 静默
+//   mtime > 24h: 视为过期(同 ppid 重用风险) → 重新允许展示
 // 启动时清理 mtime > 7d 的 sentinel 文件防累积
-const SENTINEL_PREFIX = 'failure-shown-';
+const FAILURE_SENTINEL_PREFIX = 'failure-shown-';
+const UPDATE_SENTINEL_PREFIX = 'update-shown-';
+const SENTINEL_PREFIXES = [FAILURE_SENTINEL_PREFIX, UPDATE_SENTINEL_PREFIX];
 const SENTINEL_FRESH_MS = 24 * 60 * 60 * 1000;
 const SENTINEL_CLEANUP_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -264,24 +267,45 @@ export function collectUpdateNotices() {
   return [];
 }
 
-// 失败 sentinel: 按 ppid 隔离, mtime 控制时效
-export function sentinelPath(ppid = process.ppid) {
-  return join(CACHE_DIR, `${SENTINEL_PREFIX}${ppid}`);
+// 失败 / 更新 sentinel: 按 ppid 隔离, mtime 控制时效, 两种独立文件
+export function failureSentinelPath(ppid = process.ppid) {
+  return join(CACHE_DIR, `${FAILURE_SENTINEL_PREFIX}${ppid}`);
+}
+export function updateSentinelPath(ppid = process.ppid) {
+  return join(CACHE_DIR, `${UPDATE_SENTINEL_PREFIX}${ppid}`);
 }
 
-// 启动时清理 mtime > 7d 的旧 sentinel 防累积
+// 启动时清理 mtime > 7d 的旧 sentinel(两种前缀都扫)防累积
 export function cleanupStaleSentinels() {
   try {
     if (!existsSync(CACHE_DIR)) return;
     const now = Date.now();
     for (const name of readdirSync(CACHE_DIR)) {
-      if (!name.startsWith(SENTINEL_PREFIX)) continue;
+      if (!SENTINEL_PREFIXES.some(p => name.startsWith(p))) continue;
       const p = join(CACHE_DIR, name);
       try {
         const st = statSync(p);
         if (now - st.mtimeMs > SENTINEL_CLEANUP_MS) unlinkSync(p);
       } catch {}
     }
+  } catch {}
+}
+
+// 通用 sentinel 时效检查 + 触发
+function sentinelFresh(sentinelPath) {
+  if (!existsSync(sentinelPath)) return false;
+  try {
+    const st = statSync(sentinelPath);
+    return Date.now() - st.mtimeMs <= SENTINEL_FRESH_MS;
+  } catch { return false; }
+}
+function touchSentinel(sentinelPath) {
+  try {
+    if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
+    const fd = openSync(sentinelPath, 'a');
+    closeSync(fd);
+    const now = new Date();
+    utimesSync(sentinelPath, now, now);
   } catch {}
 }
 
@@ -295,26 +319,36 @@ export function maybeNotifyFailureOnce() {
     if (state.status !== 'transient_error' && state.status !== 'unknown') return;
     if (state.snoozedUntil && new Date(state.snoozedUntil) > new Date()) return;
 
-    const sentinel = sentinelPath();
-    if (existsSync(sentinel)) {
-      try {
-        const st = statSync(sentinel);
-        if (Date.now() - st.mtimeMs <= SENTINEL_FRESH_MS) return;  // 24h 内已展示, 静默
-      } catch {}
-    }
+    const sentinel = failureSentinelPath();
+    if (sentinelFresh(sentinel)) return;
 
-    // 触发一次性 stderr 通知
     const reason = state.reason || 'unknown';
     process.stderr.write(`[wind-skills] 更新检测失败 (reason=${reason}), 不影响本次调用。\n`);
+    touchSentinel(sentinel);
+  } catch {}
+}
 
-    // 创建/touch sentinel(原子: 用 O_CREAT, 然后 utimes 设当前时间)
-    try {
-      if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
-      const fd = openSync(sentinel, 'a');
-      closeSync(fd);
-      const now = new Date();
-      utimesSync(sentinel, now, now);
-    } catch {}
+// 检测到新版可用 → 检查 sentinel → 第一次就 stderr 打通知 + touch sentinel; 否则静默。
+// 复用 collectUpdateNotices() 已有的 filterAlreadyUpgraded / snooze 过滤逻辑。
+// 仅在 cmd === 'call' 调用; 完全不动 stdout。
+export function maybeNotifyUpdateOnce() {
+  try {
+    const notices = collectUpdateNotices();
+    const updateNotice = notices.find(n => n && n.type === 'update_available');
+    if (!updateNotice || !Array.isArray(updateNotice.items) || updateNotice.items.length === 0) return;
+
+    const sentinel = updateSentinelPath();
+    if (sentinelFresh(sentinel)) return;
+
+    // 格式化 stderr 输出
+    const lines = ['[wind-skills] 检测到新版可用:'];
+    for (const item of updateNotice.items) {
+      const ver = item.current && item.latest ? `${item.current} → ${item.latest}` : (item.latest || '?');
+      lines.push(`  ${item.name}: ${ver}`);
+      lines.push(`  升级命令: ${item.upgrade_command}`);
+    }
+    process.stderr.write(lines.join('\n') + '\n');
+    touchSentinel(sentinel);
   } catch {}
 }
 
@@ -334,6 +368,7 @@ function writePlainSuccess(data) {
 }
 
 // 失败路径: 极简 envelope { ok:false, error:{code, agent_action}, notices }
+// notices 字段保留(forward compat)但永远为 []; update_available / 失败检测均由 stderr 一次性通道承载。
 function writeErrorEnvelope(code, detail) {
   const envelope = {
     ok: false,
@@ -341,7 +376,7 @@ function writeErrorEnvelope(code, detail) {
       code,
       agent_action: buildAgentAction(code, detail),
     },
-    notices: collectUpdateNotices(),
+    notices: [],
   };
   process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
 }
@@ -842,11 +877,14 @@ if (cmd === 'call') {
   spawnUpdateCheck();
   // 顺手清理 mtime > 7d 的僵尸 sentinel(零成本: 同步,目录通常 < 10 个文件)
   cleanupStaleSentinels();
-  // call 命令一旦进入就尝试一次性失败通知:
-  // - 不管主调用最终成功还是失败,都给 agent 同等的"本会话第一次"提示机会
-  // - 必须在 die() 抛出前调用, 否则 die() 直接 exit 会跳过通知
-  // - 必须在 writeRawCallSuccess 输出 stdout JSON 前调用, 避免 stderr 与 stdout 交错
+  // call 命令一旦进入就尝试两个 stderr 一次性通知:
+  // - 失败检测(transient_error / unknown)
+  // - 检测到新版可用(update_available + 未升级)
+  // 两者独立 sentinel,互不干扰;同会话各自只出一次。
+  // 必须在 die() 抛出前调用(die 直接 exit 会跳过)；
+  // 必须在 stdout 输出前调用(防 stderr/stdout 交错)。
   maybeNotifyFailureOnce();
+  maybeNotifyUpdateOnce();
 }
 
 commands[cmd]()

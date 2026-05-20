@@ -223,7 +223,7 @@ describe('failure envelope notices', () => {
     } catch { return null; }
   }
 
-  it('update_available 在 cache 时,失败 envelope 的 notices 含该条目', () => {
+  it('update_available 在 cache 时,失败 envelope notices 仍为空(update 走 stderr 通道, 不再进 notices)', () => {
     const info = getRealLockInfo();
     if (!info?.hash) return;  // CI 无 lock 跳过
     if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
@@ -247,9 +247,9 @@ describe('failure envelope notices', () => {
     }, null, 2));
 
     const json = runFail(['call', 'stock_data', 'nonexistent_tool', '{}'], 'UNKNOWN_TOOL_NAME');
-    const updates = json.notices.filter(n => n.type === 'update_available');
-    assert.equal(updates.length, 1, `应携带 update_available, 实际: ${JSON.stringify(json.notices)}`);
-    assert.ok(updates[0].items[0].upgrade_command);
+    // 新设计: update_available 永远不进 notices 数组,改走 stderr 一次性通道
+    assert.deepEqual(json.notices, [],
+      `notices 应永远为空(update_available 走 stderr), 实际: ${JSON.stringify(json.notices)}`);
   });
 
   it('transient_error 不进 notices', () => {

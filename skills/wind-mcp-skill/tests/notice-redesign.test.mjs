@@ -1,5 +1,7 @@
-// wind-mcp-skill notices 单元测试: notices 数组只承载 update_available
-// 其它失败状态(transient_error / unknown)既不进 notices 也不进 envelope(已废弃 meta flag)
+// wind-mcp-skill notices 单元测试: collectUpdateNotices 函数行为
+// 注: 自从 update_available 改走 stderr 通道(maybeNotifyUpdateOnce),
+// collectUpdateNotices 不再被 writeErrorEnvelope 使用(envelope.notices 永远 []);
+// 但函数本身保留作为 maybeNotifyUpdateOnce 的输入逻辑, 这里继续测它的过滤/snooze/容错
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';

@@ -487,17 +487,23 @@ node scripts/cli.mjs call analytics_data get_financial_data '{"question":"查询
 
 ## 8. 保持最新
 
-`cli.mjs call` 关于"更新检查"有两条信号通道：
+更新检查相关的所有信号**都走 stderr 一次性通道**，stdout envelope 永远不携带（`notices` 字段保留但永远为空数组）。两类信号独立 sentinel，互不干扰：
 
-### 8.1 stdout `notices` 数组（仅承载"有新版可升级"）
+### 8.1 stderr "检测到新版可用"
 
-`notices` 数组中只可能出现 `type="update_available"` 一种条目。
+成功 call 且本地版本落后远端时，stderr 出现：
 
-- 本对话首次看到时向用户转告一次，优先照搬 `items[].upgrade_command`（Gitee / GitHub 升级路径不同）；后续同对话再次出现忽略，不重复提示。
+```
+[wind-skills] 检测到新版可用:
+  wind-mcp-skill: 439c482 → 586226e
+  升级命令: npx skills update wind-mcp-skill -g -y
+```
 
-### 8.2 stderr 一次性"更新检测失败"通知
+Gitee 安装的 skill 升级命令会变成 `npx skills add <gitee-url> --skill <name> -g -y`（Gitee 不支持 update，需重装）。脚本会自动按 source 给出正确命令。
 
-更新检查的失败信号**不进 stdout / envelope**，由脚本在 stderr 输出固定前缀文本：
+### 8.2 stderr "更新检测失败"
+
+后台更新探测异常（网络 / 限流 / lock 缺失等）时，stderr 出现：
 
 ```
 [wind-skills] 更新检测失败 (reason=network), 不影响本次调用。
@@ -505,11 +511,13 @@ node scripts/cli.mjs call analytics_data get_financial_data '{"question":"查询
 
 `reason` 可能是 `network` / `rate_limit` / `lock_missing` / `no_source_url` / `timeout` 等。
 
-**处理规则**：
+### 8.3 两类 stderr 通知的统一处理规则
 
-1. **看到就简短转告用户一次**（例如"后台更新检查暂时失败，不影响本次数据调用"）。
-2. **不影响主调用判断**：失败检测和本次 Wind 数据调用的成功 / 失败完全无关，不要用它影响 stdout JSON 的处理逻辑。
-3. **不催促用户解决**：除非 `reason` 明确指向用户可立即处理的项（极少数情况），否则就当作背景信息。
-4. **脚本已保证本会话只出现一次**：你不需要自己去重——stderr 没出现这行字就是没出现，不需要回忆"我之前提过没"。
+1. **看到就简短转告用户一次**：
+   - 更新可用 → 把升级命令照搬给用户。
+   - 检测失败 → 一句话告知"后台更新检查失败，不影响本次调用"。
+2. **不影响主调用判断**：两种信号与本次 Wind 数据调用的成功 / 失败完全无关，不要用它影响 stdout JSON 的处理逻辑。
+3. **不需要自己去重**：脚本已经保证每个会话每种 stderr 通知只出现一次。stderr 没出现这行字就是没出现，不要去回忆"我之前提过没"。
+4. **stdout 永远不带这两类信号**：`notices` 字段永远是 `[]`。所有更新检查相关信号只可能从 stderr 来。
 
 ⚠️ 若遇"工具不存在 / 字段不符"等疑似版本相关错误，先按 `## 3. 工具表` + `references/tool-manifest.json` 重核并重试一次；仍不通过时，再建议用户运行 `npx skills update -g -y` 升级 skill。

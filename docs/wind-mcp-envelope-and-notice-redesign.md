@@ -73,7 +73,7 @@ stdout 输出极简 envelope：
 - `ok`：恒为 `false`（成功路径不出 envelope）
 - `error.code`：稳定错误分类标识符（监控/集成/错误码分支用）
 - `error.agent_action`：诊断（`[后端原始 message]`）+ 标准处方（NL 指令），一段文本搞定 agent 自纠
-- `notices`：仅可能含 `type="update_available"`；`transient_error` / `unknown` 永不进 notices（这类失败由 stderr 一次性通知承载，见第 9.1 节）
+- `notices`：保留字段但**永远是 `[]`**（forward compat）；所有更新检查相关信号（`update_available` / `transient_error` / `unknown`）都走 stderr 一次性通道，见第 9.1 节
 
 ## 5. 错误码分支策略（SKILL.md 第 7 节）
 
@@ -172,21 +172,38 @@ stdout 输出极简 envelope：
 
 ## 9. 已知权衡
 
-### 9.1 失败通知走 stderr + ppid sentinel（v2 增补）
+### 9.1 两类 stderr 通知 + 独立 sentinel（v3 最终态）
 
-`transient_error` / `unknown` 状态**不进 stdout envelope**（保持 stdout 干净），改由 stderr 一次性输出固定前缀文本：
+所有更新检查相关信号都走 stderr 一次性通道（stdout 永远不带），用独立 sentinel 实现"每会话只出一次"：
+
+**两类 stderr 通知**：
 
 ```
+# 失败检测
 [wind-skills] 更新检测失败 (reason=network), 不影响本次调用。
+
+# 检测到新版可用
+[wind-skills] 检测到新版可用:
+  wind-mcp-skill: 439c482 → 586226e
+  升级命令: npx skills update wind-mcp-skill -g -y
 ```
 
-**会话边界识别**：用 `process.ppid` 作为会话标识——绝大多数 agent（Claude Code / Codex / Cursor / Cline / Aider / OpenHands / MCP server 集成 / 用户直接终端）的父进程在整个会话内稳定，新对话 → 新 shell → 新 ppid。
+**两个独立 sentinel 文件**：
 
-**Sentinel 文件**：`~/.cache/wind-aifinmarket/failure-shown-<ppid>`
+- `~/.cache/wind-aifinmarket/failure-shown-<ppid>`
+- `~/.cache/wind-aifinmarket/update-shown-<ppid>`
+
+互相独立——同会话失败通知触发后不影响更新通知首次触发，反之亦然。
+
+**会话边界识别**：用 `process.ppid` 作为会话标识。绝大多数 agent（Claude Code / Codex / Cursor / Cline / Aider / OpenHands / MCP server 集成 / 用户直接终端）的父进程在整个会话内稳定，新对话 → 新 shell → 新 ppid。
+
+**sentinel 时效**：
 
 - 不存在 / mtime > 24h → stderr 打通知 + 创建（或 touch）sentinel
 - 存在 + mtime ≤ 24h → 静默
-- CLI `call` 启动时顺手扫目录，删 mtime > 7d 的旧 sentinel（防累积 + 防 PID 回收误判）
+- CLI `call` 启动时顺手扫目录，删 mtime > 7d 的两类 sentinel（防累积 + 防 PID 回收误判）
+
+**已升级的自动过滤**：`update-shown-` sentinel 配合现有 `filterAlreadyUpgraded()` 逻辑——如果用户实际跑了 `npx skills update`，lock hash 变化 → cache 里的 outdated 条目被过滤掉 → maybeNotifyUpdateOnce 不会触发 → 新版通知自动消失。无需手动清 sentinel。
 
 **对弱模型的友好性**：去重逻辑完全在脚本里，LLM 不需要"记住自己提过没"。Haiku 4.5 / GPT-4.1-mini / 较小模型也能正确处理——看到 stderr 就转告一次，看不到就不管。
 
@@ -204,11 +221,11 @@ stdout 输出极简 envelope：
 - 同会话超 24h：sentinel 过期，会再打一次。这种用户单次会话极少。
 - 多用户同机：每个用户有独立 `~/.cache/wind-aifinmarket/`，互不干扰。
 
-### 9.2 `update_available` 仅在失败路径出现
+### 9.2 ~~`update_available` 仅在失败路径出现~~（已解决）
 
-成功路径不包装 envelope → notices 无处可放 → 只有当 `cli.mjs call` 失败时，envelope 的 `notices` 字段才可能携带 `update_available`。
+~~成功路径不包装 envelope → notices 无处可放~~
 
-实际影响：用户调用全部成功的会话里看不到升级提示。但只要发生过一次错误（KEY_MISSING / NETWORK_ERROR 等），就会看到。对于"持续正常运行"的部署，可由 `update-check.mjs` 直接运行（或定期 cron）暴露提示。
+v3 起：`update_available` 改走 stderr 一次性通道，**与 stdout 成功/失败路径无关**。无论调用成功还是失败，只要本会话首次检测到可升级版本，stderr 都会出一次通知。彻底解决早期版本的"成功路径看不到升级提示"问题。
 
 ### 9.3 多次同种错误的 agent_action 重复
 
