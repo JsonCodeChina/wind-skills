@@ -275,10 +275,23 @@ export function collectUpdateNotices() {
 // macOS: ps -p ... -o ppid,lstart,comm, ~50ms
 // Windows native: powershell -EncodedCommand 跑 Get-CimInstance Win32_Process, ~500ms-1s
 //   (Windows 慢, 用文件缓存 5min TTL 避免每次都付)
+// 跳过这些进程, 它们都是 ephemeral 的 shell / console-host 层, 不构成"会话"
 const SHELL_NAMES = new Set([
+  // 主流 Unix shell
   'bash', 'sh', 'zsh', 'dash', 'fish', 'csh', 'ksh', 'tcsh',
-  // Windows 上 Get-CimInstance 返回的 Name 带 .exe
-  'bash.exe', 'sh.exe', 'zsh.exe', 'cmd.exe', 'powershell.exe', 'pwsh.exe', 'wsl.exe',
+  // 备选/罕见 Unix shell
+  'xonsh', 'nu', 'nushell', 'ion', 'elvish', 'oksh', 'mksh', 'yash', 'rc', 'es',
+  // Windows native shell
+  'cmd.exe', 'powershell.exe', 'pwsh.exe',
+  // MSYS2 / Cygwin / Git Bash 下的 shell
+  'bash.exe', 'sh.exe', 'zsh.exe', 'dash.exe', 'fish.exe', 'tcsh.exe', 'ksh.exe',
+  // WSL launcher (ephemeral, 跳过它走 wsl.exe 的父进程)
+  'wsl.exe', 'wslhost.exe',
+  // Console hosts / shell helper (per-shell ephemeral, 应该跳过)
+  'conhost.exe',     // cmd/pwsh 的 console host
+  'mintty.exe',      // Git Bash 默认终端
+  'msys-1.0.dll',    // MSYS infra (理论上不会出现, just in case)
+  'cygwin1.dll',     // Cygwin infra
 ]);
 const SESSION_CACHE_FILE = join(CACHE_DIR, 'session.id');
 const SESSION_CACHE_TTL_MS = 5 * 60 * 1000;  // 5min
@@ -343,7 +356,7 @@ function tryWindowsWalk() {
   try {
     // 拼 PowerShell 脚本: 走树, 跳 shell, 输出 "MATCH:<pid>:<ticks>" 或 "NONE"
     const ps = [
-      "$shells = @('cmd.exe','powershell.exe','pwsh.exe','bash.exe','sh.exe','zsh.exe','wsl.exe','dash.exe','fish.exe')",
+      "$shells = @('cmd.exe','powershell.exe','pwsh.exe','bash.exe','sh.exe','zsh.exe','dash.exe','fish.exe','tcsh.exe','ksh.exe','wsl.exe','wslhost.exe','conhost.exe','mintty.exe')",
       `$cur = ${process.ppid}`,
       "$hops = 0",
       "while ($cur -gt 4 -and $hops -lt 10) {",
@@ -1005,10 +1018,38 @@ const USAGE =
   `典型:\n` +
   `  ${CALL_EXAMPLES.join('\n  ')}`;
 
+// 诊断命令: 输出 sessionId + 进程树, 让用户在不同终端 / 不同 agent 自测
+// 跑法: 在两个独立的 Bash tool 调用(或两次终端命令)里各跑一次 cli.mjs diagnose
+// 比对输出的 sessionId; 如果相同, 跨调用 dedup 机制就生效
+async function cmdDiagnose() {
+  const sid = getSessionId();
+  // 模块缓存可能命中, 强制重算一次, 然后清掉文件缓存重新走以展示完整链路
+  _sessionIdMemo = null;
+  try { unlinkSync(SESSION_CACHE_FILE); } catch {}
+  return {
+    platform: process.platform,
+    node_pid: process.pid,
+    node_ppid: process.ppid,
+    session_id: sid,
+    detection_method: (function() {
+      if (tryProcWalk()) return 'proc';
+      if (process.platform === 'darwin' && tryMacWalk()) return 'macos_ps';
+      if (process.platform === 'win32' && tryWindowsWalk()) return 'windows_powershell';
+      return 'ppid_fallback';
+    })(),
+    cache_dir: CACHE_DIR,
+    sentinel_failure: failureSentinelPath(sid),
+    sentinel_update: updateSentinelPath(sid),
+    notes: '在两个独立终端/Bash tool 调用里各跑一次,比对 session_id 是否相同。' +
+           '相同表示跨调用 dedup 工作。不同表示当前环境没有稳定的非 shell 祖先。',
+  };
+}
+
 const commands = {
   call: () => cmdCall(args[0], args[1], args[2]),
   'open-portal': () => cmdOpenPortal(),
   'setup-key': () => cmdSetupKey(...args),
+  diagnose: () => cmdDiagnose(),
 };
 
 if (!cmd) {
