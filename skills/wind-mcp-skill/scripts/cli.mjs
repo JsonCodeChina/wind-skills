@@ -630,11 +630,11 @@ function validateToolSelection(server_type, toolName) {
 function getApiKey() {
   if (process.env.WIND_API_KEY) return process.env.WIND_API_KEY;
 
-  const localConfig = join(SKILL_DIR, 'config.json');
+  const localConfig = join(SKILL_DIR, 'config');
   if (existsSync(localConfig)) {
     try {
-      const cfg = JSON.parse(readFileSync(localConfig, 'utf8'));
-      if (cfg.wind_api_key) return cfg.wind_api_key;
+      const env = parseDotenv(readFileSync(localConfig, 'utf8'));
+      if (env.WIND_API_KEY) return env.WIND_API_KEY;
     } catch {}
   }
 
@@ -934,10 +934,14 @@ async function cmdSetupKey(...rawArgs) {
         mode: 0o600
       });
     } else {
-      file = join(SKILL_DIR, 'config.json');
-      writeFileSync(file, JSON.stringify({
-        wind_api_key: key
-      }, null, 2) + '\n', {
+      file = join(SKILL_DIR, 'config');
+      let lines = [];
+      if (existsSync(file)) {
+        lines = readFileSync(file, 'utf8').split('\n')
+          .filter(l => l.length > 0 && !/^\s*(export\s+)?WIND_API_KEY\s*=/.test(l));
+      }
+      lines.push(`WIND_API_KEY=${key}`);
+      writeFileSync(file, lines.join('\n') + '\n', {
         mode: 0o600
       });
     }
