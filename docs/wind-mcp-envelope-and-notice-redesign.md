@@ -49,7 +49,7 @@ stdout 输出**纯数据**，无任何包裹：
 | 命令 | 输出 |
 |---|---|
 | `cli.mjs`（无参 help） | USAGE 纯文本 |
-| `cli.mjs call ...` | `result.content[0].text`（若是合法 JSON 字符串则 parse 后输出对象，否则原样文本） |
+| `cli.mjs call ...` | **完整透传 MCP `result` 对象**，不做任何 parse / 抽取。业务数据通常在 `result.content[0].text`（可能是 JSON 字符串），Agent 自行解析。 |
 | `cli.mjs open-portal` | 结构化 JSON 对象 `{url, scope, flow_note, fallback_message}` |
 | `cli.mjs setup-key ...` | 结构化 JSON 对象 `{scope, path}` |
 
@@ -104,7 +104,7 @@ stdout 输出极简 envelope：
 
 **新增**：
 
-- `writeRawCallSuccess(result)`：`call` 透传 result text（JSON 字符串自动 parse 后输出对象）
+- `writeRawCallSuccess(result)`：`call` 完整透传 MCP `result` 对象（不做任何 parse / 抽取，agent 自己解 `result.content[0].text`）
 - `writePlainSuccess(data)`：`open-portal` / `setup-key` 直接 JSON 输出
 - `writeErrorEnvelope(code, detail)`：极简失败 envelope
 - `buildAgentAction(code, detail)`：把后端原始 `[detail]` + 标准处方拼成一段 NL；`USAGE_ERROR` 例外不截断 detail（嵌入完整 USAGE 让 agent 重构命令）
@@ -191,7 +191,7 @@ stdout 输出极简 envelope：
 **消费方需要适配**的契约变化：
 
 1. ❌ **不能**再用 `json.ok === true` 判断 call 成功——成功路径不再有 JSON envelope。改用 **exit code**。
-2. ❌ **不能**再从 `json.data.result.content[0].text` 取业务数据——成功 stdout 直接就是该 text（已 parse 为对象或原样文本）。直接读 stdout。
+2. ❌ **不能**再从 `json.data.result` 取业务数据——成功 stdout 直接是完整的 MCP `result` 对象（无 `data` / `server_type` / `tool` 外壳）。业务数据仍在 `result.content[0].text`，Agent 自行 `JSON.parse`。
 3. ❌ **不能**再用 `json.error.message` / `json.error.hint` / `json.error.retryable` / `json.error.fallback_allowed` / `json.error.category` / `json.error.context`——这些字段全部移除。改用 `json.error.code`（分支）+ `json.error.agent_action`（NL 指令）。
 4. ❌ **不能**再读 `json.meta.cli_version` / `json.meta.schema_version` / `json.meta.update_check_failed`——meta 字段整体删除。
 5. ✅ `json.notices`（仅 `update_available`）保留；`update_check_failed` / `update_check_unknown` 类型不再出现。

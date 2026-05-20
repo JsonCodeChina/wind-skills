@@ -75,7 +75,7 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 `cli.mjs` 用 **exit code** 区分成功/失败；不要从 stderr 解析任何东西（stderr 仅做内部日志）。`scripts/update-check.mjs` 是异步探活内部脚本，不是 Agent 调用入口。
 
 **成功路径（exit code 0）**：stdout 输出**纯数据**，无任何 envelope 包裹。
-- `call` 命令：直接输出 MCP `result.content[0].text`；若该文本是合法 JSON 字符串，CLI 先 parse 再输出 JSON 对象；否则原样输出文本。
+- `call` 命令：**完整透传 MCP `result` 对象**（不做任何 parse / 抽取）。业务数据通常在 `result.content[0].text`，可能是 JSON 字符串，Agent 自行 `JSON.parse` 或按文本处理。
 - `open-portal` / `setup-key` 命令：直接输出结构化 JSON 对象（含 `url` / `path` 等字段）。
 - 无参（help）：直接输出 USAGE 纯文本。
 

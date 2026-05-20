@@ -251,22 +251,11 @@ export function collectUpdateNotices() {
 
 // ───── 工具函数 ─────
 
-// 成功路径: `call` 命令透传 MCP result.content[0].text(若是合法 JSON 字符串则 parse 后输出对象,
-// 否则输出文本原样)。其它命令(help / open-portal / setup-key)直接输出它们的结构化数据。
+// 成功路径: `call` 命令完整透传 MCP `result` 对象,**不做任何 parse 或抽取**。
+// 业务数据通常在 result.content[0].text(可能是 JSON 字符串,由 agent 自行 parse)。
+// 其它命令(help / open-portal / setup-key)直接输出它们的结构化数据。
 // 全部不带任何 envelope / meta 包裹。
 function writeRawCallSuccess(result) {
-  const text = result?.content?.[0]?.text;
-  if (typeof text === 'string') {
-    let parsed = null;
-    try { parsed = JSON.parse(text); } catch {}
-    if (parsed !== null && typeof parsed === 'object') {
-      process.stdout.write(JSON.stringify(parsed, null, 2) + '\n');
-      return;
-    }
-    process.stdout.write(text.endsWith('\n') ? text : text + '\n');
-    return;
-  }
-  // 无 content[0].text 退化为整段 result
   process.stdout.write(JSON.stringify(result, null, 2) + '\n');
 }
 
