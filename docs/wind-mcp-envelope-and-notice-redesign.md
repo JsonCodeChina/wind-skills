@@ -220,20 +220,39 @@ stdout 输出极简 envelope：
 - 同会话超 24h：sentinel 过期，会再打一次。这种用户单次会话极少。
 - 多用户同机：每个用户有独立 `~/.cache/wind-aifinmarket/`，互不干扰。
 
-### 9.3 sessionId 改用 grandparent walk-up（v4 修正）
+### 9.3 sessionId 三平台 walk-up（v4.1 最终态）
 
 发现 Claude Code 的 Bash tool 每次调用都 spawn `bash -c "..."` 新 shell → `process.ppid` 每次不同 → sentinel 失配 → stderr 通知每次都打。
 
-修正：`getSessionId()` 走进程树向上，跳过所有 shell 进程（`bash`/`sh`/`zsh`/`dash`/`fish`/`csh`/`ksh`/`tcsh`），用第一个非 shell 祖先的 `pid + starttime` 作为 sessionId。
+修正：`getSessionId()` 走进程树向上，跳过所有 shell 进程，用第一个非 shell 祖先的 `pid + starttime` 作为 sessionId。
 
 进程树示意（Claude Code Bash tool）：
 ```
-node cli.mjs                 ← 我们的进程
-  ↑ bash (ephemeral)         ← 每次调用都换 PID
+node cli.mjs                 ← 我们的进程, 每次新
+  ↑ shell (ephemeral)        ← 每次调用都换 (bash / cmd.exe / pwsh)
   ↑ claude (stable)          ← 整个对话稳定, sessionId 取这里
 ```
 
-Linux 用 `/proc/<pid>/stat` 走树（field 4 = ppid, field 22 = starttime）。macOS/Windows 退化到 `process.ppid`（degraded 但不崩）。
+**三平台实现**：
+
+| 平台 | 实现方法 | 性能 |
+|---|---|---|
+| Linux / WSL / Git Bash (MSYS2) | `readFileSync('/proc/<pid>/stat')` 走 field 4 (ppid) + field 22 (starttime) | < 1ms |
+| macOS | `ps -p <pid> -o ppid=,lstart=,comm=` 串行调多次 | ~50ms × hops |
+| Windows native | 一次 `powershell -EncodedCommand` 跑 `Get-CimInstance Win32_Process` 内嵌循环走完整树 | ~500ms-1s（PowerShell 冷启动一次） |
+
+**性能优化**：
+- `_sessionIdMemo` 模块内存缓存：同一 Node 进程内多次调用 `getSessionId()` 只算一次
+- `~/.cache/wind-aifinmarket/session.id` 文件缓存（5min TTL）：跨 Node 进程复用，主要服务 Windows（避免每次 cli 调用都付 PowerShell 启动开销）
+
+**Shell 名单**（这些进程会被跳过）：
+- Unix: `bash`, `sh`, `zsh`, `dash`, `fish`, `csh`, `ksh`, `tcsh`
+- Windows: `cmd.exe`, `powershell.exe`, `pwsh.exe`, `bash.exe`, `sh.exe`, `zsh.exe`, `wsl.exe`, `dash.exe`, `fish.exe`
+
+**Fallback 链**：
+1. `/proc` walk（适用 Linux/WSL/Git Bash）
+2. 平台分支（macOS `ps` / Windows PowerShell）
+3. `process.ppid`（兜底，degraded but functional）
 
 ### 9.4 v1 lock 项目本地安装支持（v4 新增）
 

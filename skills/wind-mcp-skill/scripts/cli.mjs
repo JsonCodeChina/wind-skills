@@ -26,7 +26,8 @@ import {
   pathToFileURL,
 } from 'node:url';
 import {
-  spawn
+  spawn,
+  execFileSync,
 } from 'node:child_process';
 
 const SKILL_VERSION = '1.6.1';
@@ -268,13 +269,22 @@ export function collectUpdateNotices() {
 }
 
 // 会话标识: walk 进程树跳过 shell 层,找首个非 shell 祖先作为 sessionId。
-// 对 Claude Code Bash tool 这类"每次新 bash -c"的场景,直接用 ppid 会失配,
-// 因为 bash 是 ephemeral 的; 真正稳定的是再往上一级的 agent 进程(claude/codex/cursor)。
-// Linux: /proc/<pid>/stat 走树; 其它 OS: 退化到 ppid (degraded but functional)。
-const SHELL_NAMES = new Set(['bash', 'sh', 'zsh', 'dash', 'fish', 'csh', 'ksh', 'tcsh']);
+// 对 Claude Code / Codex / Cursor 等 "每次 spawn 新 shell" 的 agent, 直接用 ppid 会失配,
+// 因为 shell 是 ephemeral 的; 真正稳定的是再往上一级的 agent 进程(claude/codex/cursor)。
+// Linux/WSL/Git Bash(MSYS2): /proc/<pid>/stat 走树, ~1ms
+// macOS: ps -p ... -o ppid,lstart,comm, ~50ms
+// Windows native: powershell -EncodedCommand 跑 Get-CimInstance Win32_Process, ~500ms-1s
+//   (Windows 慢, 用文件缓存 5min TTL 避免每次都付)
+const SHELL_NAMES = new Set([
+  'bash', 'sh', 'zsh', 'dash', 'fish', 'csh', 'ksh', 'tcsh',
+  // Windows 上 Get-CimInstance 返回的 Name 带 .exe
+  'bash.exe', 'sh.exe', 'zsh.exe', 'cmd.exe', 'powershell.exe', 'pwsh.exe', 'wsl.exe',
+]);
+const SESSION_CACHE_FILE = join(CACHE_DIR, 'session.id');
+const SESSION_CACHE_TTL_MS = 5 * 60 * 1000;  // 5min
 
-export function getSessionId() {
-  if (process.platform !== 'linux') return String(process.ppid);
+// /proc walk (Linux / WSL / Git Bash MSYS2): 优先尝试,失败再走平台分支
+function tryProcWalk() {
   try {
     let pid = process.ppid;
     let hops = 0;
@@ -285,14 +295,128 @@ export function getSessionId() {
       const after = stat.slice(commEnd + 2).split(' ');
       const parentPid = parseInt(after[1], 10);
       const starttime = after[19];
-      if (!SHELL_NAMES.has(name)) {
-        return `${pid}-${starttime}`;  // 命中 agent / terminal-emulator / 其它非 shell 进程
+      if (!SHELL_NAMES.has(name.toLowerCase())) {
+        return `${pid}-${starttime}`;
       }
       pid = parentPid;
       hops++;
     }
   } catch {}
-  return String(process.ppid);  // fallback
+  return null;
+}
+
+// macOS ps walk
+function tryMacWalk() {
+  try {
+    let pid = process.ppid;
+    let hops = 0;
+    while (pid && pid > 1 && hops < 10) {
+      const out = execFileSync('ps', ['-p', String(pid), '-o', 'ppid=,lstart=,comm='], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 3000,
+      }).trim();
+      if (!out) break;
+      // 格式: "<ppid> <lstart 5 字段> <comm>"
+      // lstart 例: "Mon May 20 09:00:00 2026", 5 字段固定
+      const parts = out.split(/\s+/);
+      if (parts.length < 7) break;
+      const parentPid = parseInt(parts[0], 10);
+      const lstart = parts.slice(1, 6).join(' ');  // 5 字段
+      const comm = parts.slice(6).join(' ');
+      // comm 可能是带路径的(如 /usr/bin/bash), 取 basename
+      const name = (comm.split('/').pop() || '').toLowerCase();
+      if (!SHELL_NAMES.has(name)) {
+        // 用 lstart 替代 starttime (字符串形式但稳定)
+        const cleanStart = lstart.replace(/[^a-zA-Z0-9]/g, '');
+        return `${pid}-${cleanStart}`;
+      }
+      pid = parentPid;
+      hops++;
+    }
+  } catch {}
+  return null;
+}
+
+// Windows PowerShell walk (一次 EncodedCommand 调用走全树, 避免多次 spawn 开销)
+function tryWindowsWalk() {
+  try {
+    // 拼 PowerShell 脚本: 走树, 跳 shell, 输出 "MATCH:<pid>:<ticks>" 或 "NONE"
+    const ps = [
+      "$shells = @('cmd.exe','powershell.exe','pwsh.exe','bash.exe','sh.exe','zsh.exe','wsl.exe','dash.exe','fish.exe')",
+      `$cur = ${process.ppid}`,
+      "$hops = 0",
+      "while ($cur -gt 4 -and $hops -lt 10) {",
+      "  try { $p = Get-CimInstance Win32_Process -Filter \"ProcessId=$cur\" } catch { break }",
+      "  if (!$p) { break }",
+      "  $name = $p.Name.ToLower()",
+      "  if (-not ($shells -contains $name)) {",
+      "    $ct = if ($p.CreationDate) { $p.CreationDate.Ticks } else { 0 }",
+      "    Write-Output (\"MATCH:\" + $cur + \":\" + $ct)",
+      "    exit 0",
+      "  }",
+      "  $cur = [int]$p.ParentProcessId",
+      "  $hops++",
+      "}",
+      "Write-Output 'NONE'",
+    ].join('; ');
+    const encoded = Buffer.from(ps, 'utf16le').toString('base64');
+    const out = execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 8000,
+    }).trim();
+    const m = out.match(/MATCH:(\d+):(\d+)/);
+    if (m) return `${m[1]}-${m[2]}`;
+  } catch {}
+  return null;
+}
+
+// 文件缓存(Windows 慢, 5min 内复用)
+function readSessionCache() {
+  try {
+    if (!existsSync(SESSION_CACHE_FILE)) return null;
+    const st = statSync(SESSION_CACHE_FILE);
+    if (Date.now() - st.mtimeMs > SESSION_CACHE_TTL_MS) return null;
+    const content = readFileSync(SESSION_CACHE_FILE, 'utf8').trim();
+    return content || null;
+  } catch { return null; }
+}
+function writeSessionCache(sid) {
+  try {
+    if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
+    writeFileSync(SESSION_CACHE_FILE, sid);
+  } catch {}
+}
+
+// 模块内存缓存(同一 Node 进程内多次调用只算一次)
+let _sessionIdMemo = null;
+
+export function getSessionId() {
+  if (_sessionIdMemo) return _sessionIdMemo;
+
+  // 1. 文件缓存(主要服务 Windows: PowerShell 慢, 5min 内不重复走)
+  const cached = readSessionCache();
+  if (cached) {
+    _sessionIdMemo = cached;
+    return cached;
+  }
+
+  // 2. /proc 优先(Linux/WSL/Git Bash 都试一下, 都能命中)
+  let sid = tryProcWalk();
+
+  // 3. 平台分支
+  if (!sid) {
+    if (process.platform === 'darwin') sid = tryMacWalk();
+    else if (process.platform === 'win32') sid = tryWindowsWalk();
+  }
+
+  // 4. fallback: ppid (degraded, 但至少同一 shell 内能 dedup)
+  if (!sid) sid = String(process.ppid);
+
+  _sessionIdMemo = sid;
+  writeSessionCache(sid);
+  return sid;
 }
 
 // 失败 / 更新 sentinel: 按 sessionId 隔离, mtime 控制时效, 两种独立文件
