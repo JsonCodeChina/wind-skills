@@ -51,7 +51,7 @@ function runFail(args, expectedCode, opts = {}) {
   assert.equal(json.error.code, expectedCode, `expected code=${expectedCode}, got ${json.error.code}`);
   assert.ok(typeof json.error.agent_action === 'string' && json.error.agent_action.length > 0,
     'error.agent_action must be non-empty string');
-  assert.ok(Array.isArray(json.notices), 'envelope.notices must be array');
+  // 新契约: envelope 只有 ok/error 两个顶层字段, 不再有 notices
   return json;
 }
 
@@ -101,12 +101,12 @@ describe('failure envelope shape', () => {
     runFail(['setup-key', 'fake_key', '--scope', 'invalid_scope'], 'UNKNOWN_SCOPE');
   });
 
-  it('envelope 只有 ok/error/notices 三个顶层字段', () => {
+  it('envelope 只有 ok/error 两个顶层字段(notices 已移除)', () => {
     const r = runRaw(['foobar']);
     const json = JSON.parse(r.stdout);
     const keys = Object.keys(json).sort();
-    assert.deepEqual(keys, ['error', 'notices', 'ok'],
-      `envelope 顶层字段应只有 ok/error/notices, 实际: ${keys.join(',')}`);
+    assert.deepEqual(keys, ['error', 'ok'],
+      `envelope 顶层字段应只有 ok/error, 实际: ${keys.join(',')}`);
   });
 
   it('error 只有 code/agent_action 两个字段', () => {
@@ -173,102 +173,32 @@ describe('error-codes.json', () => {
   });
 });
 
-// ───── 跨 skill notice 隔离(legacy v2 cache) ─────
+// ───── envelope 不携带任何 notice 类信号 (验证 notices 字段已彻底移除) ─────
 
-describe('cross-skill notice filtering', () => {
+describe('envelope has no notices field', () => {
   afterEach(() => {
     try { if (existsSync(CACHE_FILE)) unlinkSync(CACHE_FILE); } catch {}
   });
 
-  it('legacy v2 cache 全是别 skill 的 outdated → notices 空(失败路径)', () => {
+  it('任何 cache 状态下,失败 envelope 都不含 notices 字段', () => {
     if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
-    writeFileSync(CACHE_FILE, JSON.stringify({
-      schemaVersion: 2,
-      status: 'update_available',
-      outdated: [
-        { name: 'wind-alice', current: 'a', latest: 'b', sourceUrl: 'https://github.com/x/y.git' },
-      ],
-      ttlMs: 43200000, lockSignature: 'fake-sig',
-      lastCheck: new Date().toISOString(),
-    }, null, 2));
-
-    // 用一个一定失败的 call 触发 envelope 输出
-    const json = runFail(['call', 'stock_data', 'nonexistent_tool', '{}'], 'UNKNOWN_TOOL_NAME');
-    const updates = json.notices.filter(n => n.type === 'update_available');
-    assert.equal(updates.length, 0, `不应窃取 wind-alice 的 outdated: ${JSON.stringify(updates)}`);
-  });
-});
-
-// ───── 失败 envelope 携带 update_available notice ─────
-
-describe('failure envelope notices', () => {
-  afterEach(() => {
-    try { if (existsSync(CACHE_FILE)) unlinkSync(CACHE_FILE); } catch {}
-  });
-
-  function getRealLockInfo() {
-    const xdg = process.env.XDG_STATE_HOME;
-    const lockPath = xdg
-      ? join(xdg, 'skills', '.skill-lock.json')
-      : join(homedir(), '.agents', '.skill-lock.json');
-    if (!existsSync(lockPath)) return null;
-    try {
-      const lock = JSON.parse(readFileSync(lockPath, 'utf8'));
-      const entry = lock?.skills?.['wind-mcp-skill'];
-      if (!entry) return null;
-      return {
-        hash: entry.skillFolderHash,
-        signature: `${lockPath}|${entry.updatedAt || entry.installedAt || ''}`,
-      };
-    } catch { return null; }
-  }
-
-  it('update_available 在 cache 时,失败 envelope notices 仍为空(update 走 stderr 通道, 不再进 notices)', () => {
-    const info = getRealLockInfo();
-    if (!info?.hash) return;  // CI 无 lock 跳过
-    if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
-    writeFileSync(CACHE_FILE, JSON.stringify({
-      schemaVersion: 3,
-      skills: {
-        'wind-mcp-skill': {
-          status: 'update_available',
-          outdated: [{
-            name: 'wind-mcp-skill',
-            current: info.hash.slice(0, 7),
-            latest: 'newhash',
-            sourceUrl: 'https://github.com/Wind-Information-Co-Ltd/wind-skills.git',
-            host: 'github',
-            installedHash: info.hash,
-          }],
-          ttlMs: 43200000, lockSignature: info.signature,
-          lastCheck: new Date().toISOString(),
-        },
-      },
-    }, null, 2));
-
-    const json = runFail(['call', 'stock_data', 'nonexistent_tool', '{}'], 'UNKNOWN_TOOL_NAME');
-    // 新设计: update_available 永远不进 notices 数组,改走 stderr 一次性通道
-    assert.deepEqual(json.notices, [],
-      `notices 应永远为空(update_available 走 stderr), 实际: ${JSON.stringify(json.notices)}`);
-  });
-
-  it('transient_error 不进 notices', () => {
-    if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
-    const info = getRealLockInfo();
-    writeFileSync(CACHE_FILE, JSON.stringify({
-      schemaVersion: 3,
-      skills: {
-        'wind-mcp-skill': {
-          status: 'transient_error',
-          reason: 'network',
-          ttlMs: 300000,
-          lockSignature: info?.signature || 'fake',
-          lastCheck: new Date().toISOString(),
-        },
-      },
-    }, null, 2));
-    const json = runFail(['foobar'], 'USAGE_ERROR');
-    assert.equal(json.notices.length, 0,
-      `transient_error 不应进 notices: ${JSON.stringify(json.notices)}`);
+    // 试遍 update_available / transient_error / unknown 三种状态
+    const states = [
+      { status: 'transient_error', reason: 'network', ttlMs: 300000 },
+      { status: 'unknown', reason: 'lock_missing', ttlMs: 86400000 },
+      { status: 'update_available',
+        outdated: [{ name: 'wind-mcp-skill', current: 'a', latest: 'b',
+          sourceUrl: 'https://github.com/x/y.git' }],
+        ttlMs: 43200000 },
+    ];
+    for (const s of states) {
+      writeFileSync(CACHE_FILE, JSON.stringify({
+        schemaVersion: 3,
+        skills: { 'wind-mcp-skill': { ...s, lockSignature: 'fake', lastCheck: new Date().toISOString() } },
+      }, null, 2));
+      const json = runFail(['foobar'], 'USAGE_ERROR');
+      assert.equal(json.notices, undefined,
+        `cache=${s.status} 时 envelope 不应有 notices 字段: ${JSON.stringify(json)}`);
+    }
   });
 });

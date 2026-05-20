@@ -79,7 +79,7 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 - `open-portal` / `setup-key` 命令：直接输出结构化 JSON 对象（含 `url` / `path` 等字段）。
 - 无参（help）：直接输出 USAGE 纯文本。
 
-**失败路径（exit code 非 0）**：stdout 输出 envelope：
+**失败路径（exit code 非 0）**：stdout 输出 envelope，**只有 `ok` 和 `error` 两个顶层字段**：
 
 ```json
 {
@@ -87,12 +87,13 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
   "error": {
     "code": "KEY_MISSING",
     "agent_action": "[后端原始诊断] WIND_API_KEY 未配置。立即执行 ..."
-  },
-  "notices": [ /* 仅可能含 update_available */ ]
+  }
 }
 ```
 
 `error.code` 是稳定的错误分类标识符（监控/集成用），`error.agent_action` 是**诊断 + 处方一体的 NL 指令**（agent 自纠用）。两者配合使用：先按 `code` 选分支策略（见下表硬约束），再读 `agent_action` 拿到具体怎么做。
+
+所有"更新检查"相关信号（升级提醒 / 检测失败）**不在 stdout envelope 内**，统一走 **stderr 一次性通道**（见第 8 节）。
 
 错误码列表见 `references/error-codes.json`。
 
@@ -487,7 +488,7 @@ node scripts/cli.mjs call analytics_data get_financial_data '{"question":"查询
 
 ## 8. 保持最新
 
-更新检查相关的所有信号**都走 stderr 一次性通道**，stdout envelope 永远不携带（`notices` 字段保留但永远为空数组）。两类信号独立 sentinel，互不干扰：
+更新检查相关的所有信号**都走 stderr 一次性通道**，stdout envelope 完全不携带任何更新检查信号（envelope 只有 `ok` / `error` 两字段）。两类信号独立 sentinel，互不干扰：
 
 ### 8.1 stderr "检测到新版可用"
 
@@ -518,6 +519,6 @@ Gitee 安装的 skill 升级命令会变成 `npx skills add <gitee-url> --skill 
    - 检测失败 → 一句话告知"后台更新检查失败，不影响本次调用"。
 2. **不影响主调用判断**：两种信号与本次 Wind 数据调用的成功 / 失败完全无关，不要用它影响 stdout JSON 的处理逻辑。
 3. **不需要自己去重**：脚本已经保证每个会话每种 stderr 通知只出现一次。stderr 没出现这行字就是没出现，不要去回忆"我之前提过没"。
-4. **stdout 永远不带这两类信号**：`notices` 字段永远是 `[]`。所有更新检查相关信号只可能从 stderr 来。
+4. **stdout 永远不带这两类信号**：envelope 没有 `notices` 字段，只有 `ok` 和 `error`。所有更新检查相关信号只可能从 stderr 来。
 
 ⚠️ 若遇"工具不存在 / 字段不符"等疑似版本相关错误，先按 `## 3. 工具表` + `references/tool-manifest.json` 重核并重试一次；仍不通过时，再建议用户运行 `npx skills update -g -y` 升级 skill。

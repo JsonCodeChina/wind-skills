@@ -267,12 +267,40 @@ export function collectUpdateNotices() {
   return [];
 }
 
-// 失败 / 更新 sentinel: 按 ppid 隔离, mtime 控制时效, 两种独立文件
-export function failureSentinelPath(ppid = process.ppid) {
-  return join(CACHE_DIR, `${FAILURE_SENTINEL_PREFIX}${ppid}`);
+// 会话标识: walk 进程树跳过 shell 层,找首个非 shell 祖先作为 sessionId。
+// 对 Claude Code Bash tool 这类"每次新 bash -c"的场景,直接用 ppid 会失配,
+// 因为 bash 是 ephemeral 的; 真正稳定的是再往上一级的 agent 进程(claude/codex/cursor)。
+// Linux: /proc/<pid>/stat 走树; 其它 OS: 退化到 ppid (degraded but functional)。
+const SHELL_NAMES = new Set(['bash', 'sh', 'zsh', 'dash', 'fish', 'csh', 'ksh', 'tcsh']);
+
+export function getSessionId() {
+  if (process.platform !== 'linux') return String(process.ppid);
+  try {
+    let pid = process.ppid;
+    let hops = 0;
+    while (pid && pid > 1 && hops < 10) {
+      const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
+      const commEnd = stat.lastIndexOf(')');
+      const name = stat.slice(stat.indexOf('(') + 1, commEnd);
+      const after = stat.slice(commEnd + 2).split(' ');
+      const parentPid = parseInt(after[1], 10);
+      const starttime = after[19];
+      if (!SHELL_NAMES.has(name)) {
+        return `${pid}-${starttime}`;  // 命中 agent / terminal-emulator / 其它非 shell 进程
+      }
+      pid = parentPid;
+      hops++;
+    }
+  } catch {}
+  return String(process.ppid);  // fallback
 }
-export function updateSentinelPath(ppid = process.ppid) {
-  return join(CACHE_DIR, `${UPDATE_SENTINEL_PREFIX}${ppid}`);
+
+// 失败 / 更新 sentinel: 按 sessionId 隔离, mtime 控制时效, 两种独立文件
+export function failureSentinelPath(sid = getSessionId()) {
+  return join(CACHE_DIR, `${FAILURE_SENTINEL_PREFIX}${sid}`);
+}
+export function updateSentinelPath(sid = getSessionId()) {
+  return join(CACHE_DIR, `${UPDATE_SENTINEL_PREFIX}${sid}`);
 }
 
 // 启动时清理 mtime > 7d 的旧 sentinel(两种前缀都扫)防累积
@@ -367,8 +395,8 @@ function writePlainSuccess(data) {
   process.stdout.write(JSON.stringify(data, null, 2) + '\n');
 }
 
-// 失败路径: 极简 envelope { ok:false, error:{code, agent_action}, notices }
-// notices 字段保留(forward compat)但永远为 []; update_available / 失败检测均由 stderr 一次性通道承载。
+// 失败路径: 极简 envelope { ok:false, error:{code, agent_action} }
+// 所有更新检查信号(update_available / 失败检测)走 stderr 一次性通道, stdout 永远不带。
 function writeErrorEnvelope(code, detail) {
   const envelope = {
     ok: false,
@@ -376,7 +404,6 @@ function writeErrorEnvelope(code, detail) {
       code,
       agent_action: buildAgentAction(code, detail),
     },
-    notices: [],
   };
   process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
 }
