@@ -85,12 +85,12 @@ const SKILL_NAME = 'wind-mcp-skill';
 // 两个独立 sentinel,语义完全平行:
 //   mtime ≤ 24h: 视为"本会话已展示" → 静默
 //   mtime > 24h: 视为过期(同 ppid 重用风险) → 重新允许展示
-// 启动时清理 mtime > 7d 的 sentinel 文件防累积
+// 启动时清理 mtime > 1d 的 sentinel 文件防累积 (与 fresh 阈值对齐, 过期即清)
 const FAILURE_SENTINEL_PREFIX = 'failure-shown-';
 const UPDATE_SENTINEL_PREFIX = 'update-shown-';
 const SENTINEL_PREFIXES = [FAILURE_SENTINEL_PREFIX, UPDATE_SENTINEL_PREFIX];
 const SENTINEL_FRESH_MS = 24 * 60 * 60 * 1000;
-const SENTINEL_CLEANUP_MS = 7 * 24 * 60 * 60 * 1000;
+const SENTINEL_CLEANUP_MS = 24 * 60 * 60 * 1000;
 
 const CALL_EXAMPLES = [
   `cli.mjs call stock_data get_stock_basicinfo '{"question":"600519.SH公司基本档案"}'`,

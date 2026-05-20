@@ -3,7 +3,7 @@
 // 同 ppid 反复调用 → 第一次 stderr 出, 后续静默
 // 模拟换 ppid (删 sentinel) → 重新允许提示
 // sentinel mtime > 24h → 视为过期, 重新允许提示
-// sentinel mtime > 7d → 启动清理时被删除
+// sentinel mtime > 1d → 启动清理时被删除
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, statSync, utimesSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -338,27 +338,29 @@ await test('snoozedUntil 在未来 → 失败 stderr 也静默', async () => {
   assert.equal(stderr, '');
 });
 
-console.log('\n=== T6: cleanupStaleSentinels 清理 mtime > 7d ===');
+console.log('\n=== T6: cleanupStaleSentinels 清理 mtime > 1d ===');
 
-await test('放置 5d / 8d / 30d 三个 sentinel → 仅 8d/30d 被删', async () => {
+await test('放置 12h / 2d / 30d 三个 sentinel → 仅 2d/30d 被删', async () => {
   clearSentinels();
   if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
-  const p5 = join(CACHE_DIR, 'failure-shown-99991');
-  const p8 = join(CACHE_DIR, 'failure-shown-99992');
-  const p30 = join(CACHE_DIR, 'failure-shown-99993');
-  for (const p of [p5, p8, p30]) writeFileSync(p, '');
-  utimesSync(p5, new Date(Date.now() - 5 * 86400_000), new Date(Date.now() - 5 * 86400_000));
-  utimesSync(p8, new Date(Date.now() - 8 * 86400_000), new Date(Date.now() - 8 * 86400_000));
-  utimesSync(p30, new Date(Date.now() - 30 * 86400_000), new Date(Date.now() - 30 * 86400_000));
+  const pFresh = join(CACHE_DIR, 'failure-shown-99991');
+  const pStale = join(CACHE_DIR, 'failure-shown-99992');
+  const pVeryStale = join(CACHE_DIR, 'failure-shown-99993');
+  for (const p of [pFresh, pStale, pVeryStale]) writeFileSync(p, '');
+  const HOUR = 3600_000;
+  const DAY = 86400_000;
+  utimesSync(pFresh, new Date(Date.now() - 12 * HOUR), new Date(Date.now() - 12 * HOUR));
+  utimesSync(pStale, new Date(Date.now() - 2 * DAY), new Date(Date.now() - 2 * DAY));
+  utimesSync(pVeryStale, new Date(Date.now() - 30 * DAY), new Date(Date.now() - 30 * DAY));
 
   const mod = await loadCli();
   mod.cleanupStaleSentinels();
 
-  assert.ok(existsSync(p5), '5d 旧的应保留');
-  assert.equal(existsSync(p8), false, '8d 应删除');
-  assert.equal(existsSync(p30), false, '30d 应删除');
+  assert.ok(existsSync(pFresh), '12h 内的应保留');
+  assert.equal(existsSync(pStale), false, '2d 应删除');
+  assert.equal(existsSync(pVeryStale), false, '30d 应删除');
   // 清理掉自己留下的
-  if (existsSync(p5)) unlinkSync(p5);
+  if (existsSync(pFresh)) unlinkSync(pFresh);
 });
 
 console.log('\n=== T7: stdout envelope 完全不含失败信号 ===');
