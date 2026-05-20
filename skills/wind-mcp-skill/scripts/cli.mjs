@@ -81,11 +81,13 @@ const UPDATE_STATE_FILE = join(CACHE_DIR, 'update-state.json');
 const TOOL_MANIFEST_PATH = join(SKILL_DIR, 'references', 'tool-manifest.json');
 const SKILL_NAME = 'wind-mcp-skill';
 
-// 失败 / 更新通知 sentinel: ~/.cache/wind-aifinmarket/{failure,update}-shown-<ppid>
+// 失败 / 更新通知 sentinel: ~/.cache/wind-aifinmarket/{failure,update}-shown-<skill>-<sid>
+// per-skill 隔离: 文件名带 SKILL_NAME, 多 skill 共享 CACHE_DIR 时各自独立 dedup
 // 两个独立 sentinel,语义完全平行:
 //   mtime ≤ 24h: 视为"本会话已展示" → 静默
-//   mtime > 24h: 视为过期(同 ppid 重用风险) → 重新允许展示
+//   mtime > 24h: 视为过期(同 sid 重用风险) → 重新允许展示
 // 启动时清理 mtime > 1d 的 sentinel 文件防累积 (与 fresh 阈值对齐, 过期即清)
+// cleanup 用 prefix 匹配,跨 skill 互清也只清过期的,无副作用
 const FAILURE_SENTINEL_PREFIX = 'failure-shown-';
 const UPDATE_SENTINEL_PREFIX = 'update-shown-';
 const SENTINEL_PREFIXES = [FAILURE_SENTINEL_PREFIX, UPDATE_SENTINEL_PREFIX];
@@ -458,12 +460,13 @@ export function getSessionId() {
   return sid;
 }
 
-// 失败 / 更新 sentinel: 按 sessionId 隔离, mtime 控制时效, 两种独立文件
+// 失败 / 更新 sentinel: 按 <SKILL_NAME>-<sessionId> 隔离, mtime 控制时效, 两种独立文件
+// per-skill 命名避免多个 skill 共用同 sid 时 dedup 互相覆盖
 export function failureSentinelPath(sid = getSessionId()) {
-  return join(CACHE_DIR, `${FAILURE_SENTINEL_PREFIX}${sid}`);
+  return join(CACHE_DIR, `${FAILURE_SENTINEL_PREFIX}${SKILL_NAME}-${sid}`);
 }
 export function updateSentinelPath(sid = getSessionId()) {
-  return join(CACHE_DIR, `${UPDATE_SENTINEL_PREFIX}${sid}`);
+  return join(CACHE_DIR, `${UPDATE_SENTINEL_PREFIX}${SKILL_NAME}-${sid}`);
 }
 
 // 启动时清理 mtime > 7d 的旧 sentinel(两种前缀都扫)防累积

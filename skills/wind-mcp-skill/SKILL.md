@@ -501,7 +501,11 @@ node scripts/cli.mjs call analytics_data get_financial_data '{"question":"查询
   升级命令: npx skills update wind-mcp-skill -g -y
 ```
 
-Gitee 安装的 skill 升级命令会变成 `npx skills add <gitee-url> --skill <name> -g -y`（Gitee 不支持 update，需重装）。脚本会自动按 source 给出正确命令。
+升级命令的具体形态由脚本按 **lock 来源**自动决定，**照搬给用户即可**，不要自己改：
+
+- **global 安装**（lock 在 `~/.agents/.skill-lock.json` 或 `$XDG_STATE_HOME/skills/.skill-lock.json`）→ 命令带 `-g`
+- **project 安装**（lock 在 `<项目>/skills-lock.json`）→ 命令**不带** `-g`（带了会去更新/创建全局副本，项目里那份不动）
+- **Gitee 源**（不支持 update）→ 命令变成 `npx skills add <gitee-url> --skill <name> [-g] -y`，按 lock 的 sourceType 自动选 host
 
 ### 8.2 stderr "更新检测失败"
 
@@ -522,4 +526,4 @@ Gitee 安装的 skill 升级命令会变成 `npx skills add <gitee-url> --skill 
 3. **不需要自己去重**：脚本已经保证每个会话每种 stderr 通知只出现一次。stderr 没出现这行字就是没出现，不要去回忆"我之前提过没"。
 4. **stdout 永远不带这两类信号**：envelope 没有 `notices` 字段，只有 `ok` 和 `error`。所有更新检查相关信号只可能从 stderr 来。
 
-⚠️ 若遇"工具不存在 / 字段不符"等疑似版本相关错误，先按 `## 3. 工具表` + `references/tool-manifest.json` 重核并重试一次；仍不通过时，再建议用户运行 `npx skills update -g -y` 升级 skill。
+⚠️ 若遇"工具不存在 / 字段不符"等疑似版本相关错误，先按 `## 3. 工具表` + `references/tool-manifest.json` 重核并重试一次；仍不通过时，再建议用户升级 skill —— 命令以 stderr 里 `升级命令:` 行实际输出为准（global 装的带 `-g`，project 装的不带）。
