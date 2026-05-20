@@ -274,11 +274,11 @@ function die(code, message, { extraHint } = {}) {
 function getApiKey() {
   if (process.env.WIND_API_KEY) return process.env.WIND_API_KEY;
 
-  const localConfig = join(SKILL_DIR, "config.json");
+  const localConfig = join(SKILL_DIR, "config");
   if (existsSync(localConfig)) {
     try {
-      const cfg = JSON.parse(readFileSync(localConfig, "utf8"));
-      if (cfg.wind_api_key) return cfg.wind_api_key;
+      const env = parseDotenv(readFileSync(localConfig, "utf8"));
+      if (env.WIND_API_KEY) return env.WIND_API_KEY;
     } catch { }
   }
 
@@ -297,8 +297,8 @@ function getApiKey() {
       `② 选择 Key 存放位置：\n` +
       `   A. 全局共享【推荐 — 所有 wind skill 共用】：%USERPROFILE%\\.wind-aifinmarket\\config\n` +
       `      内容：WIND_API_KEY=<KEY>\n` +
-      `   B. 仅当前 skill：${join(SKILL_DIR, "config.json")}\n` +
-      `      内容：{"wind_api_key":"<KEY>"}\n` +
+      `   B. 仅当前 skill：${join(SKILL_DIR, "config")}\n` +
+      `      内容：WIND_API_KEY=<KEY>\n` +
       `   C. 临时会话：在终端 set / $env:WIND_API_KEY=<KEY>\n` +
       `③ 重试原命令`,
   });
@@ -461,7 +461,7 @@ function usage() {
     "  WIND_ALICE_API_URL          可选；默认 " + DEFAULT_API_URL,
     "",
     "Config:",
-    `  ${join(SKILL_DIR, "config.json")}   (JSON: {"wind_api_key":"..."})`,
+    `  ${join(SKILL_DIR, "config")}   (dotenv: WIND_API_KEY=...)`,
     `  ${join(homedir(), ".wind-aifinmarket", "config")}  (dotenv: WIND_API_KEY=...)`,
   ].join("\n");
 }
@@ -736,8 +736,8 @@ function dieKeyMissing() {
       `② 选择 Key 存放位置：\n` +
       `   A. 全局共享【推荐 — 所有 wind skill 共用】：%USERPROFILE%\\.wind-aifinmarket\\config\n` +
       `      内容：WIND_API_KEY=<KEY>\n` +
-      `   B. 仅当前 skill：${join(SKILL_DIR, "config.json")}\n` +
-      `      内容：{"wind_api_key":"<KEY>"}\n` +
+      `   B. 仅当前 skill：${join(SKILL_DIR, "config")}\n` +
+      `      内容：WIND_API_KEY=<KEY>\n` +
       `   C. 临时会话：在终端 set / $env:WIND_API_KEY=<KEY>\n` +
       `③ 重试原命令`,
   });
