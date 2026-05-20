@@ -487,8 +487,29 @@ node scripts/cli.mjs call analytics_data get_financial_data '{"question":"查询
 
 ## 8. 保持最新
 
-`cli.mjs call` 失败 envelope 的 `notices` 字段可能包含 `type="update_available"`（更新检查异步写缓存，首次调用不保证立刻出现，需累积几次调用后才会有；探测失败不进 notices 也不进 envelope，agent 看不到）。
+`cli.mjs call` 关于"更新检查"有两条信号通道：
 
-- `type="update_available"`：本对话首次看到时向用户转告一次，优先照搬 `items[].upgrade_command`（Gitee / GitHub 升级路径不同）；后续同对话再次出现忽略，不重复提示。
+### 8.1 stdout `notices` 数组（仅承载"有新版可升级"）
+
+`notices` 数组中只可能出现 `type="update_available"` 一种条目。
+
+- 本对话首次看到时向用户转告一次，优先照搬 `items[].upgrade_command`（Gitee / GitHub 升级路径不同）；后续同对话再次出现忽略，不重复提示。
+
+### 8.2 stderr 一次性"更新检测失败"通知
+
+更新检查的失败信号**不进 stdout / envelope**，由脚本在 stderr 输出固定前缀文本：
+
+```
+[wind-skills] 更新检测失败 (reason=network), 不影响本次调用。
+```
+
+`reason` 可能是 `network` / `rate_limit` / `lock_missing` / `no_source_url` / `timeout` 等。
+
+**处理规则**：
+
+1. **看到就简短转告用户一次**（例如"后台更新检查暂时失败，不影响本次数据调用"）。
+2. **不影响主调用判断**：失败检测和本次 Wind 数据调用的成功 / 失败完全无关，不要用它影响 stdout JSON 的处理逻辑。
+3. **不催促用户解决**：除非 `reason` 明确指向用户可立即处理的项（极少数情况），否则就当作背景信息。
+4. **脚本已保证本会话只出现一次**：你不需要自己去重——stderr 没出现这行字就是没出现，不需要回忆"我之前提过没"。
 
 ⚠️ 若遇"工具不存在 / 字段不符"等疑似版本相关错误，先按 `## 3. 工具表` + `references/tool-manifest.json` 重核并重试一次；仍不通过时，再建议用户运行 `npx skills update -g -y` 升级 skill。

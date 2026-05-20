@@ -5,7 +5,13 @@ import {
   readFileSync,
   writeFileSync,
   existsSync,
-  mkdirSync
+  mkdirSync,
+  statSync,
+  unlinkSync,
+  readdirSync,
+  closeSync,
+  openSync,
+  utimesSync,
 } from 'node:fs';
 import {
   homedir
@@ -69,9 +75,18 @@ const SKILL_DIR = dirname(dirname(fileURLToPath(
   import.meta.url)));
 
 const UPDATE_CHECK_PATH = join(SKILL_DIR, 'scripts', 'update-check.mjs');
-const UPDATE_STATE_FILE = join(homedir(), '.cache', 'wind-aifinmarket', 'update-state.json');
+const CACHE_DIR = join(homedir(), '.cache', 'wind-aifinmarket');
+const UPDATE_STATE_FILE = join(CACHE_DIR, 'update-state.json');
 const TOOL_MANIFEST_PATH = join(SKILL_DIR, 'references', 'tool-manifest.json');
 const SKILL_NAME = 'wind-mcp-skill';
+
+// 失败通知 sentinel: ~/.cache/wind-aifinmarket/failure-shown-<ppid>
+// mtime ≤ 24h: 视为"本会话已展示" → 静默
+// mtime > 24h: 视为过期(同 ppid 重用风险) → 重新允许展示
+// 启动时清理 mtime > 7d 的 sentinel 文件防累积
+const SENTINEL_PREFIX = 'failure-shown-';
+const SENTINEL_FRESH_MS = 24 * 60 * 60 * 1000;
+const SENTINEL_CLEANUP_MS = 7 * 24 * 60 * 60 * 1000;
 
 const CALL_EXAMPLES = [
   `cli.mjs call stock_data get_stock_basicinfo '{"question":"600519.SH公司基本档案"}'`,
@@ -243,10 +258,64 @@ export function collectUpdateNotices() {
       }];
     }
 
-    // transient_error / unknown 不进 notices; 也不再走 meta flag(成功路径无 envelope)。
-    // 失败检查的"提示"暂时放弃跨命令传递,只有 update_available 会进 notices。
+    // transient_error / unknown 不进 notices(stdout 完全干净)。
+    // 失败提示走 stderr 一次性输出, 见 maybeNotifyFailureOnce()。
   } catch {}
   return [];
+}
+
+// 失败 sentinel: 按 ppid 隔离, mtime 控制时效
+export function sentinelPath(ppid = process.ppid) {
+  return join(CACHE_DIR, `${SENTINEL_PREFIX}${ppid}`);
+}
+
+// 启动时清理 mtime > 7d 的旧 sentinel 防累积
+export function cleanupStaleSentinels() {
+  try {
+    if (!existsSync(CACHE_DIR)) return;
+    const now = Date.now();
+    for (const name of readdirSync(CACHE_DIR)) {
+      if (!name.startsWith(SENTINEL_PREFIX)) continue;
+      const p = join(CACHE_DIR, name);
+      try {
+        const st = statSync(p);
+        if (now - st.mtimeMs > SENTINEL_CLEANUP_MS) unlinkSync(p);
+      } catch {}
+    }
+  } catch {}
+}
+
+// 读 cache 失败状态 → 检查 sentinel → 第一次就 stderr 打通知 + touch sentinel; 否则静默。
+// 仅在 cmd === 'call' 调用; 完全不动 stdout。
+export function maybeNotifyFailureOnce() {
+  try {
+    const view = readCacheView();
+    if (!view || !view.state) return;
+    const state = view.state;
+    if (state.status !== 'transient_error' && state.status !== 'unknown') return;
+    if (state.snoozedUntil && new Date(state.snoozedUntil) > new Date()) return;
+
+    const sentinel = sentinelPath();
+    if (existsSync(sentinel)) {
+      try {
+        const st = statSync(sentinel);
+        if (Date.now() - st.mtimeMs <= SENTINEL_FRESH_MS) return;  // 24h 内已展示, 静默
+      } catch {}
+    }
+
+    // 触发一次性 stderr 通知
+    const reason = state.reason || 'unknown';
+    process.stderr.write(`[wind-skills] 更新检测失败 (reason=${reason}), 不影响本次调用。\n`);
+
+    // 创建/touch sentinel(原子: 用 O_CREAT, 然后 utimes 设当前时间)
+    try {
+      if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
+      const fd = openSync(sentinel, 'a');
+      closeSync(fd);
+      const now = new Date();
+      utimesSync(sentinel, now, now);
+    } catch {}
+  } catch {}
 }
 
 // ───── 工具函数 ─────
@@ -771,6 +840,13 @@ if (!commands[cmd]) {
 
 if (cmd === 'call') {
   spawnUpdateCheck();
+  // 顺手清理 mtime > 7d 的僵尸 sentinel(零成本: 同步,目录通常 < 10 个文件)
+  cleanupStaleSentinels();
+  // call 命令一旦进入就尝试一次性失败通知:
+  // - 不管主调用最终成功还是失败,都给 agent 同等的"本会话第一次"提示机会
+  // - 必须在 die() 抛出前调用, 否则 die() 直接 exit 会跳过通知
+  // - 必须在 writeRawCallSuccess 输出 stdout JSON 前调用, 避免 stderr 与 stdout 交错
+  maybeNotifyFailureOnce();
 }
 
 commands[cmd]()

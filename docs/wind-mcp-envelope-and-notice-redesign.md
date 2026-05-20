@@ -73,7 +73,7 @@ stdout 输出极简 envelope：
 - `ok`：恒为 `false`（成功路径不出 envelope）
 - `error.code`：稳定错误分类标识符（监控/集成/错误码分支用）
 - `error.agent_action`：诊断（`[后端原始 message]`）+ 标准处方（NL 指令），一段文本搞定 agent 自纠
-- `notices`：仅可能含 `type="update_available"`；`transient_error` / `unknown` 永不进 notices
+- `notices`：仅可能含 `type="update_available"`；`transient_error` / `unknown` 永不进 notices（这类失败由 stderr 一次性通知承载，见第 9.1 节）
 
 ## 5. 错误码分支策略（SKILL.md 第 7 节）
 
@@ -172,9 +172,37 @@ stdout 输出极简 envelope：
 
 ## 9. 已知权衡
 
-### 9.1 失败检查跨调用静默
+### 9.1 失败通知走 stderr + ppid sentinel（v2 增补）
 
-`transient_error` / `unknown` 状态既不进 notices 也不进 envelope，agent 完全看不到。**这是有意为之**：探测失败不影响主流程，频繁告知反而干扰 LLM。代价是用户看不到"后台更新检查在挂"——但这是次要信号，可由运维通过监控 update-check 的进程日志补救。
+`transient_error` / `unknown` 状态**不进 stdout envelope**（保持 stdout 干净），改由 stderr 一次性输出固定前缀文本：
+
+```
+[wind-skills] 更新检测失败 (reason=network), 不影响本次调用。
+```
+
+**会话边界识别**：用 `process.ppid` 作为会话标识——绝大多数 agent（Claude Code / Codex / Cursor / Cline / Aider / OpenHands / MCP server 集成 / 用户直接终端）的父进程在整个会话内稳定，新对话 → 新 shell → 新 ppid。
+
+**Sentinel 文件**：`~/.cache/wind-aifinmarket/failure-shown-<ppid>`
+
+- 不存在 / mtime > 24h → stderr 打通知 + 创建（或 touch）sentinel
+- 存在 + mtime ≤ 24h → 静默
+- CLI `call` 启动时顺手扫目录，删 mtime > 7d 的旧 sentinel（防累积 + 防 PID 回收误判）
+
+**对弱模型的友好性**：去重逻辑完全在脚本里，LLM 不需要"记住自己提过没"。Haiku 4.5 / GPT-4.1-mini / 较小模型也能正确处理——看到 stderr 就转告一次，看不到就不管。
+
+**Agent 兼容矩阵**：
+
+| Agent 模式 | ppid 行为 | 提示频率 |
+|---|---|---|
+| Claude Code / Codex / Cursor / Cline / Aider / OpenHands / MCP / 终端用户 | 父进程稳定 | 每会话**仅首次** ✓ |
+| 新开终端 / 新对话 | shell 重启 → 新 ppid | 重新允许首次 ✓ |
+| 极少数 "每次 fork 新 shell" 的 agent（罕见） | ppid 每次不同 | 每次都提示（退化但不崩） |
+
+**边界情况**：
+
+- PID 回收冲突：sentinel mtime > 24h 视为过期；CLI 启动时清 > 7d 的文件，PID 在 24h 内被回收并恰好分配给新 wind 调用者的概率极低。
+- 同会话超 24h：sentinel 过期，会再打一次。这种用户单次会话极少。
+- 多用户同机：每个用户有独立 `~/.cache/wind-aifinmarket/`，互不干扰。
 
 ### 9.2 `update_available` 仅在失败路径出现
 
