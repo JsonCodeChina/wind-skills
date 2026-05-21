@@ -342,12 +342,30 @@ function emitProxyWarning(proxyUrl, reason) {
 
 // curl 优先: Linux / macOS / Windows10+ (build 17063+) 自带, 自动读 HTTPS_PROXY /
 // HTTP_PROXY / NO_PROXY env, 零外部依赖 (Node 内置 undici 不暴露 ProxyAgent 给用户代码)。
-// curl 不在 PATH → 降级 Node fetch 直连; 若此时用户设了代理 env, 触发一次性 stderr 警告。
+//
+// 自动降级直连: 用户设了代理 + 走代理 network 失败 (代理拨号不通) → curl --noproxy '*'
+// 重试一次; 直连成功就用直连结果 + 一次性 stderr 警告"代理不可用, 已降级"。这样无论
+// 代理写错 / 代理 down / NO_PROXY 漏配, 更新检测都不会因为代理坏掉而完全失效。
+// curl 不在 PATH → 降级 Node fetch (本身就不走代理); 若此时设了代理 env, 同样警告。
 async function fetchJson(url) {
-  const curlResult = fetchJsonViaCurl(url);
-  if (curlResult.code !== 'curl_missing') return curlResult;
+  const curlResult = fetchJsonViaCurl(url, { noProxy: false });
+  if (curlResult.code !== 'curl_missing') {
+    const proxy = getProxyForUrl(url);
+    if (curlResult.error === 'network' && proxy) {
+      // 代理拨号失败 → 强制 --noproxy 重试 (curl 自动读 env 时 noproxy=false, 这次显式关掉)
+      const direct = fetchJsonViaCurl(url, { noProxy: true });
+      // 直连只要不是 network 失败 (即真的到了 server, 哪怕 rate_limit / http_404) 就视为
+      // "代理 bypass 工作了" → 用直连结果 + 警告用户代理不可用
+      if (direct.error !== 'network' && direct.code !== 'curl_missing') {
+        emitProxyWarning(proxy, '代理拨号失败, 本次自动降级直连');
+        return direct;
+      }
+      // 直连也 network → 真网络断 (防火墙 / DNS), 沿用原 network error
+    }
+    return curlResult;
+  }
 
-  // curl 不可用; 若用户期望走代理, 提醒一次 (Node fetch 不读代理 env, 接下来是直连)
+  // curl 不可用: 用户期望走代理? 提醒一次 (Node fetch 不读代理 env, 接下来是直连)
   const proxy = getProxyForUrl(url);
   if (proxy) emitProxyWarning(proxy, 'curl 不在 PATH; Node fetch 不读代理 env, 已降级直连');
 
@@ -372,17 +390,19 @@ async function fetchJson(url) {
 // curl 子进程: 同步 spawnSync (update-check 一次性脚本, 阻塞无副作用)
 // -w 把 HTTP 状态码追加到 stdout 末尾, 用 marker 切分 body / status
 // 返回 { code: 'curl_missing' } 时, 上游降级 Node fetch
-function fetchJsonViaCurl(url) {
+function fetchJsonViaCurl(url, { noProxy = false } = {}) {
   const MARKER = '\n__HTTP_CODE__';
   try {
-    const result = spawnSync('curl', [
+    const args = [
       '-sS',
       '--max-time', String(Math.ceil(NETWORK_TIMEOUT_MS / 1000)),
       '-A', `${SKILL_NAME}-update-check`,
       '-H', 'Accept: application/json',
       '-w', `${MARKER}%{http_code}`,
-      url,
-    ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    ];
+    if (noProxy) args.push('--noproxy', '*');  // 强制不走任何代理 (降级直连重试用)
+    args.push(url);
+    const result = spawnSync('curl', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
 
     if (result.error && result.error.code === 'ENOENT') return { code: 'curl_missing' };
     if (result.error) return { error: 'network' };
