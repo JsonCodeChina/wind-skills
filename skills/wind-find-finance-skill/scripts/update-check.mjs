@@ -33,9 +33,10 @@ const INSTALLED_AT_TOLERANCE_MS = 60 * 60 * 1000;
 
 // sentinel 清理: 与 cli.mjs / update-notify.mjs 同步, 一并清 4 种前缀; 阈值 6h
 // (cli.mjs/notify 入口也清, 这里多触发一次保证 find-finance 等无 cli 通路的 skill 也勤清)
-const SENTINEL_PREFIXES = ['failure-shown-', 'update-shown-', 'proxy-warn-', 'proxy-shown-'];
+const SENTINEL_PREFIXES = ['failure-shown-', 'update-shown-', 'proxy-warn-', 'proxy-shown-', 'cert-warn-', 'cert-shown-'];
 const SENTINEL_CLEANUP_MS = 6 * 60 * 60 * 1000;
 const PROXY_WARN_SENTINEL_PREFIX = 'proxy-warn-';
+const CERT_WARN_SENTINEL_PREFIX = 'cert-warn-';
 
 // ───── 统一缓存读写 ─────
 
@@ -276,6 +277,10 @@ function proxyWarnSentinelPath() {
   return join(CACHE_DIR, `${PROXY_WARN_SENTINEL_PREFIX}${SKILL_NAME}-${getProxySessionId()}`);
 }
 
+function certWarnSentinelPath() {
+  return join(CACHE_DIR, `${CERT_WARN_SENTINEL_PREFIX}${SKILL_NAME}-${getProxySessionId()}`);
+}
+
 // 代理来源 (按可靠度排序):
 //   1. process.env (主路径; 沙箱剥 env 时为空)
 //   2. git config http.proxy / https.proxy (持久化兜底, 企业网用户常配)
@@ -378,6 +383,27 @@ function emitProxyWarning(proxyUrl, reason) {
   }
 }
 
+// 公司 MITM 代理 (TLS 证书被代理换签) 触发 curl exit 60/35/51 → 用 -k 重试成功后调本函数。
+// 沿用 proxy-warn 的 sentinel 通路, 让 cli / notify 主进程一次性 stderr 输出。
+let certWarningEmitted = false;
+function emitCertWarning(proxyUrl, reason) {
+  if (certWarningEmitted) return;
+  certWarningEmitted = true;
+  const redacted = proxyUrl ? redactProxyUrl(proxyUrl) : '(direct)';
+  if (process.env.WIND_SKILLS_UPDATE_CHECK_DETACHED === '1') {
+    try {
+      if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
+      writeFileSync(certWarnSentinelPath(), `${reason}|${redacted}`);
+    } catch {}
+  } else {
+    try {
+      process.stderr.write(
+        `\n[wind-skills] TLS 证书验证失败,本次检查更新已用 -k 跳过验证 (可能是公司代理的 MITM 证书)。建议安装公司 CA 至系统信任库以恢复正常验证 (proxy=${redacted}, reason=${reason})\n`
+      );
+    } catch {}
+  }
+}
+
 // ───── HTTP ─────
 
 // curl 优先: Linux / macOS / Windows10+ (build 17063+) 自带, 自动读 HTTPS_PROXY /
@@ -391,6 +417,26 @@ async function fetchJson(url) {
   const curlResult = fetchJsonViaCurl(url, { noProxy: false });
   if (curlResult.code !== 'curl_missing') {
     const proxy = getProxyForUrl(url);
+
+    // TLS 证书验证失败 (curl exit 60/35/51) → -k 重试 (公司 MITM 代理换签场景)
+    // 重试拿到 data 即视为"证书问题但内容能取到", 用 -k 结果 + 警告用户证书未通过验证
+    if (curlResult.error === 'cert') {
+      const insecure = fetchJsonViaCurl(url, { noProxy: false, insecure: true });
+      if (insecure.data) {
+        emitCertWarning(proxy, '代理 TLS 证书未通过本地信任 (可能 MITM), 已用 -k 跳过验证');
+        return insecure;
+      }
+      // -k 重试仍 network: 真断网, 继续走下面分支
+      if (insecure.error === 'network' && proxy) {
+        const direct = fetchJsonViaCurl(url, { noProxy: true, insecure: true });
+        if (direct.error !== 'network' && direct.code !== 'curl_missing' && direct.data) {
+          emitCertWarning(proxy, '代理证书无法验证 + 拨号也失败, 已用 -k 直连');
+          return direct;
+        }
+      }
+      return curlResult;
+    }
+
     if (curlResult.error === 'network' && proxy) {
       // 代理拨号失败 → 强制 --noproxy 重试 (curl 自动读 env 时 noproxy=false, 这次显式关掉)
       const direct = fetchJsonViaCurl(url, { noProxy: true });
@@ -430,7 +476,8 @@ async function fetchJson(url) {
 // curl 子进程: 同步 spawnSync (update-check 一次性脚本, 阻塞无副作用)
 // -w 把 HTTP 状态码追加到 stdout 末尾, 用 marker 切分 body / status
 // 返回 { code: 'curl_missing' } 时, 上游降级 Node fetch
-function fetchJsonViaCurl(url, { noProxy = false } = {}) {
+// insecure: true → 加 -k 跳过 TLS 证书验证 (公司 MITM 代理换签场景的重试通路)
+function fetchJsonViaCurl(url, { noProxy = false, insecure = false } = {}) {
   const MARKER = '\n__HTTP_CODE__';
   try {
     const args = [
@@ -440,6 +487,7 @@ function fetchJsonViaCurl(url, { noProxy = false } = {}) {
       '-H', 'Accept: application/json',
       '-w', `${MARKER}%{http_code}`,
     ];
+    if (insecure) args.push('-k');             // 跳过 TLS 证书验证 (仅 cert 错误重试用)
     if (noProxy) args.push('--noproxy', '*');  // 强制不走任何代理 (降级直连重试用)
     args.push(url);
     // env 注入: 本进程 env 可能被沙箱剥了, buildCurlEnv 从 hint / git config 补
@@ -450,6 +498,13 @@ function fetchJsonViaCurl(url, { noProxy = false } = {}) {
 
     if (result.error && result.error.code === 'ENOENT') return { code: 'curl_missing' };
     if (result.error) return { error: 'network' };
+
+    // 证书 / TLS 失败: 60 = peer cert not OK (含 MITM/expired/untrusted), 51 = host verify failed,
+    // 35 = SSL connect / handshake error. 这些 exit 前一般连不上目标主机, 没 MARKER, 否则会被
+    // 下面 idx<0 归到 'network'; 这里显式归 'cert' 让上层用 -k 重试 (公司代理换签场景)。
+    if (result.status === 60 || result.status === 51 || result.status === 35) {
+      return { error: 'cert' };
+    }
 
     const out = result.stdout || '';
     const idx = out.lastIndexOf(MARKER);
