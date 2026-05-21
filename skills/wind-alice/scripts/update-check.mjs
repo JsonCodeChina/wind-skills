@@ -93,14 +93,14 @@ async function writeUnifiedCacheSkill(skillState) {
 }
 
 // baselines 节: 用于 v1 lock 没有 installedAt 时的替代检测
-// key 格式: "<lockPath>:<skillName>:<computedHash>", value: { remoteSha, capturedAt, sourceUrl }
+// key 格式: "<lockPath>:<skillName>:<computedHash>", value: { remoteSha }
 // 升级 skill 会让 installedHash 变 → key 变 → 旧条目残留。writeBaseline 写新 hash 时
 // 顺手清同 (lockPath, skillName) 下不同 hash 的旧 entry, 避免无界累加。
 function readBaseline(key) {
   const full = readUnifiedCache();
   return full.baselines?.[key] || null;
 }
-async function writeBaseline(key, value) {
+async function writeBaseline(key, remoteSha) {
   await withLock(() => {
     const full = readUnifiedCache();
     if (!full.baselines || typeof full.baselines !== 'object') full.baselines = {};
@@ -114,7 +114,7 @@ async function writeBaseline(key, value) {
         if (k !== key && k.startsWith(prefix)) delete full.baselines[k];
       }
     }
-    full.baselines[key] = { ...value, capturedAt: new Date().toISOString() };
+    full.baselines[key] = { remoteSha };
     writeFileSync(CACHE_FILE, JSON.stringify(full, null, 2));
   });
 }
@@ -318,8 +318,7 @@ function shortHash(h) {
 export function buildUpgradeCommand(o) {
   const scope = o.scope || 'global';
   const scopeFlag = scope === 'global' ? ' -g' : '';
-  const isGitee = o.host === 'gitee'
-    || (typeof o.sourceUrl === 'string' && o.sourceUrl.includes('gitee.com'));
+  const isGitee = typeof o.sourceUrl === 'string' && o.sourceUrl.includes('gitee.com');
   return isGitee
     ? `npx skills add ${o.sourceUrl} --skill ${o.name}${scopeFlag} -y  # Gitee 源不支持 update,需重装`
     : `npx skills update ${o.name}${scopeFlag} -y`;
@@ -382,7 +381,7 @@ async function main() {
     //    从 source 短形式启发式生成 GitHub/Gitee 两个候选, 试到能拉 tree 的那个为准
     const urlCandidates = deriveSourceUrlCandidates(entry);
     if (urlCandidates.length === 0) {
-      unknownDetails.push({ reason: 'no_source_url', lockPath, source: entry.source });
+      unknownDetails.push({ reason: 'no_source_url' });
       continue;
     }
 
@@ -409,16 +408,16 @@ async function main() {
     if (rateLimited) break;
     if (!parsed || !currentTree) {
       if (lastError) {
-        transientError = { reason: lastError, sourceUrl: urlCandidates[0] };
+        transientError = { reason: lastError };
       } else {
-        unknownDetails.push({ reason: 'unsupported_host', lockPath, source: entry.source });
+        unknownDetails.push({ reason: 'unsupported_host' });
       }
       continue;
     }
 
     const currentSha = findSkillSha(currentTree, skillDir);
     if (!currentSha) {
-      unknownDetails.push({ reason: 'path_missing', lockPath, sourceUrl, skillPath: entry.skillPath });
+      unknownDetails.push({ reason: 'path_missing' });
       continue;
     }
 
@@ -429,18 +428,18 @@ async function main() {
       const installCommit = await fetchCommitAtTime(parsed, ref, skillDir, installedAt);
       if (installCommit.error) {
         if (installCommit.error === 'rate_limit') { rateLimited = true; break; }
-        unknownDetails.push({ reason: `commit_lookup_${installCommit.error}`, lockPath, sourceUrl });
+        unknownDetails.push({ reason: `commit_lookup_${installCommit.error}` });
         continue;
       }
       const installedTreeResult = await fetchTreeBySha(parsed, installCommit.sha);
       if (installedTreeResult.error) {
         if (installedTreeResult.error === 'rate_limit') { rateLimited = true; break; }
-        transientError = { reason: installedTreeResult.error, sourceUrl, host: parsed.host };
+        transientError = { reason: installedTreeResult.error };
         continue;
       }
       const installedSha = findSkillSha(installedTreeResult.tree, skillDir);
       if (!installedSha) {
-        unknownDetails.push({ reason: 'path_missing_at_install', lockPath, sourceUrl });
+        unknownDetails.push({ reason: 'path_missing_at_install' });
         continue;
       }
       if (currentSha === installedSha) continue;
@@ -448,7 +447,7 @@ async function main() {
         name: SKILL_NAME,
         current: shortHash(installedSha),
         latest: shortHash(currentSha),
-        sourceUrl, host: parsed.host,
+        sourceUrl,
         installedHash: entry.skillFolderHash || entry.computedHash || null,
         scope,
       });
@@ -461,7 +460,7 @@ async function main() {
       const baseline = readBaseline(baselineKey);
       if (!baseline) {
         // 首次捕获: 静默存 baseline, 报 up_to_date (此 entry 视为最新)
-        await writeBaseline(baselineKey, { remoteSha: currentSha, sourceUrl });
+        await writeBaseline(baselineKey, currentSha);
         continue;
       }
       if (baseline.remoteSha === currentSha) continue;  // 远端未变, up_to_date
@@ -470,7 +469,7 @@ async function main() {
         name: SKILL_NAME,
         current: shortHash(baseline.remoteSha),
         latest: shortHash(currentSha),
-        sourceUrl, host: parsed.host,
+        sourceUrl,
         installedHash,
         scope,
       });
@@ -503,7 +502,6 @@ async function main() {
     const state = {
       status: 'transient_error',
       reason: transientError.reason,
-      sourceUrl: transientError.sourceUrl,
       ttlMs: TTL_TRANSIENT_MS,
       lockSignature,
     };
@@ -515,7 +513,6 @@ async function main() {
   const state = {
     status: 'unknown',
     reason: unknownDetails[0].reason,
-    details: unknownDetails,
     ttlMs: TTL_UNKNOWN_MS,
     lockSignature,
   };

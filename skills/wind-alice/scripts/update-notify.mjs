@@ -315,8 +315,7 @@ function collectUpdateNotice() {
       items: state.outdated.map(o => {
         const scope = o.scope || "global";
         const scopeFlag = scope === "global" ? " -g" : "";
-        const isGitee = o.host === "gitee"
-          || (typeof o.sourceUrl === "string" && o.sourceUrl.includes("gitee.com"));
+        const isGitee = typeof o.sourceUrl === "string" && o.sourceUrl.includes("gitee.com");
         const upgrade_command = isGitee
           ? `npx skills add ${o.sourceUrl} --skill ${o.name}${scopeFlag} -y  # Gitee 源不支持 update,需重装`
           : `npx skills update ${o.name}${scopeFlag} -y`;
