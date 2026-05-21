@@ -32,6 +32,26 @@ const SENTINEL_PREFIXES = [FAILURE_SENTINEL_PREFIX, UPDATE_SENTINEL_PREFIX, PROX
 const SENTINEL_FRESH_MS = 6 * 60 * 60 * 1000;
 const SENTINEL_CLEANUP_MS = 6 * 60 * 60 * 1000;
 
+// 代理快照: cli/notify 主进程 env 通常有代理, 沙箱里 spawn 出去的 update-check 可能被剥
+// env, 把代理写到这个文件给子进程兜底用 (update-check.mjs 知道这个路径)
+const PROXY_HINT_FILE = join(CACHE_DIR, "proxy-hint.json");
+function snapshotProxyEnv() {
+  try {
+    const env = process.env;
+    const hint = {};
+    for (const k of ["HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "NO_PROXY"]) {
+      const v = env[k] || env[k.toLowerCase()];
+      if (typeof v === "string" && v.trim()) hint[k] = v.trim();
+    }
+    if (Object.keys(hint).length === 0) {
+      try { if (existsSync(PROXY_HINT_FILE)) unlinkSync(PROXY_HINT_FILE); } catch {}
+      return;
+    }
+    if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
+    writeFileSync(PROXY_HINT_FILE, JSON.stringify(hint));
+  } catch {}
+}
+
 const SHELL_NAMES = new Set([
   "bash", "sh", "zsh", "dash", "fish", "csh", "ksh", "tcsh",
   "xonsh", "nu", "nushell", "ion", "elvish", "oksh", "mksh", "yash", "rc", "es",
@@ -409,6 +429,7 @@ export function maybeNotifyProxyWarningOnce() {
 // 把 failure / update / cleanup 三步合在一个入口。
 export function maybePrintUpdateNotice() {
   cleanupStaleSentinels();
+  snapshotProxyEnv();
   maybeNotifyFailureOnce();
   maybeNotifyUpdateOnce();
   maybeNotifyProxyWarningOnce();

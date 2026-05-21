@@ -276,20 +276,62 @@ function proxyWarnSentinelPath() {
   return join(CACHE_DIR, `${PROXY_WARN_SENTINEL_PREFIX}${SKILL_NAME}-${getProxySessionId()}`);
 }
 
+// 代理多来源探测 (按可靠度排序):
+//   1. process.env (最快, 但沙箱常剥)
+//   2. ~/.cache/wind-aifinmarket/proxy-hint.json (cli.mjs 主进程启动时写, 沙箱子进程兜底)
+//   3. git config http.proxy / https.proxy (企业网用户常配, 持久化最稳)
+// 同进程内缓存 hint 文件和 git config 结果, 避免每次 fetchJson 都 IO/spawn。
+let _proxyHintMemo;
+function loadProxyHint() {
+  if (_proxyHintMemo !== undefined) return _proxyHintMemo;
+  const hintPath = join(CACHE_DIR, 'proxy-hint.json');
+  if (!existsSync(hintPath)) { _proxyHintMemo = null; return null; }
+  try {
+    _proxyHintMemo = JSON.parse(readFileSync(hintPath, 'utf8'));
+    return _proxyHintMemo;
+  } catch { _proxyHintMemo = null; return null; }
+}
+
+let _gitProxyMemo;
+function loadGitProxy() {
+  if (_gitProxyMemo !== undefined) return _gitProxyMemo;
+  try {
+    const httpsR = spawnSync('git', ['config', '--get', 'https.proxy'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 2000, windowsHide: true });
+    const httpR = spawnSync('git', ['config', '--get', 'http.proxy'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 2000, windowsHide: true });
+    const https = httpsR.error ? '' : (httpsR.stdout || '').trim();
+    const http = httpR.error ? '' : (httpR.stdout || '').trim();
+    if (!https && !http) { _gitProxyMemo = null; return null; }
+    _gitProxyMemo = { HTTPS_PROXY: https || http, HTTP_PROXY: http || https };
+    return _gitProxyMemo;
+  } catch { _gitProxyMemo = null; return null; }
+}
+
 // 按 curl/requests 惯例: HTTPS_PROXY/https_proxy/HTTP_PROXY/http_proxy/ALL_PROXY/all_proxy
 // HTTPS 目标优先 HTTPS_PROXY, HTTP 目标只看 HTTP_PROXY+。NO_PROXY 后缀匹配 (大小写不敏感),
 // '*' 全跳过, '.foo.com' 与 'foo.com' 等价 (匹配自身 + 子域)。
+// env 缺时回落 proxy-hint 文件, 再缺回落 git config。
 function getProxyForUrl(url) {
   let u;
   try { u = new URL(url); } catch { return null; }
   const env = process.env;
+  const hint = loadProxyHint() || {};
   const isHttps = u.protocol === 'https:';
   const candidates = isHttps
-    ? [env.HTTPS_PROXY, env.https_proxy, env.HTTP_PROXY, env.http_proxy, env.ALL_PROXY, env.all_proxy]
-    : [env.HTTP_PROXY, env.http_proxy, env.ALL_PROXY, env.all_proxy];
-  const proxy = candidates.find(v => typeof v === 'string' && v.trim().length > 0);
+    ? [env.HTTPS_PROXY, env.https_proxy, hint.HTTPS_PROXY,
+       env.HTTP_PROXY, env.http_proxy, hint.HTTP_PROXY,
+       env.ALL_PROXY, env.all_proxy, hint.ALL_PROXY]
+    : [env.HTTP_PROXY, env.http_proxy, hint.HTTP_PROXY,
+       env.ALL_PROXY, env.all_proxy, hint.ALL_PROXY];
+  let proxy = candidates.find(v => typeof v === 'string' && v.trim().length > 0);
+  if (!proxy) {
+    // 最后兜底: git config (慢, 只在 env + hint 都空时查)
+    const git = loadGitProxy();
+    if (git) proxy = isHttps ? git.HTTPS_PROXY : git.HTTP_PROXY;
+  }
   if (!proxy) return null;
-  const noProxy = env.NO_PROXY || env.no_proxy;
+  const noProxy = env.NO_PROXY || env.no_proxy || hint.NO_PROXY;
   if (noProxy) {
     const host = u.hostname.toLowerCase();
     for (const raw of noProxy.split(',')) {
@@ -301,6 +343,24 @@ function getProxyForUrl(url) {
     }
   }
   return proxy.trim();
+}
+
+// curl 子进程的 env: 当 process.env 缺代理时, 用 hint / git config 注入,
+// 这样即使本进程被沙箱剥了 env, curl 也能拿到代理。
+function buildCurlEnv() {
+  const merged = { ...process.env };
+  const env = process.env;
+  const hint = loadProxyHint() || {};
+  const git = (!env.HTTPS_PROXY && !env.https_proxy && !env.HTTP_PROXY && !env.http_proxy
+               && !hint.HTTPS_PROXY && !hint.HTTP_PROXY) ? (loadGitProxy() || {}) : {};
+  for (const key of ['HTTPS_PROXY', 'HTTP_PROXY', 'ALL_PROXY', 'NO_PROXY']) {
+    if (merged[key] || merged[key.toLowerCase()]) continue;
+    const fromHint = hint[key];
+    const fromGit = git[key];
+    if (fromHint) merged[key] = fromHint;
+    else if (fromGit) merged[key] = fromGit;
+  }
+  return merged;
 }
 
 // 屏蔽 user:pass, 避免凭证落到 stderr / sentinel 文件
@@ -402,7 +462,11 @@ function fetchJsonViaCurl(url, { noProxy = false } = {}) {
     ];
     if (noProxy) args.push('--noproxy', '*');  // 强制不走任何代理 (降级直连重试用)
     args.push(url);
-    const result = spawnSync('curl', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    // env 注入: 本进程 env 可能被沙箱剥了, buildCurlEnv 从 hint / git config 补
+    const result = spawnSync('curl', args, {
+      encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
+      env: buildCurlEnv(),
+    });
 
     if (result.error && result.error.code === 'ENOENT') return { code: 'curl_missing' };
     if (result.error) return { error: 'network' };
