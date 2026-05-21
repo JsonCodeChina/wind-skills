@@ -13,6 +13,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, openSyn
 import { homedir } from 'node:os';
 import { join, dirname, resolve, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const SKILL_NAME = basename(dirname(SCRIPT_DIR));
@@ -29,6 +30,9 @@ const TTL_RATE_LIMIT_MS    = 60 * 60 * 1000;
 
 const NETWORK_TIMEOUT_MS = 5_000;
 const INSTALLED_AT_TOLERANCE_MS = 60 * 60 * 1000;
+
+// proxy warning sentinel: 跟 cli.mjs / update-notify.mjs 那侧用同一前缀, 互通
+const PROXY_WARN_SENTINEL_PREFIX = 'proxy-warn-';
 
 // ───── 统一缓存读写 ─────
 
@@ -240,9 +244,94 @@ function normalizeSkillDir(skillPath) {
     .replace(/\/+$/, '');
 }
 
+// ───── 代理 ─────
+
+// detached spawn (cli.mjs / update-notify.mjs) 时由父进程注入 WIND_SKILLS_SESSION_ID
+// 保证子进程写的 sentinel 跟父进程后续读用的 sid 一致。前台模式 fallback 到 ppid/pid
+// (find-finance 同步运行场景, 自己就是消费方, sid 一致性自洽)。
+function getProxySessionId() {
+  return process.env.WIND_SKILLS_SESSION_ID || String(process.ppid || process.pid);
+}
+
+function proxyWarnSentinelPath() {
+  return join(CACHE_DIR, `${PROXY_WARN_SENTINEL_PREFIX}${SKILL_NAME}-${getProxySessionId()}`);
+}
+
+// 按 curl/requests 惯例: HTTPS_PROXY/https_proxy/HTTP_PROXY/http_proxy/ALL_PROXY/all_proxy
+// HTTPS 目标优先 HTTPS_PROXY, HTTP 目标只看 HTTP_PROXY+。NO_PROXY 后缀匹配 (大小写不敏感),
+// '*' 全跳过, '.foo.com' 与 'foo.com' 等价 (匹配自身 + 子域)。
+function getProxyForUrl(url) {
+  let u;
+  try { u = new URL(url); } catch { return null; }
+  const env = process.env;
+  const isHttps = u.protocol === 'https:';
+  const candidates = isHttps
+    ? [env.HTTPS_PROXY, env.https_proxy, env.HTTP_PROXY, env.http_proxy, env.ALL_PROXY, env.all_proxy]
+    : [env.HTTP_PROXY, env.http_proxy, env.ALL_PROXY, env.all_proxy];
+  const proxy = candidates.find(v => typeof v === 'string' && v.trim().length > 0);
+  if (!proxy) return null;
+  const noProxy = env.NO_PROXY || env.no_proxy;
+  if (noProxy) {
+    const host = u.hostname.toLowerCase();
+    for (const raw of noProxy.split(',')) {
+      const e = raw.trim().toLowerCase();
+      if (!e) continue;
+      if (e === '*') return null;
+      const norm = e.replace(/^\./, '');
+      if (host === norm || host.endsWith('.' + norm)) return null;
+    }
+  }
+  return proxy.trim();
+}
+
+// 屏蔽 user:pass, 避免凭证落到 stderr / sentinel 文件
+function redactProxyUrl(url) {
+  try {
+    const u = new URL(url);
+    if (u.username || u.password) {
+      u.username = '***';
+      u.password = '***';
+    }
+    return u.toString();
+  } catch {
+    return url.replace(/\/\/[^@/]+@/, '//***:***@');
+  }
+}
+
+let proxyWarningEmitted = false;
+function emitProxyWarning(proxyUrl, reason) {
+  if (proxyWarningEmitted) return;  // 同进程多次 fetch 失败只触发一次
+  proxyWarningEmitted = true;
+  const redacted = redactProxyUrl(proxyUrl);
+  if (process.env.WIND_SKILLS_UPDATE_CHECK_DETACHED === '1') {
+    // detached spawn: stdio 'ignore' 吃掉 stderr → 写 sentinel 给主进程 cli.mjs / notify 读
+    try {
+      if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
+      writeFileSync(proxyWarnSentinelPath(), `${reason}|${redacted}`);
+    } catch {}
+  } else {
+    // 前台同步 (find-finance / 手动跑): 自己 stderr, 用户能看见
+    try {
+      process.stderr.write(
+        `\n[wind-skills] 代理初始化失败,本次检查更新已降级直连。请检查 HTTPS_PROXY/HTTP_PROXY 配置 (proxy=${redacted}, reason=${reason})\n`
+      );
+    } catch {}
+  }
+}
+
 // ───── HTTP ─────
 
+// curl 优先: Linux / macOS / Windows10+ (build 17063+) 自带, 自动读 HTTPS_PROXY /
+// HTTP_PROXY / NO_PROXY env, 零外部依赖 (Node 内置 undici 不暴露 ProxyAgent 给用户代码)。
+// curl 不在 PATH → 降级 Node fetch 直连; 若此时用户设了代理 env, 触发一次性 stderr 警告。
 async function fetchJson(url) {
+  const curlResult = fetchJsonViaCurl(url);
+  if (curlResult.code !== 'curl_missing') return curlResult;
+
+  // curl 不可用; 若用户期望走代理, 提醒一次 (Node fetch 不读代理 env, 接下来是直连)
+  const proxy = getProxyForUrl(url);
+  if (proxy) emitProxyWarning(proxy, 'curl 不在 PATH; Node fetch 不读代理 env, 已降级直连');
+
   try {
     const resp = await fetch(url, {
       headers: { 'User-Agent': `${SKILL_NAME}-update-check` },
@@ -258,6 +347,40 @@ async function fetchJson(url) {
     return { data: await resp.json() };
   } catch (e) {
     return { error: e?.name === 'TimeoutError' ? 'timeout' : 'network' };
+  }
+}
+
+// curl 子进程: 同步 spawnSync (update-check 一次性脚本, 阻塞无副作用)
+// -w 把 HTTP 状态码追加到 stdout 末尾, 用 marker 切分 body / status
+// 返回 { code: 'curl_missing' } 时, 上游降级 Node fetch
+function fetchJsonViaCurl(url) {
+  const MARKER = '\n__HTTP_CODE__';
+  try {
+    const result = spawnSync('curl', [
+      '-sS',
+      '--max-time', String(Math.ceil(NETWORK_TIMEOUT_MS / 1000)),
+      '-A', `${SKILL_NAME}-update-check`,
+      '-H', 'Accept: application/json',
+      '-w', `${MARKER}%{http_code}`,
+      url,
+    ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+
+    if (result.error && result.error.code === 'ENOENT') return { code: 'curl_missing' };
+    if (result.error) return { error: 'network' };
+
+    const out = result.stdout || '';
+    const idx = out.lastIndexOf(MARKER);
+    if (idx < 0) return { error: 'network' };  // curl 连接前异常退出 (DNS/拨号)
+    const body = out.slice(0, idx);
+    const code = Number(out.slice(idx + MARKER.length).trim());
+    if (!code) return { error: 'network' };
+    // 403/429 一律视为 rate_limit (curl 没传 -D 抓 header, 牺牲 x-ratelimit-remaining 精度)
+    if (code === 403 || code === 429) return { error: 'rate_limit' };
+    if (code < 200 || code >= 300) return { error: `http_${code}` };
+    try { return { data: JSON.parse(body) }; }
+    catch { return { error: 'shape' }; }
+  } catch {
+    return { error: 'network' };
   }
 }
 
