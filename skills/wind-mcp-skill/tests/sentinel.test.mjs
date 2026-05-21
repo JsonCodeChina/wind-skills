@@ -338,9 +338,9 @@ await test('snoozedUntil 在未来 → 失败 stderr 也静默', async () => {
   assert.equal(stderr, '');
 });
 
-console.log('\n=== T6: cleanupStaleSentinels 清理 mtime > 1d ===');
+console.log('\n=== T6: cleanupStaleSentinels 清理 mtime > 6h ===');
 
-await test('放置 12h / 2d / 30d 三个 sentinel → 仅 2d/30d 被删', async () => {
+await test('放置 2h / 12h / 30d 三个 sentinel → 仅 12h/30d 被删', async () => {
   clearSentinels();
   if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
   const pFresh = join(CACHE_DIR, 'failure-shown-99991');
@@ -349,15 +349,16 @@ await test('放置 12h / 2d / 30d 三个 sentinel → 仅 2d/30d 被删', async 
   for (const p of [pFresh, pStale, pVeryStale]) writeFileSync(p, '');
   const HOUR = 3600_000;
   const DAY = 86400_000;
-  utimesSync(pFresh, new Date(Date.now() - 12 * HOUR), new Date(Date.now() - 12 * HOUR));
-  utimesSync(pStale, new Date(Date.now() - 2 * DAY), new Date(Date.now() - 2 * DAY));
+  // 阈值 6h: 2h 保留, 12h + 30d 应删
+  utimesSync(pFresh, new Date(Date.now() - 2 * HOUR), new Date(Date.now() - 2 * HOUR));
+  utimesSync(pStale, new Date(Date.now() - 12 * HOUR), new Date(Date.now() - 12 * HOUR));
   utimesSync(pVeryStale, new Date(Date.now() - 30 * DAY), new Date(Date.now() - 30 * DAY));
 
   const mod = await loadCli();
   mod.cleanupStaleSentinels();
 
-  assert.ok(existsSync(pFresh), '12h 内的应保留');
-  assert.equal(existsSync(pStale), false, '2d 应删除');
+  assert.ok(existsSync(pFresh), '2h 内的应保留');
+  assert.equal(existsSync(pStale), false, '12h 应删除');
   assert.equal(existsSync(pVeryStale), false, '30d 应删除');
   // 清理掉自己留下的
   if (existsSync(pFresh)) unlinkSync(pFresh);

@@ -95,8 +95,8 @@ const UPDATE_SENTINEL_PREFIX = 'update-shown-';
 const PROXY_WARN_SENTINEL_PREFIX = 'proxy-warn-';
 const PROXY_SHOWN_SENTINEL_PREFIX = 'proxy-shown-';
 const SENTINEL_PREFIXES = [FAILURE_SENTINEL_PREFIX, UPDATE_SENTINEL_PREFIX, PROXY_WARN_SENTINEL_PREFIX, PROXY_SHOWN_SENTINEL_PREFIX];
-const SENTINEL_FRESH_MS = 24 * 60 * 60 * 1000;
-const SENTINEL_CLEANUP_MS = 24 * 60 * 60 * 1000;
+const SENTINEL_FRESH_MS = 6 * 60 * 60 * 1000;
+const SENTINEL_CLEANUP_MS = 6 * 60 * 60 * 1000;
 
 const CALL_EXAMPLES = [
   `cli.mjs call stock_data get_stock_basicinfo '{"question":"600519.SH公司基本档案"}'`,

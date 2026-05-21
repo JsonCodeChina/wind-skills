@@ -9,7 +9,7 @@
 //   - v2: 不用 baseline,反查 lock.updatedAt 时刻的真实 commit,精确对比
 // 统一缓存: ~/.cache/wind-aifinmarket/update-state.json (schema v3, 多 skill 共享)
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, openSync, closeSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, openSync, closeSync, statSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, dirname, resolve, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,7 +31,10 @@ const TTL_RATE_LIMIT_MS    = 60 * 60 * 1000;
 const NETWORK_TIMEOUT_MS = 5_000;
 const INSTALLED_AT_TOLERANCE_MS = 60 * 60 * 1000;
 
-// proxy warning sentinel: 跟 cli.mjs / update-notify.mjs 那侧用同一前缀, 互通
+// sentinel 清理: 与 cli.mjs / update-notify.mjs 同步, 一并清 4 种前缀; 阈值 6h
+// (cli.mjs/notify 入口也清, 这里多触发一次保证 find-finance 等无 cli 通路的 skill 也勤清)
+const SENTINEL_PREFIXES = ['failure-shown-', 'update-shown-', 'proxy-warn-', 'proxy-shown-'];
+const SENTINEL_CLEANUP_MS = 6 * 60 * 60 * 1000;
 const PROXY_WARN_SENTINEL_PREFIX = 'proxy-warn-';
 
 // ───── 统一缓存读写 ─────
@@ -128,6 +131,22 @@ function cleanupLegacyFiles() {
     const p = join(CACHE_DIR, name);
     try { if (existsSync(p)) unlinkSync(p); } catch {}
   }
+}
+
+// 清 mtime > SENTINEL_CLEANUP_MS 的旧 sentinel (4 种前缀全扫), 与 cli.mjs/notify 一致
+function cleanupStaleSentinels() {
+  try {
+    if (!existsSync(CACHE_DIR)) return;
+    const now = Date.now();
+    for (const name of readdirSync(CACHE_DIR)) {
+      if (!SENTINEL_PREFIXES.some(p => name.startsWith(p))) continue;
+      const p = join(CACHE_DIR, name);
+      try {
+        const st = statSync(p);
+        if (now - st.mtimeMs > SENTINEL_CLEANUP_MS) unlinkSync(p);
+      } catch {}
+    }
+  } catch {}
 }
 
 // ───── lock 签名 ─────
@@ -475,6 +494,7 @@ function printNotice(state) {
 
 async function main() {
   cleanupLegacyFiles();
+  cleanupStaleSentinels();
 
   const fullCache = readUnifiedCache();
   const myCache = fullCache.skills[SKILL_NAME] || null;
