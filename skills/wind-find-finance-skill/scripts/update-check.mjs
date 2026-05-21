@@ -31,12 +31,10 @@ const TTL_RATE_LIMIT_MS    = 60 * 60 * 1000;
 const NETWORK_TIMEOUT_MS = 5_000;
 const INSTALLED_AT_TOLERANCE_MS = 60 * 60 * 1000;
 
-// sentinel 清理: 与 cli.mjs / update-notify.mjs 同步, 一并清 4 种前缀; 阈值 6h
+// sentinel 清理: 与 cli.mjs / update-notify.mjs 同步, 一并清 2 种前缀; 阈值 6h
 // (cli.mjs/notify 入口也清, 这里多触发一次保证 find-finance 等无 cli 通路的 skill 也勤清)
-const SENTINEL_PREFIXES = ['failure-shown-', 'update-shown-', 'proxy-warn-', 'proxy-shown-', 'cert-warn-', 'cert-shown-'];
+const SENTINEL_PREFIXES = ['failure-shown-', 'update-shown-'];
 const SENTINEL_CLEANUP_MS = 6 * 60 * 60 * 1000;
-const PROXY_WARN_SENTINEL_PREFIX = 'proxy-warn-';
-const CERT_WARN_SENTINEL_PREFIX = 'cert-warn-';
 
 // ───── 统一缓存读写 ─────
 
@@ -266,21 +264,6 @@ function normalizeSkillDir(skillPath) {
 
 // ───── 代理 ─────
 
-// detached spawn (cli.mjs / update-notify.mjs) 时由父进程注入 WIND_SKILLS_SESSION_ID
-// 保证子进程写的 sentinel 跟父进程后续读用的 sid 一致。前台模式 fallback 到 ppid/pid
-// (find-finance 同步运行场景, 自己就是消费方, sid 一致性自洽)。
-function getProxySessionId() {
-  return process.env.WIND_SKILLS_SESSION_ID || String(process.ppid || process.pid);
-}
-
-function proxyWarnSentinelPath() {
-  return join(CACHE_DIR, `${PROXY_WARN_SENTINEL_PREFIX}${SKILL_NAME}-${getProxySessionId()}`);
-}
-
-function certWarnSentinelPath() {
-  return join(CACHE_DIR, `${CERT_WARN_SENTINEL_PREFIX}${SKILL_NAME}-${getProxySessionId()}`);
-}
-
 // 代理来源 (按可靠度排序):
 //   1. process.env (主路径; 沙箱剥 env 时为空)
 //   2. git config http.proxy / https.proxy (持久化兜底, 企业网用户常配)
@@ -348,113 +331,26 @@ function buildCurlEnv() {
   return merged;
 }
 
-// 屏蔽 user:pass, 避免凭证落到 stderr / sentinel 文件
-function redactProxyUrl(url) {
-  try {
-    const u = new URL(url);
-    if (u.username || u.password) {
-      u.username = '***';
-      u.password = '***';
-    }
-    return u.toString();
-  } catch {
-    return url.replace(/\/\/[^@/]+@/, '//***:***@');
-  }
-}
-
-let proxyWarningEmitted = false;
-function emitProxyWarning(proxyUrl, reason) {
-  if (proxyWarningEmitted) return;  // 同进程多次 fetch 失败只触发一次
-  proxyWarningEmitted = true;
-  const redacted = redactProxyUrl(proxyUrl);
-  if (process.env.WIND_SKILLS_UPDATE_CHECK_DETACHED === '1') {
-    // detached spawn: stdio 'ignore' 吃掉 stderr → 写 sentinel 给主进程 cli.mjs / notify 读
-    try {
-      if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
-      writeFileSync(proxyWarnSentinelPath(), `${reason}|${redacted}`);
-    } catch {}
-  } else {
-    // 前台同步 (find-finance / 手动跑): 自己 stderr, 用户能看见
-    try {
-      process.stderr.write(
-        `\n[wind-skills] 代理初始化失败,本次检查更新已降级直连。请检查 HTTPS_PROXY/HTTP_PROXY 配置 (proxy=${redacted}, reason=${reason})\n`
-      );
-    } catch {}
-  }
-}
-
-// 公司 MITM 代理 (TLS 证书被代理换签) 触发 curl exit 60/35/51 → 用 -k 重试成功后调本函数。
-// 沿用 proxy-warn 的 sentinel 通路, 让 cli / notify 主进程一次性 stderr 输出。
-let certWarningEmitted = false;
-function emitCertWarning(proxyUrl, reason) {
-  if (certWarningEmitted) return;
-  certWarningEmitted = true;
-  const redacted = proxyUrl ? redactProxyUrl(proxyUrl) : '(direct)';
-  if (process.env.WIND_SKILLS_UPDATE_CHECK_DETACHED === '1') {
-    try {
-      if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
-      writeFileSync(certWarnSentinelPath(), `${reason}|${redacted}`);
-    } catch {}
-  } else {
-    try {
-      process.stderr.write(
-        `\n[wind-skills] TLS 证书验证失败,本次检查更新已用 -k 跳过验证 (可能是公司代理的 MITM 证书)。建议安装公司 CA 至系统信任库以恢复正常验证 (proxy=${redacted}, reason=${reason})\n`
-      );
-    } catch {}
-  }
-}
-
 // ───── HTTP ─────
 
 // curl 优先: Linux / macOS / Windows10+ (build 17063+) 自带, 自动读 HTTPS_PROXY /
-// HTTP_PROXY / NO_PROXY env, 零外部依赖 (Node 内置 undici 不暴露 ProxyAgent 给用户代码)。
+// HTTP_PROXY / NO_PROXY env (本进程 env 缺时 buildCurlEnv 从 git config 兜底)。
+// 默认 -k 跳过 TLS 证书验证: update-check 只 GET 公开 JSON 不传凭证, 接受 MITM 网关换签场景。
 //
-// 自动降级直连: 用户设了代理 + 走代理 network 失败 (代理拨号不通) → curl --noproxy '*'
-// 重试一次; 直连成功就用直连结果 + 一次性 stderr 警告"代理不可用, 已降级"。这样无论
-// 代理写错 / 代理 down / NO_PROXY 漏配, 更新检测都不会因为代理坏掉而完全失效。
-// curl 不在 PATH → 降级 Node fetch (本身就不走代理); 若此时设了代理 env, 同样警告。
+// 静默降级: 走代理 network 失败 → curl --noproxy '*' 静默重试; 直连成功就用直连结果,
+// 不给用户加任何"代理失败"提示 (wind-skills stderr 只出"是否有新版"这一条)。
+// curl 不在 PATH → 降级 Node fetch (无代理), 静默。
 async function fetchJson(url) {
   const curlResult = fetchJsonViaCurl(url, { noProxy: false });
   if (curlResult.code !== 'curl_missing') {
-    const proxy = getProxyForUrl(url);
-
-    // TLS 证书验证失败 (curl exit 60/35/51) → -k 重试 (公司 MITM 代理换签场景)
-    // 重试拿到 data 即视为"证书问题但内容能取到", 用 -k 结果 + 警告用户证书未通过验证
-    if (curlResult.error === 'cert') {
-      const insecure = fetchJsonViaCurl(url, { noProxy: false, insecure: true });
-      if (insecure.data) {
-        emitCertWarning(proxy, '代理 TLS 证书未通过本地信任 (可能 MITM), 已用 -k 跳过验证');
-        return insecure;
-      }
-      // -k 重试仍 network: 真断网, 继续走下面分支
-      if (insecure.error === 'network' && proxy) {
-        const direct = fetchJsonViaCurl(url, { noProxy: true, insecure: true });
-        if (direct.error !== 'network' && direct.code !== 'curl_missing' && direct.data) {
-          emitCertWarning(proxy, '代理证书无法验证 + 拨号也失败, 已用 -k 直连');
-          return direct;
-        }
-      }
-      return curlResult;
-    }
-
-    if (curlResult.error === 'network' && proxy) {
-      // 代理拨号失败 → 强制 --noproxy 重试 (curl 自动读 env 时 noproxy=false, 这次显式关掉)
+    if (curlResult.error === 'network' && getProxyForUrl(url)) {
       const direct = fetchJsonViaCurl(url, { noProxy: true });
-      // 直连只要不是 network 失败 (即真的到了 server, 哪怕 rate_limit / http_404) 就视为
-      // "代理 bypass 工作了" → 用直连结果 + 警告用户代理不可用
-      if (direct.error !== 'network' && direct.code !== 'curl_missing') {
-        emitProxyWarning(proxy, '代理拨号失败, 本次自动降级直连');
-        return direct;
-      }
-      // 直连也 network → 真网络断 (防火墙 / DNS), 沿用原 network error
+      if (direct.error !== 'network' && direct.code !== 'curl_missing') return direct;
     }
     return curlResult;
   }
 
-  // curl 不可用: 用户期望走代理? 提醒一次 (Node fetch 不读代理 env, 接下来是直连)
-  const proxy = getProxyForUrl(url);
-  if (proxy) emitProxyWarning(proxy, 'curl 不在 PATH; Node fetch 不读代理 env, 已降级直连');
-
+  // curl 不在 PATH: Node fetch (不走代理, 静默)
   try {
     const resp = await fetch(url, {
       headers: { 'User-Agent': `${SKILL_NAME}-update-check` },
@@ -474,23 +370,23 @@ async function fetchJson(url) {
 }
 
 // curl 子进程: 同步 spawnSync (update-check 一次性脚本, 阻塞无副作用)
-// -w 把 HTTP 状态码追加到 stdout 末尾, 用 marker 切分 body / status
-// 返回 { code: 'curl_missing' } 时, 上游降级 Node fetch
-// insecure: true → 加 -k 跳过 TLS 证书验证 (公司 MITM 代理换签场景的重试通路)
-function fetchJsonViaCurl(url, { noProxy = false, insecure = false } = {}) {
+// -k 默认开: update-check 只 GET 公开 JSON 不带 Authorization, MITM 投毒最多让用户漏报新版,
+//   不会让其执行恶意代码 → 跳过 TLS 验证以兼容公司 MITM 代理换签场景。
+// -w 把 HTTP 状态码追加到 stdout 末尾, 用 marker 切分 body / status。
+// noProxy: 走 --noproxy '*' (降级直连重试用)。curl 不在 PATH → { code: 'curl_missing' }。
+function fetchJsonViaCurl(url, { noProxy = false } = {}) {
   const MARKER = '\n__HTTP_CODE__';
   try {
     const args = [
-      '-sS',
+      '-sS', '-k',
       '--max-time', String(Math.ceil(NETWORK_TIMEOUT_MS / 1000)),
       '-A', `${SKILL_NAME}-update-check`,
       '-H', 'Accept: application/json',
       '-w', `${MARKER}%{http_code}`,
     ];
-    if (insecure) args.push('-k');             // 跳过 TLS 证书验证 (仅 cert 错误重试用)
-    if (noProxy) args.push('--noproxy', '*');  // 强制不走任何代理 (降级直连重试用)
+    if (noProxy) args.push('--noproxy', '*');
     args.push(url);
-    // env 注入: 本进程 env 可能被沙箱剥了, buildCurlEnv 从 hint / git config 补
+    // env 注入: 本进程 env 可能被沙箱剥了, buildCurlEnv 从 git config 补
     const result = spawnSync('curl', args, {
       encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
       env: buildCurlEnv(),
@@ -498,13 +394,6 @@ function fetchJsonViaCurl(url, { noProxy = false, insecure = false } = {}) {
 
     if (result.error && result.error.code === 'ENOENT') return { code: 'curl_missing' };
     if (result.error) return { error: 'network' };
-
-    // 证书 / TLS 失败: 60 = peer cert not OK (含 MITM/expired/untrusted), 51 = host verify failed,
-    // 35 = SSL connect / handshake error. 这些 exit 前一般连不上目标主机, 没 MARKER, 否则会被
-    // 下面 idx<0 归到 'network'; 这里显式归 'cert' 让上层用 -k 重试 (公司代理换签场景)。
-    if (result.status === 60 || result.status === 51 || result.status === 35) {
-      return { error: 'cert' };
-    }
 
     const out = result.stdout || '';
     const idx = out.lastIndexOf(MARKER);

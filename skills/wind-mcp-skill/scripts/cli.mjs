@@ -90,14 +90,7 @@ const SKILL_NAME = 'wind-mcp-skill';
 // cleanup 用 prefix 匹配,跨 skill 互清也只清过期的,无副作用
 const FAILURE_SENTINEL_PREFIX = 'failure-shown-';
 const UPDATE_SENTINEL_PREFIX = 'update-shown-';
-// proxy-warn-: update-check.mjs (detached 子进程) 写入, 内容 = "reason|redacted_proxy_url"
-// proxy-shown-: 主进程消费 warn 后 touch, 防本会话重复 stderr 输出
-// cert-warn- / cert-shown-: 同上, 但触发条件是公司 MITM 代理换签导致 TLS 验证失败 + -k 重试成功
-const PROXY_WARN_SENTINEL_PREFIX = 'proxy-warn-';
-const PROXY_SHOWN_SENTINEL_PREFIX = 'proxy-shown-';
-const CERT_WARN_SENTINEL_PREFIX = 'cert-warn-';
-const CERT_SHOWN_SENTINEL_PREFIX = 'cert-shown-';
-const SENTINEL_PREFIXES = [FAILURE_SENTINEL_PREFIX, UPDATE_SENTINEL_PREFIX, PROXY_WARN_SENTINEL_PREFIX, PROXY_SHOWN_SENTINEL_PREFIX, CERT_WARN_SENTINEL_PREFIX, CERT_SHOWN_SENTINEL_PREFIX];
+const SENTINEL_PREFIXES = [FAILURE_SENTINEL_PREFIX, UPDATE_SENTINEL_PREFIX];
 const SENTINEL_FRESH_MS = 6 * 60 * 60 * 1000;
 const SENTINEL_CLEANUP_MS = 6 * 60 * 60 * 1000;
 
@@ -487,18 +480,6 @@ export function failureSentinelPath(sid = getSessionId()) {
 export function updateSentinelPath(sid = getSessionId()) {
   return join(CACHE_DIR, `${UPDATE_SENTINEL_PREFIX}${SKILL_NAME}-${sid}`);
 }
-export function proxyWarnSentinelPath(sid = getSessionId()) {
-  return join(CACHE_DIR, `${PROXY_WARN_SENTINEL_PREFIX}${SKILL_NAME}-${sid}`);
-}
-export function proxyShownSentinelPath(sid = getSessionId()) {
-  return join(CACHE_DIR, `${PROXY_SHOWN_SENTINEL_PREFIX}${SKILL_NAME}-${sid}`);
-}
-export function certWarnSentinelPath(sid = getSessionId()) {
-  return join(CACHE_DIR, `${CERT_WARN_SENTINEL_PREFIX}${SKILL_NAME}-${sid}`);
-}
-export function certShownSentinelPath(sid = getSessionId()) {
-  return join(CACHE_DIR, `${CERT_SHOWN_SENTINEL_PREFIX}${SKILL_NAME}-${sid}`);
-}
 
 // 启动时清理 mtime > 7d 的旧 sentinel(两种前缀都扫)防累积
 export function cleanupStaleSentinels() {
@@ -550,50 +531,6 @@ export function maybeNotifyFailureOnce() {
     const reason = state.reason || 'unknown';
     process.stderr.write(`[wind-skills] 更新检测失败 (reason=${reason}), 不影响本次调用。\n`);
     touchSentinel(sentinel);
-  } catch {}
-}
-
-// 代理初始化失败时 (update-check.mjs detached 子进程写 sentinel) → 主进程读出来 stderr 输出
-// proxy-warn-: 子进程写, 内容 "reason|redacted_proxy_url"
-// proxy-shown-: 主进程消费后 touch, 防本会话重复 (每次 cli call 都触发, sentinel 控住)
-export function maybeNotifyProxyWarningOnce() {
-  try {
-    const shown = proxyShownSentinelPath();
-    if (sentinelFresh(shown)) return;  // 本会话已 stderr 出过
-    const warn = proxyWarnSentinelPath();
-    if (!existsSync(warn)) return;     // 子进程没写过 → 代理正常
-    let text;
-    try { text = readFileSync(warn, 'utf8'); } catch { return; }
-    if (!text || typeof text !== 'string') return;
-    const sep = text.indexOf('|');
-    const reason = sep >= 0 ? text.slice(0, sep) : 'unknown';
-    const redacted = sep >= 0 ? text.slice(sep + 1) : '';
-    process.stderr.write(
-      `\n[wind-skills] 代理初始化失败,本次检查更新已降级直连。请检查 HTTPS_PROXY/HTTP_PROXY 配置 (proxy=${redacted}, reason=${reason})\n`
-    );
-    touchSentinel(shown);
-  } catch {}
-}
-
-// TLS 证书验证失败 + -k 重试成功时 (update-check.mjs 子进程写 sentinel) → 主进程 stderr 输出
-// cert-warn-: 子进程写, 内容 "reason|redacted_proxy_url"
-// cert-shown-: 主进程消费后 touch, 防本会话重复
-export function maybeNotifyCertWarningOnce() {
-  try {
-    const shown = certShownSentinelPath();
-    if (sentinelFresh(shown)) return;
-    const warn = certWarnSentinelPath();
-    if (!existsSync(warn)) return;
-    let text;
-    try { text = readFileSync(warn, 'utf8'); } catch { return; }
-    if (!text || typeof text !== 'string') return;
-    const sep = text.indexOf('|');
-    const reason = sep >= 0 ? text.slice(0, sep) : 'unknown';
-    const redacted = sep >= 0 ? text.slice(sep + 1) : '';
-    process.stderr.write(
-      `\n[wind-skills] TLS 证书验证失败,本次检查更新已用 -k 跳过验证 (可能是公司代理的 MITM 证书)。建议安装公司 CA 至系统信任库以恢复正常验证 (proxy=${redacted}, reason=${reason})\n`
-    );
-    touchSentinel(shown);
   } catch {}
 }
 
@@ -1177,8 +1114,6 @@ if (cmd === 'call') {
   // 必须在 stdout 输出前调用(防 stderr/stdout 交错)。
   maybeNotifyFailureOnce();
   maybeNotifyUpdateOnce();
-  maybeNotifyProxyWarningOnce();
-  maybeNotifyCertWarningOnce();
 }
 
 commands[cmd]()
