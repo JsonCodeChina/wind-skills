@@ -94,6 +94,8 @@ async function writeUnifiedCacheSkill(skillState) {
 
 // baselines 节: 用于 v1 lock 没有 installedAt 时的替代检测
 // key 格式: "<lockPath>:<skillName>:<computedHash>", value: { remoteSha, capturedAt, sourceUrl }
+// 升级 skill 会让 installedHash 变 → key 变 → 旧条目残留。writeBaseline 写新 hash 时
+// 顺手清同 (lockPath, skillName) 下不同 hash 的旧 entry, 避免无界累加。
 function readBaseline(key) {
   const full = readUnifiedCache();
   return full.baselines?.[key] || null;
@@ -102,6 +104,16 @@ async function writeBaseline(key, value) {
   await withLock(() => {
     const full = readUnifiedCache();
     if (!full.baselines || typeof full.baselines !== 'object') full.baselines = {};
+    // GC: key 结构 <lockPath>:<skillName>:<hash>; skillName / hash 不含 ':',
+    // lockPath 在 Windows 可能含盘符冒号, 所以用 lastIndexOf 切出 hash 前的前缀。
+    // 同前缀但不是当前 key 的 → 同 (lockPath, skillName) 但不同 hash → 删。
+    const lastColon = key.lastIndexOf(':');
+    if (lastColon > 0) {
+      const prefix = key.slice(0, lastColon + 1);
+      for (const k of Object.keys(full.baselines)) {
+        if (k !== key && k.startsWith(prefix)) delete full.baselines[k];
+      }
+    }
     full.baselines[key] = { ...value, capturedAt: new Date().toISOString() };
     writeFileSync(CACHE_FILE, JSON.stringify(full, null, 2));
   });
