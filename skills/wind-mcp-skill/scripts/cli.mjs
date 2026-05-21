@@ -98,27 +98,6 @@ const SENTINEL_PREFIXES = [FAILURE_SENTINEL_PREFIX, UPDATE_SENTINEL_PREFIX, PROX
 const SENTINEL_FRESH_MS = 6 * 60 * 60 * 1000;
 const SENTINEL_CLEANUP_MS = 6 * 60 * 60 * 1000;
 
-// 代理快照: cli.mjs 主进程通常在用户终端起, env 多半有代理; 沙箱里 spawn 出去的
-// update-check 子进程可能被剥 env, 通过这个文件把代理传过去。每次 call 都覆盖更新。
-const PROXY_HINT_FILE = join(CACHE_DIR, 'proxy-hint.json');
-function snapshotProxyEnv() {
-  try {
-    const env = process.env;
-    const hint = {};
-    for (const k of ['HTTPS_PROXY', 'HTTP_PROXY', 'ALL_PROXY', 'NO_PROXY']) {
-      const v = env[k] || env[k.toLowerCase()];
-      if (typeof v === 'string' && v.trim()) hint[k] = v.trim();
-    }
-    if (Object.keys(hint).length === 0) {
-      // 主进程也没代理 → 删旧 hint (避免提供过期信息)
-      try { if (existsSync(PROXY_HINT_FILE)) unlinkSync(PROXY_HINT_FILE); } catch {}
-      return;
-    }
-    if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
-    writeFileSync(PROXY_HINT_FILE, JSON.stringify(hint));
-  } catch {}
-}
-
 const CALL_EXAMPLES = [
   `cli.mjs call stock_data get_stock_basicinfo '{"question":"600519.SH公司基本档案"}'`,
   `cli.mjs call stock_data get_stock_price_indicators '{"windcode":"600519.SH","indexes":"中文简称,最新成交价,涨跌幅"}'`,
@@ -1165,7 +1144,6 @@ if (cmd === 'call') {
   // 两者独立 sentinel,互不干扰;同会话各自只出一次。
   // 必须在 die() 抛出前调用(die 直接 exit 会跳过)；
   // 必须在 stdout 输出前调用(防 stderr/stdout 交错)。
-  snapshotProxyEnv();
   maybeNotifyFailureOnce();
   maybeNotifyUpdateOnce();
   maybeNotifyProxyWarningOnce();

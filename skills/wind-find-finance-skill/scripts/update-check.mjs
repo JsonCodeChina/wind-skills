@@ -276,22 +276,11 @@ function proxyWarnSentinelPath() {
   return join(CACHE_DIR, `${PROXY_WARN_SENTINEL_PREFIX}${SKILL_NAME}-${getProxySessionId()}`);
 }
 
-// 代理多来源探测 (按可靠度排序):
-//   1. process.env (最快, 但沙箱常剥)
-//   2. ~/.cache/wind-aifinmarket/proxy-hint.json (cli.mjs 主进程启动时写, 沙箱子进程兜底)
-//   3. git config http.proxy / https.proxy (企业网用户常配, 持久化最稳)
-// 同进程内缓存 hint 文件和 git config 结果, 避免每次 fetchJson 都 IO/spawn。
-let _proxyHintMemo;
-function loadProxyHint() {
-  if (_proxyHintMemo !== undefined) return _proxyHintMemo;
-  const hintPath = join(CACHE_DIR, 'proxy-hint.json');
-  if (!existsSync(hintPath)) { _proxyHintMemo = null; return null; }
-  try {
-    _proxyHintMemo = JSON.parse(readFileSync(hintPath, 'utf8'));
-    return _proxyHintMemo;
-  } catch { _proxyHintMemo = null; return null; }
-}
-
+// 代理来源 (按可靠度排序):
+//   1. process.env (主路径; 沙箱剥 env 时为空)
+//   2. git config http.proxy / https.proxy (持久化兜底, 企业网用户常配)
+// 不读 cli.mjs 写的 hint 文件 - 主进程也可能被剥 env, 那 hint 也是空的, 不如不依赖。
+// 同进程内缓存 git config 结果, 避免每次 fetchJson 都 spawn 一次 git。
 let _gitProxyMemo;
 function loadGitProxy() {
   if (_gitProxyMemo !== undefined) return _gitProxyMemo;
@@ -311,27 +300,22 @@ function loadGitProxy() {
 // 按 curl/requests 惯例: HTTPS_PROXY/https_proxy/HTTP_PROXY/http_proxy/ALL_PROXY/all_proxy
 // HTTPS 目标优先 HTTPS_PROXY, HTTP 目标只看 HTTP_PROXY+。NO_PROXY 后缀匹配 (大小写不敏感),
 // '*' 全跳过, '.foo.com' 与 'foo.com' 等价 (匹配自身 + 子域)。
-// env 缺时回落 proxy-hint 文件, 再缺回落 git config。
+// env 全空时回落 git config。
 function getProxyForUrl(url) {
   let u;
   try { u = new URL(url); } catch { return null; }
   const env = process.env;
-  const hint = loadProxyHint() || {};
   const isHttps = u.protocol === 'https:';
   const candidates = isHttps
-    ? [env.HTTPS_PROXY, env.https_proxy, hint.HTTPS_PROXY,
-       env.HTTP_PROXY, env.http_proxy, hint.HTTP_PROXY,
-       env.ALL_PROXY, env.all_proxy, hint.ALL_PROXY]
-    : [env.HTTP_PROXY, env.http_proxy, hint.HTTP_PROXY,
-       env.ALL_PROXY, env.all_proxy, hint.ALL_PROXY];
+    ? [env.HTTPS_PROXY, env.https_proxy, env.HTTP_PROXY, env.http_proxy, env.ALL_PROXY, env.all_proxy]
+    : [env.HTTP_PROXY, env.http_proxy, env.ALL_PROXY, env.all_proxy];
   let proxy = candidates.find(v => typeof v === 'string' && v.trim().length > 0);
   if (!proxy) {
-    // 最后兜底: git config (慢, 只在 env + hint 都空时查)
     const git = loadGitProxy();
     if (git) proxy = isHttps ? git.HTTPS_PROXY : git.HTTP_PROXY;
   }
   if (!proxy) return null;
-  const noProxy = env.NO_PROXY || env.no_proxy || hint.NO_PROXY;
+  const noProxy = env.NO_PROXY || env.no_proxy;
   if (noProxy) {
     const host = u.hostname.toLowerCase();
     for (const raw of noProxy.split(',')) {
@@ -345,21 +329,17 @@ function getProxyForUrl(url) {
   return proxy.trim();
 }
 
-// curl 子进程的 env: 当 process.env 缺代理时, 用 hint / git config 注入,
-// 这样即使本进程被沙箱剥了 env, curl 也能拿到代理。
+// curl 子进程的 env: 本进程 env 缺代理时, 从 git config 补, 让 curl 能拿到
 function buildCurlEnv() {
   const merged = { ...process.env };
   const env = process.env;
-  const hint = loadProxyHint() || {};
-  const git = (!env.HTTPS_PROXY && !env.https_proxy && !env.HTTP_PROXY && !env.http_proxy
-               && !hint.HTTPS_PROXY && !hint.HTTP_PROXY) ? (loadGitProxy() || {}) : {};
-  for (const key of ['HTTPS_PROXY', 'HTTP_PROXY', 'ALL_PROXY', 'NO_PROXY']) {
-    if (merged[key] || merged[key.toLowerCase()]) continue;
-    const fromHint = hint[key];
-    const fromGit = git[key];
-    if (fromHint) merged[key] = fromHint;
-    else if (fromGit) merged[key] = fromGit;
-  }
+  const hasEnvProxy = env.HTTPS_PROXY || env.https_proxy || env.HTTP_PROXY || env.http_proxy
+                      || env.ALL_PROXY || env.all_proxy;
+  if (hasEnvProxy) return merged;
+  const git = loadGitProxy();
+  if (!git) return merged;
+  if (git.HTTPS_PROXY) merged.HTTPS_PROXY = git.HTTPS_PROXY;
+  if (git.HTTP_PROXY) merged.HTTP_PROXY = git.HTTP_PROXY;
   return merged;
 }
 
