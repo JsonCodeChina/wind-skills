@@ -1,40 +1,16 @@
 #!/usr/bin/env node
- // wind-mcp-skill CLI: thin JSON-envelope wrapper around Wind MCP servers.
-// Keep this file self-contained for skill portability; heavier reference material lives in SKILL.md/references.
-import {
-  readFileSync,
-  writeFileSync,
-  existsSync,
-  mkdirSync,
-  statSync,
-  unlinkSync,
-  readdirSync,
-  closeSync,
-  openSync,
-  utimesSync,
-} from 'node:fs';
-import {
-  homedir
-} from 'node:os';
-import {
-  join,
-  dirname,
-  resolve
-} from 'node:path';
-import {
-  fileURLToPath,
-  pathToFileURL,
-} from 'node:url';
-import {
-  spawn,
-  execFileSync,
-} from 'node:child_process';
+// wind-mcp-skill CLI: thin JSON-envelope wrapper around Wind MCP servers
+import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync, unlinkSync, closeSync, openSync, utimesSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join, dirname, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { spawn, execFileSync } from 'node:child_process';
+import { buildUpgradeCommand, cleanupStaleSentinels } from './update-check.mjs';
+export { cleanupStaleSentinels };
 
 const SKILL_VERSION = '1.6.1';
-const OUTPUT_SCHEMA_VERSION = 1;
-let activeCommand = 'help';
 
-// Server registry is intentionally local data so tool selection can fail before any network call.
+// 本地 registry: 工具选择可在任何网络调用前失败
 const SERVERS = {
   stock_data: {
     endpoint: 'https://mcp.wind.com.cn/vserver_stock_data/mcp/',
@@ -81,18 +57,11 @@ const UPDATE_STATE_FILE = join(CACHE_DIR, 'update-state.json');
 const TOOL_MANIFEST_PATH = join(SKILL_DIR, 'references', 'tool-manifest.json');
 const SKILL_NAME = 'wind-mcp-skill';
 
-// 失败 / 更新通知 sentinel: ~/.cache/wind-aifinmarket/{failure,update}-shown-<skill>-<sid>
-// per-skill 隔离: 文件名带 SKILL_NAME, 多 skill 共享 CACHE_DIR 时各自独立 dedup
-// 两个独立 sentinel,语义完全平行:
-//   mtime ≤ 24h: 视为"本会话已展示" → 静默
-//   mtime > 24h: 视为过期(同 sid 重用风险) → 重新允许展示
-// 启动时清理 mtime > 1d 的 sentinel 文件防累积 (与 fresh 阈值对齐, 过期即清)
-// cleanup 用 prefix 匹配,跨 skill 互清也只清过期的,无副作用
+// per-skill + per-session sentinel: ~/.cache/wind-aifinmarket/{failure,update}-shown-<skill>-<sid>
+// mtime ≤ 6h 视为本会话已展示 (静默), > 6h 过期 — 实际过期清理由 update-check.mjs 兜底
 const FAILURE_SENTINEL_PREFIX = 'failure-shown-';
 const UPDATE_SENTINEL_PREFIX = 'update-shown-';
-const SENTINEL_PREFIXES = [FAILURE_SENTINEL_PREFIX, UPDATE_SENTINEL_PREFIX];
 const SENTINEL_FRESH_MS = 6 * 60 * 60 * 1000;
-const SENTINEL_CLEANUP_MS = 6 * 60 * 60 * 1000;
 
 const CALL_EXAMPLES = [
   `cli.mjs call stock_data get_stock_basicinfo '{"question":"600519.SH公司基本档案"}'`,
@@ -108,8 +77,7 @@ const CALL_EXAMPLES = [
 function spawnUpdateCheck() {
   try {
     if (!existsSync(UPDATE_CHECK_PATH)) return;
-    // WIND_SKILLS_UPDATE_CHECK_DETACHED: 通知子进程 stderr 被 ignore, 走 sentinel 中转
-    // WIND_SKILLS_SESSION_ID: 主进程算出的 sid 显式传给子进程, sentinel 命中
+    // env 传 sid 让子进程命中相同 sentinel; DETACHED=1 标记 stderr ignore, 走 sentinel 中转
     const child = spawn('node', [UPDATE_CHECK_PATH], {
       detached: true,
       stdio: 'ignore',
@@ -125,8 +93,7 @@ function spawnUpdateCheck() {
   } catch {}
 }
 
-// global lock 路径(XDG / ~/.agents); 其余视为 project lock。
-// 与 update-check.mjs 中同名函数语义对齐, 用于按 scope 区分 -g 升级命令。
+// 与 update-check.mjs 同名函数对齐, 按 scope 区分 -g
 function globalLockPaths() {
   const xdg = process.env.XDG_STATE_HOME;
   return [
@@ -139,8 +106,8 @@ function classifyLockScope(lockPath) {
   return globalLockPaths().includes(lockPath) ? 'global' : 'project';
 }
 
-// 按 scope 隔离的 live hash. 返回 { [name]: { global?: hash, project?: hash } }.
-// global 升了 / project 没升 这种半升级状态, filter 必须按 scope 匹配才能正确保留 project 那条。
+// 按 scope 隔离的 live hash → { [name]: { global?: hash, project?: hash } }
+// 半升级状态 (global 升 / project 没升) 时 filter 按 scope 才能保留 project 那条
 function getInstalledHashes() {
   const result = {};
   const candidates = new Set();
@@ -227,9 +194,7 @@ export function collectUpdateNotices() {
     if (!view || !view.state) return [];
     let state = view.state;
 
-    // 防御:legacy v2 顶层 schema(其他 skill 如 wind-alice 仍用)可能含他人 outdated,
-    // 严格只透传 name===SKILL_NAME 的条目,杜绝跨 skill 通知泄露。v3 path 走
-    // skills[SKILL_NAME] 取节点本就不会含他人,这里主要保护 legacy 兼容路径。
+    // legacy v2 顶层 schema 兼容: 过滤掉非本 skill 的 outdated; v3 path 不会有此问题
     if (state.status === 'update_available' && Array.isArray(state.outdated)) {
       const filtered = state.outdated.filter(o => o?.name === SKILL_NAME);
       if (filtered.length < state.outdated.length) {
@@ -246,7 +211,7 @@ export function collectUpdateNotices() {
       }
     }
 
-    // 先修正已升级但缓存仍提示过期的状态，再决定是否返回 notice。
+    // 已升级但 cache TTL 未过期 → 修正状态再决定是否通知
     if (state.status === 'update_available' && Array.isArray(state.outdated) && state.outdated.length > 0) {
       const stillOutdated = filterAlreadyUpgraded(state.outdated);
       if (stillOutdated.length === 0) {
@@ -275,14 +240,8 @@ export function collectUpdateNotices() {
         severity: 'info',
         message: `检测到 ${state.outdated.length} 个 skill 有新版`,
         items: state.outdated.map((o) => {
-          // scope 决定是否带 -g: global 加, project 不加。
-          // outdated 缺 scope (旧缓存或测试 seed) 时回退 'global' 保兼容。
           const scope = o.scope || 'global';
-          const scopeFlag = scope === 'global' ? ' -g' : '';
           const isGitee = typeof o.sourceUrl === 'string' && o.sourceUrl.includes('gitee.com');
-          const upgradeCmd = isGitee
-            ? `npx skills add ${o.sourceUrl} --skill ${o.name}${scopeFlag} -y  # Gitee 源不支持 update,需重装`
-            : `npx skills update ${o.name}${scopeFlag} -y`;
           return {
             name: o.name,
             current: o.current || null,
@@ -290,47 +249,30 @@ export function collectUpdateNotices() {
             source: isGitee ? 'gitee' : 'github',
             source_url: o.sourceUrl || null,
             scope,
-            upgrade_command: upgradeCmd,
+            upgrade_command: buildUpgradeCommand(o),
           };
         }),
       }];
     }
 
-    // transient_error / unknown 不进 notices(stdout 完全干净)。
-    // 失败提示走 stderr 一次性输出, 见 maybeNotifyFailureOnce()。
+    // transient_error / unknown 走 stderr 一次性, 不进 notices; 见 maybeNotifyFailureOnce
   } catch {}
   return [];
 }
 
-// 会话标识: walk 进程树跳过 shell 层,找首个非 shell 祖先作为 sessionId。
-// 对 Claude Code / Codex / Cursor 等 "每次 spawn 新 shell" 的 agent, 直接用 ppid 会失配,
-// 因为 shell 是 ephemeral 的; 真正稳定的是再往上一级的 agent 进程(claude/codex/cursor)。
-// Linux/WSL/Git Bash(MSYS2): /proc/<pid>/stat 走树, ~1ms
-// macOS: ps -p ... -o ppid,lstart,comm, ~50ms
-// Windows native: powershell -EncodedCommand 跑 Get-CimInstance Win32_Process, ~500ms-1s
-//   (Windows 慢, 用文件缓存 5min TTL 避免每次都付)
-// 跳过这些进程, 它们都是 ephemeral 的 shell / console-host 层, 不构成"会话"
+// sessionId: walk 进程树跳 shell, 找首个非 shell 祖先。Claude Code/Codex/Cursor 每次 spawn 新 shell, ppid 不稳定
 const SHELL_NAMES = new Set([
-  // 主流 Unix shell
   'bash', 'sh', 'zsh', 'dash', 'fish', 'csh', 'ksh', 'tcsh',
-  // 备选/罕见 Unix shell
   'xonsh', 'nu', 'nushell', 'ion', 'elvish', 'oksh', 'mksh', 'yash', 'rc', 'es',
-  // Windows native shell
   'cmd.exe', 'powershell.exe', 'pwsh.exe',
-  // MSYS2 / Cygwin / Git Bash 下的 shell
   'bash.exe', 'sh.exe', 'zsh.exe', 'dash.exe', 'fish.exe', 'tcsh.exe', 'ksh.exe',
-  // WSL launcher (ephemeral, 跳过它走 wsl.exe 的父进程)
   'wsl.exe', 'wslhost.exe',
-  // Console hosts / shell helper (per-shell ephemeral, 应该跳过)
-  'conhost.exe',     // cmd/pwsh 的 console host
-  'mintty.exe',      // Git Bash 默认终端
-  'msys-1.0.dll',    // MSYS infra (理论上不会出现, just in case)
-  'cygwin1.dll',     // Cygwin infra
+  'conhost.exe', 'mintty.exe', 'msys-1.0.dll', 'cygwin1.dll',
 ]);
 const SESSION_CACHE_FILE = join(CACHE_DIR, 'session.id');
-const SESSION_CACHE_TTL_MS = 5 * 60 * 1000;  // 5min
+const SESSION_CACHE_TTL_MS = 5 * 60 * 1000;
 
-// /proc walk (Linux / WSL / Git Bash MSYS2): 优先尝试,失败再走平台分支
+// Linux / WSL / Git Bash (MSYS2): /proc/<pid>/stat
 function tryProcWalk() {
   try {
     let pid = process.ppid;
@@ -352,7 +294,7 @@ function tryProcWalk() {
   return null;
 }
 
-// macOS ps walk
+// macOS: ps -o ppid,lstart,comm
 function tryMacWalk() {
   try {
     let pid = process.ppid;
@@ -364,17 +306,14 @@ function tryMacWalk() {
         timeout: 3000,
       }).trim();
       if (!out) break;
-      // 格式: "<ppid> <lstart 5 字段> <comm>"
-      // lstart 例: "Mon May 20 09:00:00 2026", 5 字段固定
+      // 格式: "<ppid> <lstart 5字段> <comm>"
       const parts = out.split(/\s+/);
       if (parts.length < 7) break;
       const parentPid = parseInt(parts[0], 10);
-      const lstart = parts.slice(1, 6).join(' ');  // 5 字段
+      const lstart = parts.slice(1, 6).join(' ');
       const comm = parts.slice(6).join(' ');
-      // comm 可能是带路径的(如 /usr/bin/bash), 取 basename
       const name = (comm.split('/').pop() || '').toLowerCase();
       if (!SHELL_NAMES.has(name)) {
-        // 用 lstart 替代 starttime (字符串形式但稳定)
         const cleanStart = lstart.replace(/[^a-zA-Z0-9]/g, '');
         return `${pid}-${cleanStart}`;
       }
@@ -385,10 +324,9 @@ function tryMacWalk() {
   return null;
 }
 
-// Windows PowerShell walk (一次 EncodedCommand 调用走全树, 避免多次 spawn 开销)
+// Windows: 一次 EncodedCommand 调用走全树, 避免多次 spawn
 function tryWindowsWalk() {
   try {
-    // 拼 PowerShell 脚本: 走树, 跳 shell, 输出 "MATCH:<pid>:<ticks>" 或 "NONE"
     const ps = [
       "$shells = @('cmd.exe','powershell.exe','pwsh.exe','bash.exe','sh.exe','zsh.exe','dash.exe','fish.exe','tcsh.exe','ksh.exe','wsl.exe','wslhost.exe','conhost.exe','mintty.exe')",
       `$cur = ${process.ppid}`,
@@ -419,7 +357,7 @@ function tryWindowsWalk() {
   return null;
 }
 
-// 文件缓存(Windows 慢, 5min 内复用)
+// 文件缓存: Windows PowerShell walk ~500ms-1s, 5min 内复用避免重算
 function readSessionCache() {
   try {
     if (!existsSync(SESSION_CACHE_FILE)) return null;
@@ -436,65 +374,35 @@ function writeSessionCache(sid) {
   } catch {}
 }
 
-// 模块内存缓存(同一 Node 进程内多次调用只算一次)
 let _sessionIdMemo = null;
 
 export function getSessionId() {
   if (_sessionIdMemo) return _sessionIdMemo;
-
-  // 0. env 注入: 给嵌套子进程 / 测试场景显式锁定 sid (生产 cli.mjs 主进程不会有此 env)
+  // env 注入用于嵌套子进程 / 测试显式锁定 sid
   if (process.env.WIND_SKILLS_SESSION_ID) {
     _sessionIdMemo = process.env.WIND_SKILLS_SESSION_ID;
     return _sessionIdMemo;
   }
-
-  // 1. 文件缓存(主要服务 Windows: PowerShell 慢, 5min 内不重复走)
   const cached = readSessionCache();
-  if (cached) {
-    _sessionIdMemo = cached;
-    return cached;
-  }
-
-  // 2. /proc 优先(Linux/WSL/Git Bash 都试一下, 都能命中)
+  if (cached) { _sessionIdMemo = cached; return cached; }
   let sid = tryProcWalk();
-
-  // 3. 平台分支
   if (!sid) {
     if (process.platform === 'darwin') sid = tryMacWalk();
     else if (process.platform === 'win32') sid = tryWindowsWalk();
   }
-
-  // 4. fallback: ppid (degraded, 但至少同一 shell 内能 dedup)
+  // fallback: ppid, 同 shell 内仍可 dedup
   if (!sid) sid = String(process.ppid);
-
   _sessionIdMemo = sid;
   writeSessionCache(sid);
   return sid;
 }
 
-// 失败 / 更新 sentinel: 按 <SKILL_NAME>-<sessionId> 隔离, mtime 控制时效, 两种独立文件
-// per-skill 命名避免多个 skill 共用同 sid 时 dedup 互相覆盖
+// sentinel 路径: per-skill + per-sid 隔离, 多 skill 共用 CACHE_DIR 时各自独立 dedup
 export function failureSentinelPath(sid = getSessionId()) {
   return join(CACHE_DIR, `${FAILURE_SENTINEL_PREFIX}${SKILL_NAME}-${sid}`);
 }
 export function updateSentinelPath(sid = getSessionId()) {
   return join(CACHE_DIR, `${UPDATE_SENTINEL_PREFIX}${SKILL_NAME}-${sid}`);
-}
-
-// 启动时清理 mtime > 7d 的旧 sentinel(两种前缀都扫)防累积
-export function cleanupStaleSentinels() {
-  try {
-    if (!existsSync(CACHE_DIR)) return;
-    const now = Date.now();
-    for (const name of readdirSync(CACHE_DIR)) {
-      if (!SENTINEL_PREFIXES.some(p => name.startsWith(p))) continue;
-      const p = join(CACHE_DIR, name);
-      try {
-        const st = statSync(p);
-        if (now - st.mtimeMs > SENTINEL_CLEANUP_MS) unlinkSync(p);
-      } catch {}
-    }
-  } catch {}
 }
 
 // 通用 sentinel 时效检查 + 触发
@@ -515,8 +423,7 @@ function touchSentinel(sentinelPath) {
   } catch {}
 }
 
-// 读 cache 失败状态 → 检查 sentinel → 第一次就 stderr 打通知 + touch sentinel; 否则静默。
-// 仅在 cmd === 'call' 调用; 完全不动 stdout。
+// cache 失败状态 → sentinel 未 fresh 则首次 stderr 通知 + touch; 不动 stdout
 export function maybeNotifyFailureOnce() {
   try {
     const view = readCacheView();
@@ -529,14 +436,17 @@ export function maybeNotifyFailureOnce() {
     if (sentinelFresh(sentinel)) return;
 
     const reason = state.reason || 'unknown';
-    process.stderr.write(`[wind-skills] 更新检测失败 (reason=${reason}), 不影响本次调用。\n`);
+    // 与 update-check.mjs printNotice 对齐: transient (网络等可恢复) vs unknown (lock/配置等)
+    if (state.status === 'transient_error') {
+      process.stderr.write(`[wind-skills] 检查更新失败,可能是网络问题(reason=${reason})\n`);
+    } else {
+      process.stderr.write(`[wind-skills] 无法确认是否最新(reason=${reason})\n`);
+    }
     touchSentinel(sentinel);
   } catch {}
 }
 
-// 检测到新版可用 → 检查 sentinel → 第一次就 stderr 打通知 + touch sentinel; 否则静默。
-// 复用 collectUpdateNotices() 已有的 filterAlreadyUpgraded / snooze 过滤逻辑。
-// 仅在 cmd === 'call' 调用; 完全不动 stdout。
+// 检测到新版 → 复用 collectUpdateNotices 过滤逻辑, sentinel 未 fresh 则首次 stderr + touch
 export function maybeNotifyUpdateOnce() {
   try {
     const notices = collectUpdateNotices();
@@ -558,23 +468,18 @@ export function maybeNotifyUpdateOnce() {
   } catch {}
 }
 
-// ───── 工具函数 ─────
+// section: 工具函数
 
-// 成功路径: `call` 命令完整透传 MCP `result` 对象,**不做任何 parse 或抽取**。
-// 业务数据通常在 result.content[0].text(可能是 JSON 字符串,由 agent 自行 parse)。
-// 其它命令(help / open-portal / setup-key)直接输出它们的结构化数据。
-// 全部不带任何 envelope / meta 包裹。
+// call 成功: 完整透传 MCP result, 不抽取; agent 自行 parse content[0].text
 function writeRawCallSuccess(result) {
   process.stdout.write(JSON.stringify(result, null, 2) + '\n');
 }
 
 function writePlainSuccess(data) {
-  // help / open-portal / setup-key 等结构化输出,直接 JSON
   process.stdout.write(JSON.stringify(data, null, 2) + '\n');
 }
 
-// 失败路径: 极简 envelope { ok:false, error:{code, agent_action} }
-// 所有更新检查信号(update_available / 失败检测)走 stderr 一次性通道, stdout 永远不带。
+// 失败 envelope { ok:false, error:{code, agent_action} }; update 信号走 stderr 不进 stdout
 function writeErrorEnvelope(code, detail) {
   const envelope = {
     ok: false,
@@ -592,7 +497,6 @@ function die(code, detail = null, exitCode = 1) {
 }
 
 function exitWithUsage(usage, exitCode = 0) {
-  // USAGE 文本嵌入 agent_action 让 agent 自包含拿到帮助
   die('USAGE_ERROR', `USAGE:\n${usage}`, exitCode);
 }
 
@@ -601,7 +505,7 @@ function maskKey(key) {
   return key.slice(0, 4) + '***' + key.slice(-4);
 }
 
-// 解析 dotenv 风格配置文件，兼容注释、引号和 export 前缀。
+// dotenv 解析: 兼容注释 / 引号 / export 前缀
 function parseDotenv(content) {
   const env = {};
   for (const rawLine of content.split('\n')) {
@@ -690,7 +594,7 @@ function getApiKey() {
   die('KEY_MISSING', 'WIND_API_KEY 未配置');
 }
 
-// ───── 错误码体系 ─────
+// section: 错误码 — message 来自 HTTP / JSON-RPC / 工具内嵌 JSON, 统一映射成稳定 code
 
 const ERROR_PATTERNS = [
   ['RATE_LIMIT_DAILY', /单日请求次数超限|daily.*limit/i, 'API Key 当日请求额度已用尽。等次日 0 点刷新或换备用 Key。'],
@@ -707,7 +611,6 @@ const ERROR_PATTERNS = [
   ['INVALID_PARAMS_JSON', /params JSON 解析失败/, '`call` 命令第三参数必须是合法 JSON 字符串。注意 shell 转义（建议外层用单引号包裹整个 JSON）。'],
 ];
 
-// 错误 message 可能来自 HTTP、JSON-RPC 或工具内嵌 JSON，统一映射成稳定错误码。
 function inferErrorCode(msg) {
   if (!msg) return 'UNKNOWN';
   for (const [code, pat] of ERROR_PATTERNS) {
@@ -716,9 +619,7 @@ function inferErrorCode(msg) {
   return 'UNKNOWN';
 }
 
-// 每个错误码对应一段 NL 处方：诊断 + 行动 一体。
-// agent 读完 agent_action 就能决定下一步,无需再看其它字段。
-// 后端原始 message 由 buildAgentAction() 拼到前面作为诊断上下文。
+// agent_action = 诊断 + 行动 一体的 NL 处方; agent 读完即可决定下一步, 后端原 message 由 buildAgentAction 拼前面
 const AGENT_ACTIONS = {
   USAGE_ERROR: '命令用法不正确。读取 stdout 中的 USAGE 文本（每条 cli 调用都会输出），按可用子命令和参数格式重新构造命令后重试。',
   INVALID_PARAMS_JSON: '`call` 命令第三参数必须是合法 JSON 字符串。按当前 shell 类型调整转义（Bash 用外层单引号、PowerShell 用 \\" 转义内部双引号），修正后重试同一 server_type + tool_name；不要切换工具。',
@@ -744,9 +645,7 @@ const AGENT_ACTIONS = {
   UNKNOWN: '未知错误。不要盲目重试；先读 stdout 错误原文,能定位本地问题（参数 / 配置 / 网络）则修正后重试一次,否则保留原文告知用户并停止。',
 };
 
-// agent_action = 后端原始诊断 + 标准处方,合并为一段 NL 文本。
-// USAGE_ERROR 例外: 嵌入完整 USAGE 不截断,以便 agent 重新构造命令。
-// 其它 code 上限 500 字, 防后端原文过长污染 envelope。
+// USAGE_ERROR 例外: 完整 USAGE 不截断; 其它 code 上限 500 字防污染 envelope
 function buildAgentAction(code, detail) {
   const template = AGENT_ACTIONS[code] || AGENT_ACTIONS.UNKNOWN;
   if (detail && typeof detail === 'string' && detail.trim()) {
@@ -756,11 +655,11 @@ function buildAgentAction(code, detail) {
   return template;
 }
 
-// ───── MCP 调用（裸 HTTP + JSON-RPC + 响应解析兼容 SSE/纯 JSON）─────
+// section: MCP 调用 — 裸 HTTP + JSON-RPC, 响应兼容 SSE / 纯 JSON
 
 function parseSSE(text) {
   const trimmed = text.trim();
-  // 后端正常返回 SSE，部分错误场景直接返回纯 JSON。
+  // 后端正常 SSE, 部分错误场景纯 JSON
   if (trimmed.startsWith('{')) {
     try {
       return JSON.parse(trimmed);
@@ -845,7 +744,7 @@ async function mcpRequest(server_type, method, params, {
     die(inferErrorCode(msg), `${msg} (server=${server_type})`);
   }
 
-  // 部分工具把业务错误包在 content[0].text 的 JSON 字符串里，必须二次解析。
+  // 部分工具把业务错误包在 content[0].text 的 JSON 字符串里, 必须二次解析
   const innerText = payload.result?.content?.[0]?.text;
   if (typeof innerText === 'string') {
     let inner;
@@ -888,7 +787,7 @@ async function mcpInitializeAndCall(server_type, method, params) {
   });
 }
 
-// ───── 命令 ─────
+// section: 命令
 
 async function cmdCall(server_type, toolName, paramsJson) {
   if (!server_type || !toolName || !paramsJson) {
@@ -1033,9 +932,7 @@ async function cmdOpenPortal() {
   return data;
 }
 
-// ───── 主入口 ─────
-
-// 仅当作为可执行脚本直接运行时才跑顶层命令分发;被 import (e.g. 单元测试) 时不副作用。
+// section: 主入口 — IS_MAIN guard 让单元测试 import 不副作用
 const IS_MAIN = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (IS_MAIN) runMain();
@@ -1055,12 +952,9 @@ const USAGE =
   `典型:\n` +
   `  ${CALL_EXAMPLES.join('\n  ')}`;
 
-// 诊断命令: 输出 sessionId + 进程树, 让用户在不同终端 / 不同 agent 自测
-// 跑法: 在两个独立的 Bash tool 调用(或两次终端命令)里各跑一次 cli.mjs diagnose
-// 比对输出的 sessionId; 如果相同, 跨调用 dedup 机制就生效
+// 诊断: 输出 sid + 检测方法; 在不同 agent / 终端各跑一次比对 sid 是否稳定
 async function cmdDiagnose() {
   const sid = getSessionId();
-  // 模块缓存可能命中, 强制重算一次, 然后清掉文件缓存重新走以展示完整链路
   _sessionIdMemo = null;
   try { unlinkSync(SESSION_CACHE_FILE); } catch {}
   return {
@@ -1090,13 +984,10 @@ const commands = {
 };
 
 if (!cmd) {
-  activeCommand = 'help';
-  // help: 直接输出 USAGE 纯文本(无包裹)
+  // help: 直接输出 USAGE 纯文本
   process.stdout.write(USAGE + '\n');
   process.exit(0);
 }
-
-activeCommand = cmd;
 
 if (!commands[cmd]) {
   die('USAGE_ERROR', `未知命令: ${cmd}\nUSAGE:\n${USAGE}`);
@@ -1104,14 +995,7 @@ if (!commands[cmd]) {
 
 if (cmd === 'call') {
   spawnUpdateCheck();
-  // 顺手清理 mtime > 7d 的僵尸 sentinel(零成本: 同步,目录通常 < 10 个文件)
-  cleanupStaleSentinels();
-  // call 命令一旦进入就尝试两个 stderr 一次性通知:
-  // - 失败检测(transient_error / unknown)
-  // - 检测到新版可用(update_available + 未升级)
-  // 两者独立 sentinel,互不干扰;同会话各自只出一次。
-  // 必须在 die() 抛出前调用(die 直接 exit 会跳过)；
-  // 必须在 stdout 输出前调用(防 stderr/stdout 交错)。
+  // 必须在 die() / stdout 输出前: die 直接 exit 跳过, stdout/stderr 交错会污染输出
   maybeNotifyFailureOnce();
   maybeNotifyUpdateOnce();
 }

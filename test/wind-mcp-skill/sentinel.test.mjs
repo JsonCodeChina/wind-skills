@@ -71,7 +71,7 @@ await test('第一次 maybeNotifyFailureOnce → stderr 出', async () => {
   writeCache(makeFreshFailureCache('transient_error', 'network'));
   const mod = await loadCli();
   const stderr = captureStderr(() => mod.maybeNotifyFailureOnce());
-  assert.ok(stderr.includes('[wind-skills] 更新检测失败'), `期望 stderr 出,实际: ${JSON.stringify(stderr)}`);
+  assert.ok(stderr.includes('[wind-skills] 检查更新失败'), `期望 stderr 出,实际: ${JSON.stringify(stderr)}`);
   assert.ok(stderr.includes('reason=network'));
   // sentinel 文件应存在
   assert.ok(existsSync(mod.failureSentinelPath()), 'sentinel 应已创建');

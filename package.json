@@ -1,0 +1,8 @@
+{
+  "name": "wind-skills-dev",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test --test-concurrency=1 test/wind-mcp-skill/*.mjs test/wind-alice/*.mjs"
+  }
+}

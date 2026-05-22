@@ -12,7 +12,7 @@ import { homedir } from 'node:os';
 import assert from 'node:assert/strict';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const SKILL_DIR = join(__dirname, '..');
+const SKILL_DIR = join(__dirname, '..', '..', 'skills', 'wind-mcp-skill');
 const CLI = join(SKILL_DIR, 'scripts', 'cli.mjs');
 const MANIFEST_PATH = join(SKILL_DIR, 'references', 'tool-manifest.json');
 const CACHE_DIR = join(homedir(), '.cache', 'wind-aifinmarket');

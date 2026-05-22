@@ -353,7 +353,12 @@ export function maybeNotifyFailureOnce() {
     const sentinel = failureSentinelPath();
     if (sentinelFresh(sentinel)) return;
     const reason = state.reason || "unknown";
-    process.stderr.write(`[wind-skills] 更新检测失败 (reason=${reason}), 不影响本次调用。\n`);
+    // 与 update-check.mjs printNotice 对齐: transient (网络等可恢复) vs unknown (lock/配置等)
+    if (state.status === "transient_error") {
+      process.stderr.write(`[wind-skills] 检查更新失败,可能是网络问题(reason=${reason})\n`);
+    } else {
+      process.stderr.write(`[wind-skills] 无法确认是否最新(reason=${reason})\n`);
+    }
     touchSentinel(sentinel);
   } catch {}
 }

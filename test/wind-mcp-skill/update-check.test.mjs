@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { homedir } from 'node:os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const SKILL_DIR = join(__dirname, '..');
+const SKILL_DIR = join(__dirname, '..', '..', 'skills', 'wind-mcp-skill');
 const SCRIPT = join(SKILL_DIR, 'scripts', 'update-check.mjs');
 const CACHE_DIR = join(homedir(), '.cache', 'wind-aifinmarket');
 const CACHE_FILE = join(CACHE_DIR, 'update-state.json');
@@ -279,33 +279,7 @@ describe('update-check.mjs', () => {
   });
 
   // ═══════════════════════════════════════
-  // 6. 旧缓存文件清理
-  // ═══════════════════════════════════════
-
-  describe('legacy file cleanup', () => {
-    it('removes wind-find-update-state.json', () => {
-      const legacyFile = join(CACHE_DIR, 'wind-find-update-state.json');
-      if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
-      writeFileSync(legacyFile, '{}');
-      assert.ok(existsSync(legacyFile), 'legacy file should exist before run');
-
-      runScript();
-      assert.ok(!existsSync(legacyFile), 'legacy file should be deleted');
-    });
-
-    it('removes wind-find-update-baseline.json', () => {
-      const legacyFile = join(CACHE_DIR, 'wind-find-update-baseline.json');
-      if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
-      writeFileSync(legacyFile, '{}');
-      assert.ok(existsSync(legacyFile), 'legacy file should exist before run');
-
-      runScript();
-      assert.ok(!existsSync(legacyFile), 'legacy file should be deleted');
-    });
-  });
-
-  // ═══════════════════════════════════════
-  // 7. printNotice 输出（依赖 lockSignature 缓存命中）
+  // 6. printNotice 输出（依赖 lockSignature 缓存命中）
   // ═══════════════════════════════════════
 
   describe('printNotice output', () => {

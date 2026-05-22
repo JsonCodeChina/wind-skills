@@ -1,18 +1,12 @@
 #!/usr/bin/env node
-// update-check.mjs — 通用 wind-skills 升级感知探活脚本 v2(installedAt-反查方案)
-// 通用版：自动从目录路径检测 skill name，无需硬编码
-// 由各 skill 的 CLI 异步 spawn,读 lock 条目 → 反查"装时刻"的远端 commit → 跟当前远端 tree SHA 对比
-// 设计: 完全静默,绝不阻塞主流程,任何异常吞掉
-//
-// 与 baseline 方案(v1)的区别:
-//   - v1: 用 baseline 文件存"上次远端 SHA",首次 check 把当下当基准 → "装老版本"漏报
-//   - v2: 不用 baseline,反查 lock.updatedAt 时刻的真实 commit,精确对比
-// 统一缓存: ~/.cache/wind-aifinmarket/update-state.json (schema v3, 多 skill 共享)
+// wind-skills 通用更新检测脚本
+// 由各 skill CLI 异步 spawn, 读 lock → 反查"装时刻"远端 commit → 跟当前远端 tree 对比
+// 全程静默, 绝不阻塞主流程, 任何异常吞掉
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, openSync, closeSync, statSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, dirname, resolve, basename } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -29,20 +23,13 @@ const TTL_TRANSIENT_MS     =  5 * 60 * 1000;
 const TTL_RATE_LIMIT_MS    = 60 * 60 * 1000;
 
 const NETWORK_TIMEOUT_MS = 5_000;
+// installedAt 反查容差: lock 写入时刻 vs 真实 commit 时刻有 push 延迟, 取 1h 兜底
 const INSTALLED_AT_TOLERANCE_MS = 60 * 60 * 1000;
 
-// sentinel 清理: 与 cli.mjs / update-notify.mjs 同步, 一并清 2 种前缀; 阈值 6h
-// (cli.mjs/notify 入口也清, 这里多触发一次保证 find-finance 等无 cli 通路的 skill 也勤清)
 const SENTINEL_PREFIXES = ['failure-shown-', 'update-shown-'];
 const SENTINEL_CLEANUP_MS = 6 * 60 * 60 * 1000;
 
-// ───── 统一缓存读写 ─────
-
-const LEGACY_CACHE_FILES = [
-  'wind-find-update-state.json',
-  'wind-find-update-baseline.json',
-  'update-baseline.json',  // v1 baseline 残留(v2 反查方案不再使用)
-];
+// section: 统一缓存读写
 
 function readUnifiedCache() {
   if (!existsSync(CACHE_FILE)) return { schemaVersion: CACHE_SCHEMA_VERSION, skills: {} };
@@ -55,7 +42,7 @@ function readUnifiedCache() {
   } catch { return { schemaVersion: CACHE_SCHEMA_VERSION, skills: {} }; }
 }
 
-// 文件锁: O_EXCL 创建 lockfile,陈旧锁(>30s)自动清理。拿不到锁等 100ms 重试,5 次后放弃(不阻塞)。
+// O_EXCL 文件锁; 陈旧锁 >30s 自动清; 拿不到等 100ms 重试 5 次后放弃
 const LOCK_FILE = CACHE_FILE + '.lock';
 const LOCK_STALE_MS = 30_000;
 const LOCK_RETRY_DELAY_MS = 100;
@@ -65,12 +52,10 @@ async function withLock(fn) {
   for (let i = 0; i < LOCK_MAX_RETRIES; i++) {
     try {
       if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
-      // 陈旧锁清理(上次进程崩了没清)
       try {
         const st = statSync(LOCK_FILE);
         if (Date.now() - st.mtimeMs > LOCK_STALE_MS) unlinkSync(LOCK_FILE);
       } catch {}
-      // O_EXCL 独占创建
       const fd = openSync(LOCK_FILE, 'wx');
       try {
         return fn();
@@ -79,11 +64,10 @@ async function withLock(fn) {
         try { unlinkSync(LOCK_FILE); } catch {}
       }
     } catch (e) {
-      if (e?.code !== 'EEXIST') return;  // 非"已存在"的错(权限/磁盘),直接放弃
+      if (e?.code !== 'EEXIST') return;
       await new Promise(r => setTimeout(r, LOCK_RETRY_DELAY_MS));
     }
   }
-  // 拿不到锁就放弃,绝不阻塞主流程
 }
 
 async function writeUnifiedCacheSkill(skillState) {
@@ -98,10 +82,8 @@ async function writeUnifiedCacheSkill(skillState) {
   });
 }
 
-// baselines 节: 用于 v1 lock 没有 installedAt 时的替代检测
-// key 格式: "<lockPath>:<skillName>:<computedHash>", value: { remoteSha }
-// 升级 skill 会让 installedHash 变 → key 变 → 旧条目残留。writeBaseline 写新 hash 时
-// 顺手清同 (lockPath, skillName) 下不同 hash 的旧 entry, 避免无界累加。
+// baselines: v1 lock 无 installedAt 时的替代检测
+// key 格式 "<lockPath>:<skillName>:<computedHash>"; 升级 skill 会让 hash 变, 旧 entry 残留 → 写新 hash 时清同 prefix 的旧 entry
 function readBaseline(key) {
   const full = readUnifiedCache();
   return full.baselines?.[key] || null;
@@ -110,9 +92,7 @@ async function writeBaseline(key, remoteSha) {
   await withLock(() => {
     const full = readUnifiedCache();
     if (!full.baselines || typeof full.baselines !== 'object') full.baselines = {};
-    // GC: key 结构 <lockPath>:<skillName>:<hash>; skillName / hash 不含 ':',
-    // lockPath 在 Windows 可能含盘符冒号, 所以用 lastIndexOf 切出 hash 前的前缀。
-    // 同前缀但不是当前 key 的 → 同 (lockPath, skillName) 但不同 hash → 删。
+    // Windows lockPath 含盘符冒号, 用 lastIndexOf 切 hash 前缀
     const lastColon = key.lastIndexOf(':');
     if (lastColon > 0) {
       const prefix = key.slice(0, lastColon + 1);
@@ -125,15 +105,8 @@ async function writeBaseline(key, remoteSha) {
   });
 }
 
-function cleanupLegacyFiles() {
-  for (const name of LEGACY_CACHE_FILES) {
-    const p = join(CACHE_DIR, name);
-    try { if (existsSync(p)) unlinkSync(p); } catch {}
-  }
-}
-
-// 清 mtime > SENTINEL_CLEANUP_MS 的旧 sentinel (4 种前缀全扫), 与 cli.mjs/notify 一致
-function cleanupStaleSentinels() {
+// 通用脚本: 各 skill 自己的 update-check 在此处兜底清理过期 sentinel
+export function cleanupStaleSentinels() {
   try {
     if (!existsSync(CACHE_DIR)) return;
     const now = Date.now();
@@ -148,7 +121,7 @@ function cleanupStaleSentinels() {
   } catch {}
 }
 
-// ───── lock 签名 ─────
+// section: lock 签名
 
 function isCacheFresh(cache, currentSignature) {
   if (!cache?.lastCheck || !cache?.ttlMs) return false;
@@ -164,7 +137,7 @@ function buildLockSignature(entries) {
     .join('\n');
 }
 
-// ───── lock 文件探测 ─────
+// section: lock 文件探测
 
 function walkUp(startDir) {
   const dirs = [];
@@ -178,8 +151,7 @@ function walkUp(startDir) {
   return dirs;
 }
 
-// global lock 候选路径(XDG / ~/.agents); 其它都视为 project lock。
-// 用于区分升级命令是否带 -g —— global 装的加 -g, project 装的不加。
+// global lock 候选: XDG / ~/.agents; 其它视为 project lock。决定升级命令是否加 -g
 function globalLockPaths() {
   const xdg = process.env.XDG_STATE_HOME;
   return [
@@ -219,7 +191,7 @@ function collectEntries() {
   return found;
 }
 
-// ───── 条目解析 ─────
+// section: entry 解析
 
 function parseSourceUrl(sourceUrl) {
   if (typeof sourceUrl !== 'string' || !sourceUrl) return null;
@@ -232,27 +204,15 @@ function parseSourceUrl(sourceUrl) {
   return { host, owner: m[1], repo: m[2] };
 }
 
-// 解析 entry 的源 URL 候选。优先级:
-//   1. entry.sourceUrl: v3 lock 必有, 直接用 (单候选, 不瞎试)
-//   2. entry.source 是完整 http(s) URL: 直接用
-//   3. entry.source 是短形式 + entry.sourceType 已知:
-//      - sourceType=github → 直接拼 GitHub
-//      - sourceType=git/gitee → 直接拼 Gitee
-//   4. 短形式但缺 sourceType (极旧 v1 lock): 启发式两候选兜底
+// 候选源 URL 解析。v3 有 sourceUrl; v1 仅 source + sourceType, 按 sourceType 拼 host
 function deriveSourceUrlCandidates(entry) {
   if (entry?.sourceUrl) return [entry.sourceUrl];
   if (typeof entry?.source !== 'string' || !entry.source) return [];
   if (/^https?:\/\//.test(entry.source)) return [entry.source];
-
   const t = entry.sourceType;
   if (t === 'github') return [`https://github.com/${entry.source}.git`];
   if (t === 'git' || t === 'gitee') return [`https://gitee.com/${entry.source}.git`];
-
-  // 兜底: sourceType 完全缺失, 两候选都试
-  return [
-    `https://github.com/${entry.source}.git`,
-    `https://gitee.com/${entry.source}.git`,
-  ];
+  return [];
 }
 
 function normalizeSkillDir(skillPath) {
@@ -262,13 +222,9 @@ function normalizeSkillDir(skillPath) {
     .replace(/\/+$/, '');
 }
 
-// ───── 代理 ─────
+// section: 代理
 
-// 代理来源 (按可靠度排序):
-//   1. process.env (主路径; 沙箱剥 env 时为空)
-//   2. git config http.proxy / https.proxy (持久化兜底, 企业网用户常配)
-// 不读 cli.mjs 写的 hint 文件 - 主进程也可能被剥 env, 那 hint 也是空的, 不如不依赖。
-// 同进程内缓存 git config 结果, 避免每次 fetchJson 都 spawn 一次 git。
+// env → git config 兜底 (沙箱剥 env 时常见)。同进程内 memo 一次
 let _gitProxyMemo;
 function loadGitProxy() {
   if (_gitProxyMemo !== undefined) return _gitProxyMemo;
@@ -285,10 +241,7 @@ function loadGitProxy() {
   } catch { _gitProxyMemo = null; return null; }
 }
 
-// 按 curl/requests 惯例: HTTPS_PROXY/https_proxy/HTTP_PROXY/http_proxy/ALL_PROXY/all_proxy
-// HTTPS 目标优先 HTTPS_PROXY, HTTP 目标只看 HTTP_PROXY+。NO_PROXY 后缀匹配 (大小写不敏感),
-// '*' 全跳过, '.foo.com' 与 'foo.com' 等价 (匹配自身 + 子域)。
-// env 全空时回落 git config。
+// curl/requests 标准: HTTPS_PROXY/https_proxy/HTTP_PROXY/http_proxy/ALL_PROXY/all_proxy + NO_PROXY 后缀匹配
 function getProxyForUrl(url) {
   let u;
   try { u = new URL(url); } catch { return null; }
@@ -317,7 +270,7 @@ function getProxyForUrl(url) {
   return proxy.trim();
 }
 
-// curl 子进程的 env: 本进程 env 缺代理时, 从 git config 补, 让 curl 能拿到
+// curl 子进程 env: 主进程 env 缺代理时从 git config 补
 function buildCurlEnv() {
   const merged = { ...process.env };
   const env = process.env;
@@ -331,15 +284,9 @@ function buildCurlEnv() {
   return merged;
 }
 
-// ───── HTTP ─────
+// section: HTTP
 
-// curl 优先: Linux / macOS / Windows10+ (build 17063+) 自带, 自动读 HTTPS_PROXY /
-// HTTP_PROXY / NO_PROXY env (本进程 env 缺时 buildCurlEnv 从 git config 兜底)。
-// 默认 -k 跳过 TLS 证书验证: update-check 只 GET 公开 JSON 不传凭证, 接受 MITM 网关换签场景。
-//
-// 静默降级: 走代理 network 失败 → curl --noproxy '*' 静默重试; 直连成功就用直连结果,
-// 不给用户加任何"代理失败"提示 (wind-skills stderr 只出"是否有新版"这一条)。
-// curl 不在 PATH → 降级 Node fetch (无代理), 静默。
+// 走代理 network 失败 → --noproxy '*' 静默重试; curl 不在 PATH → Node fetch 兜底
 async function fetchJson(url) {
   const curlResult = fetchJsonViaCurl(url, { noProxy: false });
   if (curlResult.code !== 'curl_missing') {
@@ -350,7 +297,6 @@ async function fetchJson(url) {
     return curlResult;
   }
 
-  // curl 不在 PATH: Node fetch (不走代理, 静默)
   try {
     const resp = await fetch(url, {
       headers: { 'User-Agent': `${SKILL_NAME}-update-check` },
@@ -369,11 +315,8 @@ async function fetchJson(url) {
   }
 }
 
-// curl 子进程: 同步 spawnSync (update-check 一次性脚本, 阻塞无副作用)
 // -k 默认开: update-check 只 GET 公开 JSON 不带 Authorization, MITM 投毒最多让用户漏报新版,
-//   不会让其执行恶意代码 → 跳过 TLS 验证以兼容公司 MITM 代理换签场景。
-// -w 把 HTTP 状态码追加到 stdout 末尾, 用 marker 切分 body / status。
-// noProxy: 走 --noproxy '*' (降级直连重试用)。curl 不在 PATH → { code: 'curl_missing' }。
+// 不会让其执行恶意代码 → 跳过 TLS 验证以兼容公司 MITM 代理换签场景
 function fetchJsonViaCurl(url, { noProxy = false } = {}) {
   const MARKER = '\n__HTTP_CODE__';
   try {
@@ -386,7 +329,6 @@ function fetchJsonViaCurl(url, { noProxy = false } = {}) {
     ];
     if (noProxy) args.push('--noproxy', '*');
     args.push(url);
-    // env 注入: 本进程 env 可能被沙箱剥了, buildCurlEnv 从 git config 补
     const result = spawnSync('curl', args, {
       encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
       env: buildCurlEnv(),
@@ -397,11 +339,10 @@ function fetchJsonViaCurl(url, { noProxy = false } = {}) {
 
     const out = result.stdout || '';
     const idx = out.lastIndexOf(MARKER);
-    if (idx < 0) return { error: 'network' };  // curl 连接前异常退出 (DNS/拨号)
+    if (idx < 0) return { error: 'network' };
     const body = out.slice(0, idx);
     const code = Number(out.slice(idx + MARKER.length).trim());
     if (!code) return { error: 'network' };
-    // 403/429 一律视为 rate_limit (curl 没传 -D 抓 header, 牺牲 x-ratelimit-remaining 精度)
     if (code === 403 || code === 429) return { error: 'rate_limit' };
     if (code < 200 || code >= 300) return { error: `http_${code}` };
     try { return { data: JSON.parse(body) }; }
@@ -411,7 +352,7 @@ function fetchJsonViaCurl(url, { noProxy = false } = {}) {
   }
 }
 
-// ───── 远端 API ─────
+// section: 远端 API
 
 function apiBase(host) {
   return host === 'github' ? 'https://api.github.com' : 'https://gitee.com/api/v5';
@@ -459,12 +400,10 @@ function shortHash(h) {
   return typeof h === 'string' ? h.slice(0, 7) : '';
 }
 
-// ───── 通知打印 ─────
+// section: 通知
 
-// 升级命令拼装。两条规则:
-//   1. scope=global → 加 -g; scope=project → 不加 (项目级安装升级到全局是错的)
-//   2. Gitee 源不支持 update, 退回 add 重装; GitHub 用 update
-// outdated 缺 scope (旧缓存或测试 seed 数据) 时 fallback 'global' 保持兼容。
+// scope=global → -g; scope=project → 无 (项目级升到全局会装错位置)
+// Gitee 不支持 npx skills update, 退回 add 重装
 export function buildUpgradeCommand(o) {
   const scope = o.scope || 'global';
   const scopeFlag = scope === 'global' ? ' -g' : '';
@@ -498,10 +437,9 @@ function printNotice(state) {
   }
 }
 
-// ───── 主逻辑 ─────
+// section: 主逻辑
 
 async function main() {
-  cleanupLegacyFiles();
   cleanupStaleSentinels();
 
   const fullCache = readUnifiedCache();
@@ -509,7 +447,6 @@ async function main() {
   const entries = collectEntries();
   const lockSignature = buildLockSignature(entries);
 
-  // cache 还新鲜 → 打印缓存中的通知后退出。详细结构化输出由 cli.mjs 走 JSON envelope。
   if (isCacheFresh(myCache, lockSignature)) {
     if (myCache) printNotice(myCache);
     return;
@@ -528,8 +465,6 @@ async function main() {
   let rateLimited = false;
 
   for (const { entry, lockPath, scope } of entries) {
-    // 1) 解析候选 sourceUrl: v3 lock 有 sourceUrl 直接用; v1 lock 缺 sourceUrl 时
-    //    从 source 短形式启发式生成 GitHub/Gitee 两个候选, 试到能拉 tree 的那个为准
     const urlCandidates = deriveSourceUrlCandidates(entry);
     if (urlCandidates.length === 0) {
       unknownDetails.push({ reason: 'no_source_url' });
@@ -575,7 +510,7 @@ async function main() {
     const installedAt = entry.updatedAt || entry.installedAt;
 
     if (installedAt) {
-      // v3 path: 走原 installedAt-反查策略 (精确, 能捕获"装老版本")
+      // v3 path: 用 installedAt 精确反查"装那时的远端 commit", 能识别"装了老版本"
       const installCommit = await fetchCommitAtTime(parsed, ref, skillDir, installedAt);
       if (installCommit.error) {
         if (installCommit.error === 'rate_limit') { rateLimited = true; break; }
@@ -603,19 +538,15 @@ async function main() {
         scope,
       });
     } else {
-      // v1 path: 没有 installedAt, 用 baseline 策略
-      // 首次见到这条 entry → 把 currentSha 存为 baseline, 报 up_to_date(静默捕获)
-      // 后续 → 比较新 currentSha 与 baseline.remoteSha, 不等就报 update_available
+      // v1 path: 无 installedAt, 用 baseline。首次见此 entry 把 currentSha 存为基准, 后续对比
       const installedHash = entry.skillFolderHash || entry.computedHash || '';
       const baselineKey = `${lockPath}:${SKILL_NAME}:${installedHash}`;
       const baseline = readBaseline(baselineKey);
       if (!baseline) {
-        // 首次捕获: 静默存 baseline, 报 up_to_date (此 entry 视为最新)
         await writeBaseline(baselineKey, currentSha);
         continue;
       }
-      if (baseline.remoteSha === currentSha) continue;  // 远端未变, up_to_date
-      // 远端动了 → update_available
+      if (baseline.remoteSha === currentSha) continue;
       outdated.push({
         name: SKILL_NAME,
         current: shortHash(baseline.remoteSha),
@@ -627,7 +558,7 @@ async function main() {
     }
   }
 
-  // ───── 聚合 ─────
+  // section: 聚合
 
   if (rateLimited) {
     const state = { status: 'transient_error', reason: 'rate_limit', ttlMs: TTL_RATE_LIMIT_MS, lockSignature };
@@ -671,4 +602,5 @@ async function main() {
   printNotice(state);
 }
 
-main().catch(() => {});
+const IS_MAIN = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (IS_MAIN) main().catch(() => {});

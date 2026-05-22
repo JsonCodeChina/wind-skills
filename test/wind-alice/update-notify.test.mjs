@@ -1,5 +1,5 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, rmSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
@@ -8,6 +8,19 @@ import assert from 'node:assert/strict';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CACHE_DIR = join(homedir(), '.cache', 'wind-aifinmarket');
 const CACHE_FILE = join(CACHE_DIR, 'update-state.json');
+
+// 模块加载时同步清: 防止前一个 test file 在 cache_dir 留 sentinel / cache 污染本测试
+function removeCacheSync() {
+  if (existsSync(CACHE_FILE)) { try { unlinkSync(CACHE_FILE); } catch {} }
+  if (existsSync(CACHE_DIR)) {
+    for (const name of readdirSync(CACHE_DIR)) {
+      if (name.startsWith('failure-shown-') || name.startsWith('update-shown-')) {
+        try { unlinkSync(join(CACHE_DIR, name)); } catch {}
+      }
+    }
+  }
+}
+removeCacheSync();
 
 // 读本机 lock 里 wind-alice 真实的 skillFolderHash,用于让 mock outdated 通过
 // filterAlreadyUpgraded 的"未升级"检查(installedHash 严格相等优先,startsWith 兜底)
@@ -36,6 +49,14 @@ function readCache() {
 
 function removeCache() {
   if (existsSync(CACHE_FILE)) unlinkSync(CACHE_FILE);
+  // 同步清 sentinel: 测试间 sentinel 残留会让 maybeNotify*Once 误判 fresh 而静默
+  if (existsSync(CACHE_DIR)) {
+    for (const name of readdirSync(CACHE_DIR)) {
+      if (name.startsWith('failure-shown-') || name.startsWith('update-shown-')) {
+        try { unlinkSync(join(CACHE_DIR, name)); } catch {}
+      }
+    }
+  }
 }
 
 function makeV3Cache(skillState) {
@@ -66,7 +87,7 @@ async function runMaybePrintNotice(cacheData) {
   const origWrite = process.stderr.write.bind(process.stderr);
   process.stderr.write = (chunk) => { captured += chunk; return true; };
   try {
-    const url = `file://${join(__dirname, '..', 'scripts', 'update-notify.mjs').replace(/\\/g, '/')}?t=${Date.now()}`;
+    const url = `file://${join(__dirname, '..', '..', 'skills', 'wind-alice', 'scripts', 'update-notify.mjs').replace(/\\/g, '/')}?t=${Date.now()}`;
     const mod = await import(url);
     mod.maybePrintUpdateNotice();
     return captured;
@@ -168,7 +189,7 @@ describe('update-notify.mjs — readCacheView v3 support', () => {
 
   it('missing cache file: no crash, no output', async () => {
     removeCache();
-    const url = `file://${join(__dirname, '..', 'scripts', 'update-notify.mjs').replace(/\\/g, '/')}?t=${Date.now()}`;
+    const url = `file://${join(__dirname, '..', '..', 'skills', 'wind-alice', 'scripts', 'update-notify.mjs').replace(/\\/g, '/')}?t=${Date.now()}`;
     const mod = await import(url);
     let captured = '';
     const origWrite = process.stderr.write.bind(process.stderr);
@@ -185,7 +206,7 @@ describe('update-notify.mjs — readCacheView v3 support', () => {
     if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
     writeFileSync(CACHE_FILE, 'this is not json!!!');
 
-    const url = `file://${join(__dirname, '..', 'scripts', 'update-notify.mjs').replace(/\\/g, '/')}?t=${Date.now()}`;
+    const url = `file://${join(__dirname, '..', '..', 'skills', 'wind-alice', 'scripts', 'update-notify.mjs').replace(/\\/g, '/')}?t=${Date.now()}`;
     const mod = await import(url);
     let captured = '';
     const origWrite = process.stderr.write.bind(process.stderr);
@@ -342,7 +363,7 @@ describe('update-notify.mjs — legacy v2 filter', () => {
 
 describe('update-notify.mjs — SKILL_NAME detection', () => {
   it('auto-detects skill name from directory', async () => {
-    const url = `file://${join(__dirname, '..', 'scripts', 'update-notify.mjs').replace(/\\/g, '/')}?t=${Date.now()}`;
+    const url = `file://${join(__dirname, '..', '..', 'skills', 'wind-alice', 'scripts', 'update-notify.mjs').replace(/\\/g, '/')}?t=${Date.now()}`;
     const mod = await import(url);
     // The module doesn't export SKILL_NAME, but we can verify behavior
     // by checking that it correctly processes wind-alice specific cache entries
