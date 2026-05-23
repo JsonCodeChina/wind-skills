@@ -1,0 +1,166 @@
+---
+name: "{skill-name}"
+description: >-
+  {一句话说明这个 skill 能完成什么。} Use when Codex needs to {明确触发场景、
+  用户说法、文件类型或任务上下文}. Do not use for {相邻但不属于本 skill 的场景}.
+---
+
+# {Skill Title}
+
+Use this skill to {完成目标}. Keep the workflow focused on {核心结果}, not on
+{容易跑偏的相邻任务}.
+
+<!--
+写作约束：
+1. description 是触发入口，必须写清“做什么 + 何时用”。
+2. 正文只保留执行时真正需要的流程、约束、决策和资源导航。
+3. 删除不适用章节；复杂细节优先拆到 references/、scripts/、assets/。
+-->
+
+## Scope
+
+Do:
+
+- {本 skill 必须覆盖的能力 1}
+- {本 skill 必须覆盖的能力 2}
+
+Do not:
+
+- {明确排除的能力 1}
+- {明确排除的能力 2}
+
+## Hard Gates
+
+- Before {高风险动作或阶段切换}, {必须先满足的条件}.
+- If {阻塞条件}, stop and {等待用户、返回错误、切换到允许的路径}.
+- Never {必须禁止的行为}.
+
+## Inputs
+
+Collect only the context needed to act:
+
+1. Read {项目文件、用户输入、工件或引用资料}.
+2. Determine {任务类型、模式、数据范围、约束}.
+3. Ask the user only when {本地上下文无法发现且误判代价高}.
+
+## Workflow
+
+Complete these steps in order:
+
+1. Establish context.
+   - {读取必要上下文}
+   - {确认当前状态、边界或前置条件}
+2. Choose the path.
+   - If {模式 A 条件}, follow {模式 A}.
+   - If {模式 B 条件}, follow {模式 B}.
+3. Execute the task.
+   - {主动作 1}
+   - {主动作 2}
+4. Validate the result.
+   - {检查结果是否满足契约}
+   - {检查错误、遗漏、回归或产物质量}
+5. Deliver the outcome.
+   - {返回结果、写入工件、交接下一步}
+
+## Decision Rules
+
+| Situation | Action |
+| --- | --- |
+| {命中主路径} | {使用哪个工具、流程或资源} |
+| {输入不完整但可推断} | {采用什么保守默认值} |
+| {输入不完整且不可安全推断} | {问一个最小问题} |
+| {工具失败或结果为空} | {重试、修参、fallback 或停止条件} |
+| {请求超出范围} | {说明边界并指向下一路径} |
+
+If this skill has both specialized paths and a generic fallback path, use the
+specialized path first for every part it covers. Use the generic fallback path only
+for remaining data or actions that the specialized path contract cannot cover, then
+merge the results. Do not use the fallback path solely because the request is complex,
+multi-item, multi-field, time-ranged, table-shaped, or phrased in natural language.
+
+## Tools And Resources
+
+Use bundled resources deliberately:
+
+- Run `scripts/{script}` when {需要确定性执行、重复操作或校验}.
+- Read `references/{reference}.md` when {需要详细规则、schema、清单或范例}.
+- Use `assets/{asset}` when {输出要复用模板、图片、样例或脚手架}.
+
+Do not duplicate large reference tables or long examples in this file. Keep the
+main skill readable and point to the exact resource to load when needed.
+
+## Output Contract
+
+Produce:
+
+- {主输出，例如补丁、设计文档、查询结果、报告}
+- {必要的验证信息，例如测试、来源、限制、失败原因}
+
+Use this output shape when consistency matters:
+
+```markdown
+## Result
+{完成了什么}
+
+## Evidence
+{验证、关键数据或工件路径}
+
+## Risks
+{剩余限制、未验证点或下一步}
+```
+
+## Artifact Template
+
+<!-- 只有 skill 必须写工件时保留本节。 -->
+
+Write `{artifact-path}` with this structure:
+
+```markdown
+# {Artifact Title}
+
+## Context
+{背景和目标}
+
+## Decision
+{结论或推荐方案}
+
+## Details
+{执行所需细节}
+
+## Validation
+{验收方式}
+
+## Open Questions
+{仍未关闭的问题}
+```
+
+## Validation
+
+Before finishing:
+
+1. Check {关键输入是否被使用}.
+2. Check {结果是否满足成功标准}.
+3. Check {约束、权限、格式、范围或合规要求}.
+4. Report {没有执行或无法验证的项}.
+
+## Failure Handling
+
+- If {常见错误 1}, {处理动作}.
+- If {常见错误 2}, {处理动作}.
+- If all allowed paths fail, stop with:
+  - what was attempted
+  - what failed
+  - what is needed next
+
+## Handoff
+
+<!-- 只有当前 skill 明确交给下一个 skill、工具或人工步骤时保留本节。 -->
+
+After {完成条件}, continue with {下一 skill、下一命令或用户动作}. Do not
+skip the handoff gate when {需要审批、复核或补充上下文}.
+
+## Important Rules
+
+- Prefer {本 skill 的最高优先原则}.
+- Keep {必须保持的质量、顺序或边界}.
+- Avoid {最常见误用}.
