@@ -1,7 +1,7 @@
 # Wind MCP 错误处理
 
-只有 CLI 调用失败、需要判断是否重试 / fallback / 停止时读取本文件。CLI 的机器可读
-错误码字典见 `references/error-codes.json`。
+只有 CLI 调用失败、需要判断是否重试 / fallback / 停止时读取本文件。完整错误码和
+`agent_action` 以 `references/error-codes.json` 为准；本文件只定义分组和处理策略。
 
 ## 基本规则
 
@@ -20,6 +20,7 @@
 | QPS / 网络 / 后端 | `RATE_LIMIT_QPS` / `NETWORK_ERROR` / `SERVER_5XX` | 等 3-5 秒后原样重试；网络需确认联网权限 |
 | JSON 转义 | `INVALID_PARAMS_JSON` | 读取 `references/shell-escaping.md`，只修 JSON / shell 引号后重试同一路由 |
 | 工具选择 | `UNKNOWN_TOOL_NAME` / `UNKNOWN_SERVER_TYPE` | 读取 manifest 重新选择合法组合；不得直接 fallback 到 analytics |
+| 本地命令 / 配置 | `USAGE_ERROR` / `TOOL_MANIFEST_INVALID` / `UNKNOWN_SCOPE` / `OPEN_PORTAL_FAILED` / `CONFIG_WRITE_ERROR` | 按 `error.agent_action` 修正命令、配置、scope 或手动打开开发者中心；不得改业务路由绕过 |
 | 参数校验 | `PARAM_VALIDATION_ERROR` | 读取 `references/tool-contracts.md` 和 `references/indicators.md` 修字段 |
 | 无结果 | `NO_RESULTS` | 在不改变用户意图的前提下调整关键词或参数 |
 | 协议 / 运行时 | `RESPONSE_PARSE_ERROR` / `MCP_PROTOCOL_ERROR` / `TOOL_RUNTIME_ERROR` / `UNKNOWN` | 保留原文；能明确修正则重试一次，否则停止 |

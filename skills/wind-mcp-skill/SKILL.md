@@ -165,7 +165,7 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 | 工具字段、参数、场景和示例 | `references/tool-contracts.md` |
 | 行情快照 `indexes` | `references/indicators.md` |
 | CLI 错误分组和 fallback 判断 | `references/error-handling.md` |
-| 机器可读错误码字典 | `references/error-codes.json` |
+| 完整错误码和 `agent_action` 总表 | `references/error-codes.json` |
 | shell JSON 转义 | `references/shell-escaping.md` |
 | wind-alice 最终兜底 | `references/fallback-alice.md` |
 

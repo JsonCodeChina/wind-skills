@@ -55,6 +55,7 @@ const UPDATE_CHECK_PATH = join(SKILL_DIR, 'scripts', 'update-check.mjs');
 const CACHE_DIR = join(homedir(), '.cache', 'wind-aifinmarket');
 const UPDATE_STATE_FILE = join(CACHE_DIR, 'update-state.json');
 const TOOL_MANIFEST_PATH = join(SKILL_DIR, 'references', 'tool-manifest.json');
+const ERROR_CODES_PATH = join(SKILL_DIR, 'references', 'error-codes.json');
 const SKILL_NAME = 'wind-mcp-skill';
 
 // per-skill + per-session sentinel: ~/.cache/wind-aifinmarket/{failure,update}-shown-<skill>-<sid>
@@ -619,31 +620,27 @@ function inferErrorCode(msg) {
   return 'UNKNOWN';
 }
 
-// agent_action = 诊断 + 行动 一体的 NL 处方; agent 读完即可决定下一步, 后端原 message 由 buildAgentAction 拼前面
-const AGENT_ACTIONS = {
-  USAGE_ERROR: '命令用法不正确。读取 stdout 中的 USAGE 文本（每条 cli 调用都会输出），按可用子命令和参数格式重新构造命令后重试。',
-  INVALID_PARAMS_JSON: '`call` 命令第三参数必须是合法 JSON 字符串。读取 references/shell-escaping.md，按当前 shell 的完整示例修正引号和转义。修正后重试同一 server_type + tool_name；不要切换工具。',
-  UNKNOWN_SERVER_TYPE: 'server_type 不在可用列表内。运行 `node scripts/cli.mjs`（无参）查看 USAGE 列出的合法 server_type，或读 SKILL.md 第 1 节"数据范围"重新选择，再重试。',
-  UNKNOWN_TOOL_NAME: 'tool_name 不属于该 server_type。读取 `references/tool-manifest.json` 查询当前 server_type 的合法 tool 清单，按意图路由规则（SKILL.md "意图判定与路由顺序"）重新选择 tool 后重试；不要直接 fallback 到 analytics_data。',
-  TOOL_MANIFEST_INVALID: '本地 `references/tool-manifest.json` 缺失或非法 JSON。skill 安装可能不完整,提示用户重装：`npx skills update wind-mcp-skill -g -y`。',
-  UNKNOWN_SCOPE: '`setup-key` 命令必须带 --scope global 或 --scope skill。先用 AskUserQuestion 询问用户 Key 存放位置后,带上 --scope 参数重试。',
-  OPEN_PORTAL_FAILED: '本地无法自动打开浏览器。把 stdout 中的 `url` 字段告知用户,让用户在自己的浏览器中手动打开开发者中心。',
-  PARAM_VALIDATION_ERROR: '后端参数验证失败。按 SKILL.md "## 3. 工具表"和 `references/indicators.md` 逐字段核对：字段名、必填项、日期格式、枚举值、server_type、tool_name。修正后重试同一工具；若多次修正仍不通过且属于结构化取数问题,可改用 `analytics_data.get_financial_data`,但 question 必须忠实反映用户原始意图。',
-  CONFIG_WRITE_ERROR: '配置文件写入失败。检查目标路径权限,或用 AskUserQuestion 询问用户改用另一种 scope 后重试 setup-key。',
-  KEY_MISSING: 'WIND_API_KEY 未配置。先用 AskUserQuestion 让用户选择：A) 由 agent 打开万得开发者中心；B) 用户自行去开发者中心获取 Key。只有用户选择 A 时才执行 `node scripts/cli.mjs open-portal`；用户选择 B 时不要执行 open-portal,等待用户发回 Key。拿到 Key 后执行 `node scripts/cli.mjs setup-key <KEY> --scope <global|skill>`（先用 AskUserQuestion 询问 scope）再重试原调用。不要改用 analytics_data 绕过。',
-  KEY_INVALID: 'API Key 无效或过期。引导用户在开发者中心重新生成 Key,用 setup-key 配置后重试；不要通过切换 Wind 工具绕过。',
-  KEY_FORBIDDEN_SERVER: '当前 Key 未订阅该 server 的权限。让用户在开发者中心确认权限,或选择已授权的其他 server；不要换 server 绕过。',
-  RATE_LIMIT_DAILY: 'API Key 当日请求额度已用尽。等次日额度刷新,或让用户更换备用 Key；不要换工具绕过。',
-  RATE_LIMIT_QPS: '请求过于频繁触发 QPS 限流。等待 3-5 秒后原样重试同一工具；不要为绕过限流而切换工具。',
-  BALANCE_INSUFFICIENT: 'API Key 计费余额不足。提示用户在开发者中心充值,或更换有余额的 Key 后重试。',
-  NETWORK_ERROR: '网络请求失败（DNS / 代理 / 超时 / 沙箱拦截）。检查网络环境；在 Codex 环境中确认使用 `sandbox_permissions: "require_escalated"` 联网。修复后原样重试。',
-  SERVER_5XX: '万得后端服务异常。稍后原样重试同一请求；若提示超时,可降低请求复杂度（缩短时间范围、减少字段）。',
-  RESPONSE_PARSE_ERROR: '后端响应格式异常。保留 stdout 错误原文,联系万得支持；不要盲目重试或切换工具。',
-  NO_RESULTS: '查询命中数据为空。先在不改变用户意图的前提下调整关键词或参数重试；若专项路径仍无结果且属于结构化取数,可改用 `analytics_data.get_financial_data` 兜底,question 必须忠实反映用户原始意图。',
-  MCP_PROTOCOL_ERROR: 'MCP 协议层错误。读 stdout 错误原文,若能明确指向请求形态问题则修正后重试,否则保留原文联系万得支持。',
-  TOOL_RUNTIME_ERROR: '后端工具运行错误。读 stdout 错误原文,检查请求规模是否过大、字段口径是否受支持、数据覆盖范围；不能明确修正时停止并告知用户,不要盲目切换工具。',
-  UNKNOWN: '未知错误。不要盲目重试；先读 stdout 错误原文,能定位本地问题（参数 / 配置 / 网络）则修正后重试一次,否则保留原文告知用户并停止。',
-};
+// agent_action = 诊断 + 行动 一体的 NL 处方; 唯一总表在 references/error-codes.json
+function loadAgentActions() {
+  const fallback = {
+    UNKNOWN: '未知错误。不要盲目重试；先查看当前错误详情，能定位本地问题（参数 / 配置 / 网络）则修正后重试一次，无法定位则保留原文告知用户并停止。',
+  };
+  try {
+    const doc = JSON.parse(readFileSync(ERROR_CODES_PATH, 'utf8'));
+    const codes = doc && typeof doc.codes === 'object' ? doc.codes : null;
+    if (!codes) return fallback;
+    return {
+      ...fallback,
+      ...Object.fromEntries(
+        Object.entries(codes).filter(([, action]) => typeof action === 'string' && action.trim()),
+      ),
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+const AGENT_ACTIONS = loadAgentActions();
 
 // USAGE_ERROR 例外: 完整 USAGE 不截断; 其它 code 上限 500 字防污染 envelope
 function buildAgentAction(code, detail) {
