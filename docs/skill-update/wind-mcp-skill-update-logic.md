@@ -1,4 +1,4 @@
-# wind-mcp-skill 更新逻辑 v2.3 设计文档
+# wind-mcp-skill 更新逻辑设计文档
 
 > **决策日期**：2026-05-23
 > **决策者**：alice + BMad Master
@@ -11,7 +11,7 @@
 
 ## 1. 摘要
 
-wind-mcp-skill 当前更新逻辑（cli.mjs + update-check.mjs 共 **1622 行**）被定性为过度工程化。v2.3 方案在保留核心功能（探活 GitHub/Gitee 远端 → stderr 提示新版）的前提下：
+wind-mcp-skill 当前更新逻辑（cli.mjs + update-check.mjs 共 **1622 行**）被定性为过度工程化。方案在保留核心功能（探活 GitHub/Gitee 远端 → stderr 提示新版）的前提下：
 
 - **砍掉 ~60% 代码**（落点 550-650 行，专家保守估 700-900 行）
 - **修复 1 个隐性 bug**（项目级 + Gitee 探活完全失效）
@@ -276,7 +276,7 @@ if (t === 'git' || t === 'gitee') return [`https://gitee.com/${entry.source}.git
 // 拼出: https://gitee.com/git@gitee.com:wind_info/wind-skills.git.git ← 垃圾 URL
 ```
 
-**v2.3 修复**（在函数起点加 1 行）：
+**修复**（在函数起点加 1 行）：
 
 ```js
 if (entry.source.startsWith('git@')) return [entry.source];
@@ -337,9 +337,9 @@ if (entry.source.startsWith('git@')) return [entry.source];
 
 **实现**：`JSON.parse` 失败或 `version !== 1` 直接当空 cache 处理，首次写入时覆盖。
 
-### 10.2 客户首次升级到 v2.3 的体验
+### 10.2 客户首次升级到 的体验
 
-1. 客户跑 `npx skills update wind-mcp-skill` 拉到 v2.3 代码
+1. 客户跑 `npx skills update wind-mcp-skill` 拉到 代码
 2. 下次跑 cli call → 主进程读 cache（旧 schema 或为空）→ 当空处理
 3. spawnUpdateCheck 子进程探活 → 写 cache 基线（lastNotifiedSha = latestSha）
 4. **本次不通知**（修正 #3 静默写基线）
@@ -354,7 +354,7 @@ if (entry.source.startsWith('git@')) return [entry.source];
 - 旧目录变孤儿但无害
 - API Key 配置（`~/.wind-aifinmarket/config` 或 `~/.wind-aimarket/config`）当前代码只读新路径，客户需要重新 `setup-key`
 
-> 这是已知的迁移成本，由命名迁移决策造成，不在 v2.3 更新逻辑范畴。
+> 这是已知的迁移成本，由命名迁移决策造成，不在 更新逻辑范畴。
 
 ---
 
@@ -363,7 +363,7 @@ if (entry.source.startsWith('git@')) return [entry.source];
 | 阶段 | 内容 | 状态 |
 |---|---|---|
 | 1 | 设计方案 + 文档落档（本文） | ✅ 完成 |
-| 2 | 测试用例规划（test-plan-v2.3.md） | 🔄 进行中 |
+| 2 | 测试用例规划（test-plan.md） | 🔄 进行中 |
 | 3 | 实测 4 种 lock schema（lock-schema-test-results.md） | ✅ 完成 |
 | 4 | wind-mcp-skill 代码重写（按测试驱动） | ⏳ 未开始 |
 | 5 | wind-find-finance-skill 套用相同代码 | ⏳ 未开始 |
@@ -376,20 +376,5 @@ if (entry.source.startsWith('git@')) return [entry.source];
 ## 12. 关联文档
 
 - [Lock Schema 实测报告](./lock-schema-test-results.md) — 4 case 字段差异 + 隐性 bug 实测推导
-- 测试用例规划（即将生成）— 测试矩阵 + 关键场景 + 自动化 vs 手工拆分
+- [测试用例规划](./test-plan.md) — 测试矩阵 + 关键场景 + 自动化 vs 手工拆分
 - `test/lock-schema/` 原始 lock 文件 — 实测产出的 4 种 lock 文件留档，用于回归对比
-
----
-
-## 13. 决策追溯
-
-| 决策点 | 来源 |
-|---|---|
-| 全套简化方向 | alice 主导，3 轮专家评审（CLI 极简 / AI agent 输出 / Reliability）确认 |
-| TTL 6h | alice 拍板（2h 太短 24h 太长） |
-| ETag/304 | BMad Master 推荐 + alice 确认（一步到位） |
-| 升级命令按 entry 各自给 | alice 拍板（"装的时候怎么装的升级时怎么升级"） |
-| Lazy GC | BMad Master 推荐 + alice 确认 |
-| 6 个必做修正 | 3 个 v2.2 终审专家共同提出 |
-| 长尾 fallback 默认开 | alice 拍板（不要 opt-in） |
-| 触发条件按"访问远端"判定 | alice 拍板（"如果有新的功能你怎么兼容呢"） |

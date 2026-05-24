@@ -29,7 +29,7 @@ cwd 下只靠绝对脚本路径调用。
 | `call <server_type> <tool_name> '<params_json>'` | 调用 Wind MCP 工具 |
 | `open-portal` | 打开万得开发者中心获取 API Key |
 | `setup-key <KEY> --scope <global|skill>` | 配置 API Key |
-| `diagnose` | 诊断 session / sentinel / update 状态 |
+| `diagnose` | 输出更新检测 cache 概况 |
 
 `open-portal` 和 `setup-key` 都有副作用。用户选择前不要执行。
 

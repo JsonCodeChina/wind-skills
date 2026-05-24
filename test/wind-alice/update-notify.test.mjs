@@ -1,373 +1,111 @@
-import { describe, it, beforeEach, afterEach } from 'node:test';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, rmSync, readdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { homedir } from 'node:os';
+// wind-alice update-notify.mjs (v1 共享 schema) 通知行为测试
+// 子进程 + 隔离 HOME: maybePrintUpdateNotice 在 import 时按 homedir 固化 CACHE_FILE,
+// 故每个场景 spawn 新进程, HOME 指向临时目录, 互不污染。
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, realpathSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, dirname, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { spawnSync } from 'node:child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const CACHE_DIR = join(homedir(), '.cache', 'wind-aifinmarket');
-const CACHE_FILE = join(CACHE_DIR, 'update-state.json');
+const REPO = resolve(__dirname, '../..');
+const NOTIFY_MOD = join(REPO, 'skills/wind-alice/scripts/update-notify.mjs');
+const SKILL = 'wind-alice';
 
-// 模块加载时同步清: 防止前一个 test file 在 cache_dir 留 sentinel / cache 污染本测试
-function removeCacheSync() {
-  if (existsSync(CACHE_FILE)) { try { unlinkSync(CACHE_FILE); } catch {} }
-  if (existsSync(CACHE_DIR)) {
-    for (const name of readdirSync(CACHE_DIR)) {
-      if (name.startsWith('failure-shown-') || name.startsWith('update-shown-')) {
-        try { unlinkSync(join(CACHE_DIR, name)); } catch {}
-      }
-    }
+// 起一个隔离 HOME, 写 lock + (可选)v1 cache, 返回路径与该安装的 cache key
+function setupHome({ entryState, sourceUrl = 'https://github.com/JsonCodeChina/wind-skills.git', project = false } = {}) {
+  const home = mkdtempSync(join(tmpdir(), 'wa-notify-'));
+  const lockObj = { version: 3, skills: { [SKILL]: {
+    sourceUrl, sourceType: sourceUrl.includes('gitee') ? 'gitee' : 'github',
+    skillPath: `skills/${SKILL}/SKILL.md`, skillFolderHash: 'x',
+    installedAt: '2026-05-20T00:00:00.000Z', updatedAt: '2026-05-20T00:00:00.000Z',
+  } } };
+  let lockPath, cwd;
+  if (project) {
+    cwd = join(home, 'proj'); mkdirSync(cwd, { recursive: true });
+    lockPath = join(cwd, 'skills-lock.json');
+  } else {
+    mkdirSync(join(home, '.agents'), { recursive: true });
+    lockPath = join(home, '.agents', '.skill-lock.json');
+    cwd = home;
   }
-}
-removeCacheSync();
+  writeFileSync(lockPath, JSON.stringify(lockObj));
 
-// 读本机 lock 里 wind-alice 真实的 skillFolderHash,用于让 mock outdated 通过
-// filterAlreadyUpgraded 的"未升级"检查(installedHash 严格相等优先,startsWith 兜底)
-function getRealLockHash() {
-  try {
-    const lockPath = process.env.XDG_STATE_HOME
-      ? join(process.env.XDG_STATE_HOME, 'skills', '.skill-lock.json')
-      : join(homedir(), '.agents', '.skill-lock.json');
-    if (!existsSync(lockPath)) return null;
-    return JSON.parse(readFileSync(lockPath, 'utf8'))?.skills?.['wind-alice']?.skillFolderHash || null;
-  } catch { return null; }
-}
-const REAL_LOCK_HASH = getRealLockHash();
-
-// ───── Helpers ─────
-
-function writeCache(data) {
-  if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
-  writeFileSync(CACHE_FILE, JSON.stringify(data, null, 2));
-}
-
-function readCache() {
-  if (!existsSync(CACHE_FILE)) return null;
-  return JSON.parse(readFileSync(CACHE_FILE, 'utf8'));
-}
-
-function removeCache() {
-  if (existsSync(CACHE_FILE)) unlinkSync(CACHE_FILE);
-  // 同步清 sentinel: 测试间 sentinel 残留会让 maybeNotify*Once 误判 fresh 而静默
-  if (existsSync(CACHE_DIR)) {
-    for (const name of readdirSync(CACHE_DIR)) {
-      if (name.startsWith('failure-shown-') || name.startsWith('update-shown-')) {
-        try { unlinkSync(join(CACHE_DIR, name)); } catch {}
-      }
-    }
+  const cacheDir = join(home, '.cache', 'wind-aifinmarket');
+  mkdirSync(cacheDir, { recursive: true });
+  const cacheFile = join(cacheDir, 'update-state.json');
+  const key = `${SKILL}|${realpathSync.native(resolve(lockPath))}`;   // == canonicalizeLockPath
+  if (entryState) {
+    const now = new Date().toISOString();
+    writeFileSync(cacheFile, JSON.stringify({
+      version: 1, meta: { callCount: 1, fallbackShownAt: null },
+      entries: { [key]: { lastCheckedAt: now, lastSuccessAt: now, ...entryState } },
+    }, null, 2));
   }
+  return { home, cwd, cacheFile, key };
 }
 
-function makeV3Cache(skillState) {
-  return {
-    schemaVersion: 3,
-    skills: {
-      wind_alice_fallback: { status: 'up_to_date', ttlMs: 3600000, lastCheck: new Date().toISOString() },
-      ...typeof skillState === 'object' && skillState !== null ? { wind_alice: skillState } : {},
-    },
-  };
+function runNotify(home, cwd) {
+  const script = `const m = await import(${JSON.stringify(pathToFileURL(NOTIFY_MOD).href)}); m.maybePrintUpdateNotice();`;
+  const r = spawnSync(process.execPath, ['--input-type=module', '-e', script], {
+    cwd, encoding: 'utf8',
+    env: { ...process.env, HOME: home, USERPROFILE: home, XDG_STATE_HOME: '' },
+  });
+  return (r.stderr || '') + (r.stdout || '');
 }
 
-function makeV3CacheNamed(name, skillState) {
-  const cache = {
-    schemaVersion: 3,
-    skills: {
-      other_skill: { status: 'up_to_date', ttlMs: 3600000, lastCheck: new Date().toISOString() },
-    },
-  };
-  if (skillState) cache.skills[name] = skillState;
-  return cache;
-}
+const readCache = (f) => JSON.parse(readFileSync(f, 'utf8'));
+const cleanup = (home) => rmSync(home, { recursive: true, force: true });
 
-// Capture stderr output
-async function runMaybePrintNotice(cacheData) {
-  writeCache(cacheData);
-  let captured = '';
-  const origWrite = process.stderr.write.bind(process.stderr);
-  process.stderr.write = (chunk) => { captured += chunk; return true; };
-  try {
-    const url = `file://${join(__dirname, '..', '..', 'skills', 'wind-alice', 'scripts', 'update-notify.mjs').replace(/\\/g, '/')}?t=${Date.now()}`;
-    const mod = await import(url);
-    mod.maybePrintUpdateNotice();
-    return captured;
-  } finally {
-    process.stderr.write = origWrite;
-  }
-}
-
-// ───── Tests ─────
-
-describe('update-notify.mjs — readCacheView v3 support', () => {
-  afterEach(removeCache);
-
-  it('reads v3 cache and extracts wind-alice state', async () => {
-    const state = {
-      status: 'update_available',
-      ttlMs: 43200000,
-      lastCheck: new Date().toISOString(),
-      outdated: [{
-        name: 'wind-alice',
-        current: 'abc1234',
-        latest: 'def5678',
-        sourceUrl: 'https://github.com/foo/bar',
-        // installedHash 必须等于本机 lock 真实 hash,否则 filterAlreadyUpgraded
-        // 会判定"已升级"过滤掉该条 → 通知不会打。本机无 lock 时退化用假短串,
-        // startsWith 路径仍走原 cur='abc1234' 比对(可能 fail,看本机环境)。
-        installedHash: REAL_LOCK_HASH || 'abc1234',
-      }],
-    };
-    const cache = makeV3CacheNamed('wind-alice', state);
-    writeCache(cache);
-
-    const captured = await runMaybePrintNotice(cache);
-    assert.ok(captured.includes('[wind-skills]'), `Expected notice in stderr, got: ${captured}`);
-    assert.ok(captured.includes('wind-alice'), `Expected skill name in output, got: ${captured}`);
-    assert.ok(captured.includes('npx skills update'), `Expected upgrade command, got: ${captured}`);
+describe('wind-alice update-notify.mjs (v1)', () => {
+  it('pending → 打印 [notice] + 升级命令, 并标记 lastNotifiedSha=latestSha', () => {
+    const { home, cwd, cacheFile, key } = setupHome({ entryState: { latestSha: 'BBB', lastNotifiedSha: 'AAA' } });
+    const out = runNotify(home, cwd);
+    assert.match(out, /\[notice\] wind-alice 有新版本可用/);
+    assert.match(out, /npx skills update wind-alice -g -y/);
+    assert.equal(readCache(cacheFile).entries[key].lastNotifiedSha, 'BBB');
+    cleanup(home);
   });
 
-  it('v3 cache: does not corrupt other skills when writing back', async () => {
-    const state = {
-      status: 'update_available',
-      ttlMs: 43200000,
-      lastCheck: new Date().toISOString(),
-      outdated: [{
-        name: 'wind-alice',
-        current: 'abc1234',
-        latest: 'def5678',
-        sourceUrl: 'https://github.com/foo/bar',
-      }],
-    };
-    const cache = makeV3CacheNamed('wind-alice', state);
-    writeCache(cache);
-
-    await runMaybePrintNotice(cache);
-
-    const after = readCache();
-    assert.ok(after, 'Cache should still exist');
-    assert.equal(after.schemaVersion, 3, 'Schema version preserved');
-    assert.ok(after.skills['other_skill'], 'Other skill entry should be preserved');
-    assert.equal(after.skills['other_skill'].status, 'up_to_date', 'Other skill status preserved');
-    assert.ok(after.skills['wind-alice'], 'wind-alice entry should exist');
+  it('基线态 (latest==notified) → 静默', () => {
+    const { home, cwd } = setupHome({ entryState: { latestSha: 'AAA', lastNotifiedSha: 'AAA' } });
+    assert.equal(runNotify(home, cwd).trim(), '');
+    cleanup(home);
   });
 
-  it('v3 cache: up_to_date state prints nothing', async () => {
-    const state = {
-      status: 'up_to_date',
-      ttlMs: 3600000,
-      lastCheck: new Date().toISOString(),
-    };
-    const cache = makeV3CacheNamed('wind-alice', state);
-    const captured = await runMaybePrintNotice(cache);
-    assert.equal(captured, '', `Expected no output for up_to_date, got: ${captured}`);
+  it('去重: 标记后再调 → 静默', () => {
+    const { home, cwd } = setupHome({ entryState: { latestSha: 'BBB', lastNotifiedSha: 'AAA' } });
+    assert.match(runNotify(home, cwd), /有新版本可用/);   // 第一次提示 + 标记
+    assert.equal(runNotify(home, cwd).trim(), '');         // 第二次静默
+    cleanup(home);
   });
 
-  it('v3 cache: transient_error prints failure notice', async () => {
-    const state = {
-      status: 'transient_error',
-      ttlMs: 300000,
-      lastCheck: new Date().toISOString(),
-      reason: 'network',
-    };
-    const cache = makeV3CacheNamed('wind-alice', state);
-    const captured = await runMaybePrintNotice(cache);
-    assert.ok(captured.includes('检查更新失败'), `Expected failure notice, got: ${captured}`);
-    assert.ok(captured.includes('network'), `Expected reason, got: ${captured}`);
+  it('project 安装 → 升级命令不带 -g', () => {
+    const { home, cwd } = setupHome({ entryState: { latestSha: 'BBB', lastNotifiedSha: 'AAA' }, project: true });
+    const out = runNotify(home, cwd);
+    assert.match(out, /npx skills update wind-alice -y/);
+    assert.doesNotMatch(out, /update wind-alice -g/);
+    cleanup(home);
   });
 
-  it('v3 cache: unknown status prints unknown notice', async () => {
-    const state = {
-      status: 'unknown',
-      ttlMs: 86400000,
-      lastCheck: new Date().toISOString(),
-      reason: 'no-lock',
-    };
-    const cache = makeV3CacheNamed('wind-alice', state);
-    const captured = await runMaybePrintNotice(cache);
-    assert.ok(captured.includes('无法确认是否最新'), `Expected unknown notice, got: ${captured}`);
+  it('Gitee 源 → 改用 npx skills add 重装命令', () => {
+    const { home, cwd } = setupHome({ entryState: { latestSha: 'BBB', lastNotifiedSha: 'AAA' }, sourceUrl: 'https://gitee.com/jsonCodeChina/wind-skills.git' });
+    assert.match(runNotify(home, cwd), /npx skills add .*gitee\.com.*--skill wind-alice/);
+    cleanup(home);
   });
 
-  it('missing cache file: no crash, no output', async () => {
-    removeCache();
-    const url = `file://${join(__dirname, '..', '..', 'skills', 'wind-alice', 'scripts', 'update-notify.mjs').replace(/\\/g, '/')}?t=${Date.now()}`;
-    const mod = await import(url);
-    let captured = '';
-    const origWrite = process.stderr.write.bind(process.stderr);
-    process.stderr.write = (chunk) => { captured += chunk; return true; };
-    try {
-      mod.maybePrintUpdateNotice();
-    } finally {
-      process.stderr.write = origWrite;
-    }
-    assert.equal(captured, '', 'Expected no output when cache missing');
+  it('无 cache → 不崩溃, 无输出', () => {
+    const { home, cwd } = setupHome({ entryState: null });
+    assert.equal(runNotify(home, cwd).trim(), '');
+    cleanup(home);
   });
 
-  it('corrupted cache: no crash', async () => {
-    if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
-    writeFileSync(CACHE_FILE, 'this is not json!!!');
-
-    const url = `file://${join(__dirname, '..', '..', 'skills', 'wind-alice', 'scripts', 'update-notify.mjs').replace(/\\/g, '/')}?t=${Date.now()}`;
-    const mod = await import(url);
-    let captured = '';
-    const origWrite = process.stderr.write.bind(process.stderr);
-    process.stderr.write = (chunk) => { captured += chunk; return true; };
-    try {
-      mod.maybePrintUpdateNotice();
-    } finally {
-      process.stderr.write = origWrite;
-    }
-    assert.equal(captured, '', 'Expected no output for corrupted cache');
-  });
-
-  it('snoozed state: no output', async () => {
-    const future = new Date(Date.now() + 86400000).toISOString();
-    const state = {
-      status: 'update_available',
-      ttlMs: 43200000,
-      lastCheck: new Date().toISOString(),
-      snoozedUntil: future,
-      outdated: [{
-        name: 'wind-alice',
-        current: 'abc',
-        latest: 'def',
-        sourceUrl: 'https://github.com/foo/bar',
-      }],
-    };
-    const cache = makeV3CacheNamed('wind-alice', state);
-    const captured = await runMaybePrintNotice(cache);
-    assert.equal(captured, '', 'Expected no output when snoozed');
-  });
-
-  it('v3 cache: wind-alice entry missing → no output, no crash', async () => {
-    const cache = makeV3CacheNamed('other-skill', {
-      status: 'update_available',
-      ttlMs: 43200000,
-      lastCheck: new Date().toISOString(),
-      outdated: [],
-    });
-    const captured = await runMaybePrintNotice(cache);
-    assert.equal(captured, '', 'Expected no output when wind-alice entry missing');
-  });
-
-  it('v3 cache: Gitee source prints reinstall command', async () => {
-    const state = {
-      status: 'update_available',
-      ttlMs: 43200000,
-      lastCheck: new Date().toISOString(),
-      outdated: [{
-        name: 'wind-alice',
-        current: 'abc',
-        latest: 'def',
-        sourceUrl: 'https://gitee.com/wind_info/wind-skills.git',
-        installedHash: REAL_LOCK_HASH || 'abc',  // 同上,让 filterAlreadyUpgraded 判定"未升级"
-      }],
-    };
-    const cache = makeV3CacheNamed('wind-alice', state);
-    const captured = await runMaybePrintNotice(cache);
-    assert.ok(captured.includes('Gitee 源不支持 update'), `Expected Gitee reinstall hint, got: ${captured}`);
-    assert.ok(captured.includes('npx skills add'), `Expected add command for Gitee, got: ${captured}`);
-  });
-
-  it('v3 cache: writeCacheView preserves snooze fields on upgrade', async () => {
-    const future = new Date(Date.now() + 86400000).toISOString();
-    // All outdated items will be filtered out (simulating already upgraded)
-    // This triggers the "stillOutdated.length === 0" path
-    const state = {
-      status: 'update_available',
-      ttlMs: 43200000,
-      lastCheck: new Date().toISOString(),
-      snoozedUntil: future,
-      snoozeLevel: 2,
-      outdated: [{
-        name: 'wind-alice',
-        current: 'abc',
-        latest: 'def',
-        sourceUrl: 'https://github.com/foo/bar',
-      }],
-    };
-    const cache = makeV3CacheNamed('wind-alice', state);
-    writeCache(cache);
-
-    // We can't easily simulate filterAlreadyUpgraded returning empty without
-    // a real lock file, so let's verify the write path by checking snooze preservation
-    // in the code logic. Instead, verify that snoozed state is respected:
-    const captured = await runMaybePrintNotice(cache);
-    assert.equal(captured, '', 'Snoozed state should suppress output');
-  });
-});
-
-describe('update-notify.mjs — legacy v2 filter', () => {
-  afterEach(removeCache);
-
-  it('v2 cache: filters out other skill outdated items', async () => {
-    // v2 flat cache with outdated items from OTHER skills only
-    const v2Cache = {
-      status: 'update_available',
-      ttlMs: 43200000,
-      lastCheck: new Date().toISOString(),
-      outdated: [{
-        name: 'wind-mcp-skill',
-        current: 'abc',
-        latest: 'def',
-        sourceUrl: 'https://github.com/foo/bar',
-      }],
-    };
-    writeCache(v2Cache);
-    const captured = await runMaybePrintNotice(v2Cache);
-    assert.equal(captured, '', 'Should not print notices for other skills in v2 cache');
-  });
-
-  it('v2 cache: keeps only wind-alice outdated items', async () => {
-    // v2 flat cache with mixed outdated items
-    const v2Cache = {
-      status: 'update_available',
-      ttlMs: 43200000,
-      lastCheck: new Date().toISOString(),
-      outdated: [
-        { name: 'wind-mcp-skill', current: 'abc', latest: 'def', sourceUrl: 'https://github.com/foo/bar' },
-        // installedHash 必须等于本机 lock 真实 hash,否则 filterAlreadyUpgraded 会判定"已升级"
-        { name: 'wind-alice', current: 'aaa', latest: 'bbb', sourceUrl: 'https://github.com/foo/bar',
-          installedHash: REAL_LOCK_HASH || 'aaa' },
-      ],
-    };
-    const captured = await runMaybePrintNotice(v2Cache);
-    assert.ok(!captured.includes('wind-mcp-skill'), 'Should not include other skill in output');
-    assert.ok(captured.includes('wind-alice'), 'Should include wind-alice in output');
-  });
-
-  it('v3 cache: no cross-skill leakage even without legacy filter', async () => {
-    // v3 cache where wind-alice has update_available but with another skill's outdated item
-    // (shouldn't happen in practice, but tests the isolation)
-    const cache = {
-      schemaVersion: 3,
-      skills: {
-        'wind-alice': {
-          status: 'update_available',
-          ttlMs: 43200000,
-          lastCheck: new Date().toISOString(),
-          outdated: [{ name: 'wind-alice', current: 'a', latest: 'b', sourceUrl: 'https://github.com/foo/bar',
-                       installedHash: REAL_LOCK_HASH || 'a' }],
-        },
-        'wind-mcp-skill': {
-          status: 'up_to_date',
-          ttlMs: 3600000,
-          lastCheck: new Date().toISOString(),
-        },
-      },
-    };
-    const captured = await runMaybePrintNotice(cache);
-    assert.ok(captured.includes('wind-alice'), 'Should include wind-alice');
-    assert.ok(!captured.includes('wind-mcp-skill'), 'Should not include other skill');
-  });
-});
-
-describe('update-notify.mjs — SKILL_NAME detection', () => {
-  it('auto-detects skill name from directory', async () => {
-    const url = `file://${join(__dirname, '..', '..', 'skills', 'wind-alice', 'scripts', 'update-notify.mjs').replace(/\\/g, '/')}?t=${Date.now()}`;
-    const mod = await import(url);
-    // The module doesn't export SKILL_NAME, but we can verify behavior
-    // by checking that it correctly processes wind-alice specific cache entries
-    assert.ok(typeof mod.maybePrintUpdateNotice === 'function', 'should export maybePrintUpdateNotice');
-    assert.ok(typeof mod.spawnUpdateCheck === 'function', 'should export spawnUpdateCheck');
+  it('损坏 cache → 不崩溃, 无输出', () => {
+    const { home, cwd, cacheFile } = setupHome({ entryState: { latestSha: 'BBB', lastNotifiedSha: 'AAA' } });
+    writeFileSync(cacheFile, '{ broken json');
+    assert.equal(runNotify(home, cwd).trim(), '');
+    cleanup(home);
   });
 });

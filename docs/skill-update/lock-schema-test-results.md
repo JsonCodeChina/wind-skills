@@ -3,7 +3,7 @@
 > **实测日期**：2026-05-23
 > **环境**：Linux + Node v20.19.6 + `npx skills@latest`
 > **原始 lock 文件**：[`../test/lock-schema/`](../test/lock-schema/)
-> **关联文档**：[wind-mcp-skill 更新逻辑 v2.3](./wind-mcp-skill-update-logic-v2.3.md)
+> **关联文档**：[wind-mcp-skill 更新逻辑](./wind-mcp-skill-update-logic.md)
 
 ---
 
@@ -48,7 +48,7 @@
 - **Global（带 -g）→ version 3**，schema 完整：有 `sourceUrl` + `installedAt` + `updatedAt`
 - **Project（不带 -g）→ version 1**，schema 精简：**缺 sourceUrl / installedAt / updatedAt**
 
-**影响**：v2.3 探活逻辑必须双 path：v3 走 installedAt 反查，v1 走 baseline 兜底。
+**影响**：探活逻辑必须双 path：v3 走 installedAt 反查，v1 走 baseline 兜底。
 
 ### 3.2 Hash 字段名不同
 
@@ -121,7 +121,7 @@ GET https://gitee.com/api/v5/repos/git@gitee.com:wind_info/wind-skills/git/trees
 
 **结果**：项目级 + Gitee 安装的所有客户**完全无法探活到新版**，永远拿不到更新提示。
 
-### 3.6 修复方案（v2.3 已纳入）
+### 3.6 修复方案（已纳入）
 
 在 `deriveSourceUrlCandidates` 起点加 1 行 SSH URL 直通：
 
@@ -129,20 +129,20 @@ GET https://gitee.com/api/v5/repos/git@gitee.com:wind_info/wind-skills/git/trees
 function deriveSourceUrlCandidates(entry) {
   if (entry?.sourceUrl) return [entry.sourceUrl];           // v3 path
   if (typeof entry?.source !== 'string') return [];
-  // ↓ v2.3 新增：SSH URL 直接当 sourceUrl 用
+  // ↓ 新增：SSH URL 直接当 sourceUrl 用
   if (entry.source.startsWith('git@')) return [entry.source];
   if (/^https?:\/\//.test(entry.source)) return [entry.source];
   // ... 后面短形拼接逻辑不变
 }
 ```
 
-**影响范围**：所有项目级 + Gitee 安装的客户都需要客户升级到 v2.3 后才能恢复探活。Global 客户不受影响（v3 lock 有 sourceUrl 直接用）。
+**影响范围**：所有项目级 + Gitee 安装的客户都需要客户升级到 后才能恢复探活。Global 客户不受影响（v3 lock 有 sourceUrl 直接用）。
 
 ---
 
-## 4. 对 v2.3 设计的影响
+## 4. 对 设计的影响
 
-| 实测发现 | v2.3 设计响应 |
+| 实测发现 | 设计响应 |
 |---|---|
 | Global v3 / Project v1 双 schema | Cache entry 加 `lockSchemaVersion` 字段（修正 #5） |
 | Hash 字段名 + 算法都不同 | `skillFolderHash || computedHash` 双字段兼容；hash 比对不依赖长度 |
@@ -172,7 +172,7 @@ test/lock-schema/
     └── .npm/_npx/...
 ```
 
-可作为 v2.3 实现的测试 fixture 直接复用。
+可作为 实现的测试 fixture 直接复用。
 
 ---
 

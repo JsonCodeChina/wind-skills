@@ -63,7 +63,7 @@ AI 加载 SKILL.md 后按守则操作：
 
 1. Read `references/skills-catalog.md` → 拿本地清单
 2. 按用户问题筛 1-3 个相关 skill 列出（含安装命令）
-3. 运行 `node scripts/update-check.mjs` → 脚本从 lock 读取来源与 hash；若 stderr 出现 `[wind-skills]` 更新提示，会话首次转告用户
+3. 运行 `node scripts/update-check.mjs` → 脚本从 lock 读取来源与 hash；若 stderr 出现 `[notice]` 更新提示，会话首次转告用户（探活失败完全静默，无输出）
 
 ---
 
@@ -77,7 +77,7 @@ npx skills update wind-find-finance-skill -g -y
 npx skills update wind-find-finance-skill -y
 ```
 
-跑 `node scripts/update-check.mjs` 时, stderr 输出的 `升级命令：` 那一行已按你的安装位置自动选好 `-g` 与否, 直接照搬即可。
+跑 `node scripts/update-check.mjs` 时, stderr 输出的 `升级命令:` 那一行已按你的安装位置自动选好 `-g` 与否, 直接照搬即可。
 
 `references/skills-catalog.md` 随 skill 包一起更新。
 

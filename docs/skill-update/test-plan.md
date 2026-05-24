@@ -1,7 +1,7 @@
-# wind-mcp-skill v2.3 测试用例规划
+# wind-mcp-skill 测试用例规划
 
 > **生成日期**：2026-05-23
-> **关联设计**：[wind-mcp-skill 更新逻辑 v2.3](./wind-mcp-skill-update-logic-v2.3.md)
+> **关联设计**：[wind-mcp-skill 更新逻辑](./wind-mcp-skill-update-logic.md)
 > **关联实测**：[Lock Schema 实测报告](./lock-schema-test-results.md)
 > **Fixture 位置**：[`../../test/skill-update/lock-schema/case-{1..4}-*/`](../../test/skill-update/lock-schema/)
 > **现有源码**：`skills/wind-mcp-skill/`
@@ -23,7 +23,7 @@
 
 ---
 
-## 2. 测试矩阵（关键场景 22 条）
+## 2. 测试矩阵（关键场景 26 条）
 
 > 维度缩写：S=scope(G/P)、Src=source(GH/Gt)、Px=proxy(Y/N)、Ag=agent、OS=L/M/W、Net、Cli=客户态
 
@@ -51,12 +51,18 @@
 | 20 | P2 | G | GH | N | Cline | L | 超时 5s | 已装 | abortController |
 | 21 | P2 | G | GH | N | shell | L | 已升级到 latestSha | 已装 | pending=false 不通知 |
 | 22 | P2 | G+P | GH+Gt | N | shell | L | 正常 | 装 5 个 skill | cache 文件不膨胀、O(n) 扫描 |
+| 23 | P0 | - | - | N | shell | L | - | 损坏 cache | **损坏 cache(非法 JSON) → 不抛错,当空 cache 重建** ⤴ |
+| 24 | P0 | - | - | N | shell | L | - | cache 不存在 | cache 文件缺失 → 不抛错,静默探活写基线 ⤴ |
+| 25 | P0 | G | GH | N | shell | L | 正常 | 通知后同会话再调用 | lastNotifiedSha 已对齐 → 同版本再 call 不重复通知 ⤴ |
+| 26 | P1 | - | - | - | - | L | - | 重构验证 | sentinel / sid / snooze / filterAlreadyUpgraded 相关函数 删除后**不再 export** ⤴ |
+
+> ⤴ 标记的 4 条（23-26）是**从 fd9eb51 旧测试（`test/wind-mcp-skill/{sentinel,notice-redesign}.test.mjs`）吸收的边界 case**。旧测试大部分测的是 要删的架构（sentinel/snooze/filterAlreadyUpgraded/status 模型），不直接复用；但这 4 个边界（cache 容错 + 去重语义 + 废弃验证）在 仍然有效，纳入。
 
 ---
 
 ## 3. 自动化 vs 手工拆分
 
-- **Node `node:test` 单测可覆盖**（#1/6/7/8/9/10/14/15/21/22 的核心逻辑）：mock fetch 返回 200/304/403，mock fs 模拟 4 种 lock schema fixture（直接复用 `test/skill-update/lock-schema/case-*`），mock `Date.now()` 控 TTL，spawn 子进程跑 race
+- **Node `node:test` 单测可覆盖**（#1/6/7/8/9/10/14/15/21/22/23/24/25/26 的核心逻辑）：mock fetch 返回 200/304/403，mock fs 模拟 4 种 lock schema fixture（直接复用 `test/skill-update/lock-schema/case-*`），mock `Date.now()` 控 TTL，spawn 子进程跑 race；23/24 直接写非法/缺失 cache 文件断言不抛错；26 用 `import` 后断言废弃函数 `=== undefined`
 - **真实 npx skills add**（#1-5, #11-12）：在 `test/skill-update/e2e/` 直接 Linux 跑（不 docker），用 `HOME` 隔离临时目录
 - **必须手工**（#16/17/18/19/20）：找同事在 macOS / Windows 物理机跑；Claude Code / Codex / Cursor / Cline 各跑一次 cmdCall，截 stderr
 
@@ -109,6 +115,19 @@
 - **步骤**：任意 cmdCall
 - **预期**：该 entry 静默删除；cache 文件 entry 数 -1；其他 entry 不动
 
+### C23 · 损坏 cache 不抛错（吸收自旧测试）
+
+- **前置**：cache 文件写入非法 JSON（`not json`）
+- **步骤**：cmdCall
+- **预期**：readCache 捕获解析异常，当空 cache 处理；不抛错、不打断主业务；探活后用新内容覆盖重建
+
+### C26 · 废弃函数不再 export（吸收自旧测试）
+
+- **前置**：重写完成
+- **步骤**：`import` cli.mjs / update-check.mjs
+- **预期**：旧架构函数（sentinel 相关 `failureSentinelPath` / `updateSentinelPath` / `cleanupStaleSentinels`、sid 相关 `getSessionId`、snooze、`filterAlreadyUpgraded`、`collectUpdateFailureMeta`）全部 `=== undefined`
+- **意义**：防止重写时漏删旧代码，确保架构真正切换干净
+
 ---
 
 ## 5. 测试目录结构
@@ -150,28 +169,43 @@ aifin-market-skills/dev/github/test/skill-update/
 
 ---
 
-## 6. 跑测试命令（node:test 原生）
+## 6. 跑测试命令
+
+### 推荐: 全局测试脚本 `run.sh` (任意位置可跑)
 
 ```bash
-# 单测（全部）
+# run.sh 自解析仓库根 (跟随软链接), 在任何 cwd 下都能跑
+bash <仓库>/test/skill-update/run.sh          # 全部 (unit 49 + integration 3 + cli 15 = 67)
+bash <仓库>/test/skill-update/run.sh unit      # 只跑单元 (P0+P1)
+bash <仓库>/test/skill-update/run.sh e2e       # 集成 + 真实探活 GitHub tree API
+
+# chmod +x 后可直接执行
+/home/market/wind-skills-dev/test/skill-update/run.sh
+```
+
+输出分段显示每套件 tests/pass/fail + 末尾汇总 `✅ 全部通过 (pass 67 / fail 0)`, 退出码反映结果 (CI 可直接用)。
+
+### 底层: node:test 原生命令
+
+```bash
+# 单测 (全部 / 单文件)
 node --test test/skill-update/unit/
+node --test test/skill-update/unit/canonicalize-lock-path.test.mjs
 
-# 单测（单个文件）
-node --test test/skill-update/unit/canonicalize-lock-path.test.js
-
-# 集成测试
+# 集成测试 (子进程黑盒)
 node --test test/skill-update/integration/
+
+# 命令契约 (黑盒, 跑 cli 子进程)
+node --test test/wind-mcp-skill/cli.test.mjs
 
 # 输出格式选择
 node --test --test-reporter=spec test/skill-update/unit/     # 人类友好
 node --test --test-reporter=tap test/skill-update/unit/      # CI 工具友好
 node --test --test-reporter=junit test/skill-update/unit/    # JUnit XML
-
-# e2e
-bash test/skill-update/e2e/run-all.sh
 ```
 
-> Node 18+ 内置 `node:test`，零依赖。如果未来需要 mock 库（如 nock for HTTP），用 `npm install --save-dev nock` 加。当前阶段尽量用 Node 原生 + 手写 mock。
+> Node 18+ 内置 `node:test`, 零依赖。测试文件后缀 `.test.mjs` (ESM)。
+> e2e 真实探活走公开的 GitHub/Gitee tree API, **不需 WIND_API_KEY**; 限流/断网时静默失败 (预期行为, 不报错不污染 cache)。
 
 ---
 
@@ -181,7 +215,7 @@ bash test/skill-update/e2e/run-all.sh
 - **e2e/手工**：每轮一份 markdown，模板：
 
 ```md
-# v2.3 回归 YYYY-MM-DD  runner=alice  commit=<sha>
+# 回归 YYYY-MM-DD  runner=alice  commit=<sha>
 | Case | OS | Agent | 结果 | cache 字段验证 | stderr | 备注 |
 |------|----|-------|------|---------------|--------|------|
 | C1 | Linux | shell | PASS | latestSha=Y, lastNotifiedSha=Y | 无 | |
@@ -203,13 +237,13 @@ bash test/skill-update/e2e/run-all.sh
 
 ---
 
-## 9. 核心回归点（v2.3 区别于旧版的关键 case）
+## 9. 核心回归点（区别于旧版的关键 case）
 
 CI 必须每次跑：
 
 - **C1** — 首次见 latestSha 静默写基线（修正 #3）
-- **C2** — Gitee SSH URL 拼接 bug 回归（v2.3 修复点）
-- **C5** — global + project 双装升级命令各自给（v2.3 设计点）
+- **C2** — Gitee SSH URL 拼接 bug 回归（修复点）
+- **C5** — global + project 双装升级命令各自给（设计点）
 - **C8** — 并发 only-patch-self（修正 #2 race fix）
 
 任何一条 PASS → FAIL 必须阻断 merge。
