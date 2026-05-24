@@ -1,0 +1,15 @@
+{
+  "version": 3,
+  "skills": {
+    "wind-mcp-skill": {
+      "source": "git@gitee.com:wind_info/wind-skills.git",
+      "sourceType": "git",
+      "sourceUrl": "git@gitee.com:wind_info/wind-skills.git",
+      "skillPath": "skills/wind-mcp-skill/SKILL.md",
+      "skillFolderHash": "2d5f6302892143c49f94dc33251b6122e8a626855b1490ecc51c492750c1ce09",
+      "installedAt": "2026-05-23T06:27:39.169Z",
+      "updatedAt": "2026-05-23T06:27:39.169Z"
+    }
+  },
+  "dismissed": {}
+}
