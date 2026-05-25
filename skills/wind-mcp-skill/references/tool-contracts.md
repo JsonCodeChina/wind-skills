@@ -1,6 +1,6 @@
 # wind-mcp-skill 工具契约
 
-按 `SKILL.md` / `SKILL_NEW.md` 完成路由判定后，只读取本文件中与所选工具相关的段落。
+按 `SKILL.md` 完成路由判定后，只读取本文件中与所选工具相关的段落。
 调用前仍需校验 `references/tool-manifest.json`；行情快照 `indexes` 仍以
 `references/indicators.md` 为唯一权威清单。
 
