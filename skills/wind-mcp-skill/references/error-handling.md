@@ -8,7 +8,7 @@
 1. CLI 失败时先读取 stdout 的 `{ ok:false, error:{ code, agent_action } }`。
 2. 默认按 `error.agent_action` 执行。
 3. 只在本地修正点明确时重试；不要盲目换 server、换 tool 或改用 Web Search。
-4. Key、权限、额度、余额、网络、后端 5xx、JSON 转义、未知 server/tool 都不是数据覆盖失败。
+4. Key、权限、额度、余额、网络、后端 5xx、JSON 转义、未知 server 或未知 tool 都不是数据覆盖失败。
 
 ## 错误分组
 

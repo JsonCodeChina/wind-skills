@@ -73,6 +73,8 @@ examples:
    - 领域 NL 工具和 `analytics_data` 使用 `question`
    - `financial_docs` 使用 `query`
    - `economic_data` 使用 `metricIdsStr`
+
+   涉及行业筛选、行业分类或行业对比，且用户未指定分类体系时，默认使用 Wind 行业分类。
 6. **调用前检测**：字段名、必填项、日期格式、枚举值、单标的限制、shell JSON 写法都通过后再调用。使用 `*_price_indicators` 时，先读 `references/indicators.md` 并逐项复制精确 `indexes` 字段。
 7. **调用 CLI**：读取 `references/runtime-contract.md`，在本 skill 目录执行 `node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'`。shell 写法不确定或命中 `INVALID_PARAMS_JSON` 时读取 `references/shell-escaping.md`。
 8. **处理结果**：成功则解析 stdout 并回答；失败则按 stdout 中 `error.agent_action` 执行，需要完整分支时读取 `references/error-handling.md`。

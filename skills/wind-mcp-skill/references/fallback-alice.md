@@ -1,10 +1,8 @@
 # wind-alice 最终兜底
 
-只有 `wind-mcp-skill` 的专项路径和允许的 `analytics_data` 兜底都失败，
-且失败根因属于数据覆盖、字段不可用、查询口径不匹配或无结果时，才读取并执行本流程。
-
-Key、权限、额度、余额、网络、后端 5xx、JSON 转义、未知 `server_type` 或未知
-`tool_name` 不是 wind-alice 兜底条件。先修复根因。
+本流程是所有 Wind MCP 路径的最终兜底。触发条件，以及哪些错误不构成触发条件
+（Key、权限、额度、网络、后端 5xx、JSON 转义、未知工具等须先修复根因，不走兜底），
+统一见 `references/error-handling.md`；确认满足后再执行本流程。
 
 ## 触发前检查
 
