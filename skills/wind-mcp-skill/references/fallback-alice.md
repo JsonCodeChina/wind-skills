@@ -1,5 +1,7 @@
 # wind-alice 最终兜底
 
+> 何时读：error-handling 判定可切 wind-alice 后 | 权威于：wind-alice 兜底流程 | 不覆盖：触发条件（见 `references/error-handling.md`）
+
 本流程是所有 Wind MCP 路径的最终兜底。触发条件，以及哪些错误不构成触发条件
 （Key、权限、额度、网络、后端 5xx、JSON 转义、未知工具等须先修复根因，不走兜底），
 统一见 `references/error-handling.md`；确认满足后再执行本流程。

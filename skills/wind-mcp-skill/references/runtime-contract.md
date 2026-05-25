@@ -1,13 +1,15 @@
 # Wind MCP CLI 运行时契约
 
+> 何时读：执行 cli、处理 Key、解析 stdout、排查 cwd / sandbox 时 | 权威于：CLI 运行时契约 | 不覆盖：业务参数（见 `references/tool-contracts.md`）
+
 <!-- ENCODING: UTF-8. If this file looks garbled, re-read it with UTF-8 before calling Wind CLI. -->
 
 只有准备执行 `scripts/cli.mjs`、处理 Key、解析 stdout/stderr 或修复 CLI 调用问题时读取本文件。
 
 ## 工作目录
 
-Wind CLI 调用必须在本 skill 目录下执行。优先把命令工作目录设为 `<skill_dir>`，
-再使用相对脚本路径：
+CLI 与当前工作目录无关：`scripts/cli.mjs` 按脚本自身位置解析 `references/` 和 `config.json`，
+从任意目录用脚本完整路径调用都可以；在本 skill 目录下则可用相对脚本路径：
 
 ```bash
 node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
@@ -19,8 +21,7 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 只修 JSON / shell 转义后重试同一
 `server_type + tool_name`。
 
-如果执行工具不能单独设置工作目录，先切到 `<skill_dir>` 后再运行命令。不要在任意
-cwd 下只靠绝对脚本路径调用。
+在其它目录下用完整路径 `node <skill_dir>/scripts/cli.mjs ...` 即可，无需为运行 CLI 专门切换工作目录。
 
 ## 子命令
 

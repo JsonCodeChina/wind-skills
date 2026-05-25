@@ -1,5 +1,7 @@
 # wind-mcp-skill Shell 转义
 
+> 何时读：非 bash（PowerShell / cmd）首次调用前，或命中 `INVALID_PARAMS_JSON` | 权威于：各 shell 的 JSON 引号与转义 | 不覆盖：字段语义
+
 <!-- ENCODING: UTF-8. If this file looks garbled, re-read it with UTF-8 before repairing shell commands. -->
 
 `INVALID_PARAMS_JSON` 常由 shell 引号和转义写错导致。只有需要手写 CLI 调用、

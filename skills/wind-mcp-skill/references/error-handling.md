@@ -1,5 +1,7 @@
 # Wind MCP 错误处理
 
+> 何时读：CLI 失败、需判断重试 / 兜底 / 停止时 | 权威于：错误分组与处理策略 | 不覆盖：逐码详义（见 `references/error-codes.json`）
+
 只有 CLI 调用失败、需要判断是否重试 / fallback / 停止时读取本文件。完整错误码和
 `agent_action` 以 `references/error-codes.json` 为准；本文件只定义分组和处理策略。
 

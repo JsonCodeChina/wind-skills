@@ -1,5 +1,7 @@
 # wind-mcp-skill 工具契约
 
+> 何时读：选定工具后只读对应段落 | 权威于：各工具字段 / 参数 / 示例 | 不覆盖：`indexes` 取值（见 `references/indicators.md`）
+
 按 `SKILL.md` 完成路由判定后，只读取本文件中与所选工具相关的段落。
 调用前仍需校验 `references/tool-manifest.json`；行情快照 `indexes` 仍以
 `references/indicators.md` 为唯一权威清单。
@@ -221,10 +223,10 @@ params JSON 的 key 必须逐字复制本文件的字段名。不得把用户口
 再使用 `node scripts/cli.mjs ...`。
 
 ```bash
-node scripts/cli.mjs call stock_data get_stock_price_indicators '{"windcode":"600519.SH","indexes":"中文简称,最新成交价,涨跌幅,成交量"}'
-node scripts/cli.mjs call stock_data get_stock_kline '{"windcode":"600519.SH","begin_date":"20260401","end_date":"20260430"}'
+node scripts/cli.mjs call stock_data get_stock_price_indicators '{"windcode":"600519.SH","indexes":"中文简称,最新成交价,涨跌幅,成交量"}'   # indexes 逐字抄 indicators.md
+node scripts/cli.mjs call stock_data get_stock_kline '{"windcode":"600519.SH","begin_date":"20260401","end_date":"20260430"}'   # 日期 yyyyMMdd，不带 -
 node scripts/cli.mjs call global_stock_data get_global_stock_kline '{"windcode":"00700.HK","begin_date":"20260401","end_date":"20260430"}'
 node scripts/cli.mjs call fund_data get_fund_price_indicators '{"windcode":"588200.SH","indexes":"中文简称,最新成交价,IOPV,贴水率"}'
-node scripts/cli.mjs call financial_docs get_financial_news '{"query":"美联储利率政策","top_k":5}'
-node scripts/cli.mjs call economic_data get_economic_data '{"metricIdsStr":"中国CPI同比","freq":"月","beginDate":"20240101","endDate":"20261231"}'
+node scripts/cli.mjs call financial_docs get_financial_news '{"query":"美联储利率政策","top_k":5}'   # query 无空格
+node scripts/cli.mjs call economic_data get_economic_data '{"metricIdsStr":"中国CPI同比","freq":"月","beginDate":"20240101","endDate":"20261231"}'   # 宏观用 beginDate/endDate
 ```
