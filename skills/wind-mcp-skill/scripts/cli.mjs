@@ -11,7 +11,7 @@ import {
   shouldShowLongTail, setFallbackShown,
 } from './update-check.mjs';
 
-const SKILL_VERSION = '1.6.1';
+const SKILL_VERSION = '1.7.0';
 
 // 本地 registry: 工具选择可在任何网络调用前失败
 const SERVERS = {
