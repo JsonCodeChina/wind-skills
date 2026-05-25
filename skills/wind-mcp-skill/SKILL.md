@@ -51,17 +51,17 @@ examples:
 不用于欧股、日股、其它未覆盖市场、汇率、期货盘口、加密货币或非金融数据。不得用 Web Search、
 `analytics_data` 或 `wind-alice` 伪装支持超范围请求。
 
-## 调用不变量
+## 调用铁律
 
-不论调用哪个工具，一次正确的 Wind 调用都满足下面 6 条。把它们当成每次调用前的自检表——
-它比记单个工具的特例更可靠，也适用于本文未列出的新工具。
+下面 6 条是每次调用的**硬约束**，适用于所有工具（含本文未列出的新工具）。
+**逐条核对；任何一条不满足就不要发起调用——违反即为错误调用。**
 
-1. **先路由后构造**：先定 `server_type + tool_name` 并用 `references/tool-manifest.json` 校验组合合法，再构造 params。
-2. **key 逐字抄契约**：params 的每个 key 都从 `references/tool-contracts.md` 对应工具段落逐字复制，从不翻译、造别名或套用其它 API 习惯（行情类标的字段永远是 `windcode`，不写 `code` / `ticker` / `symbol` / `sec_code`）。
-3. **值守三格式**：日期一律 `yyyyMMdd`（无 `-` 等分隔符）；自然语言字段 `question` / `query` / `metricIdsStr` 调用时不含空格；凡入参需要填写 Wind 指标 / 字段名（不限于 `*_price_indicators` 的 `indexes`），每次都逐字复制 `references/indicators.md` 的精确字段名并重新核对，不凭记忆、不翻译、不改写。
-4. **shell 先定型**：本会话首次调用前先确定当前 shell，固定 JSON 引号写法后复用；非 bash 环境（PowerShell / cmd）或命中 `INVALID_PARAMS_JSON` 时，以 `references/shell-escaping.md` 为准。
-5. **失败读回执**：CLI 退出码非 0 时先读 stdout 的 `error.agent_action` 并照做。Key / 权限 / 额度 / 余额 / 网络 / 5xx / JSON 转义 / 未知工具都不是数据覆盖失败，不得借切换 server、改用 `analytics_data`、转 `wind-alice` 或 Web Search 绕过。
-6. **只述返回值**：只回答 Wind 实际返回的数据；不用记忆、常识或 Web Search 补全缺失值，不添加无数据支撑的点评或背景。
+1. **先路由后构造**：必须先定 `server_type + tool_name` 并经 `references/tool-manifest.json` 校验合法，才能构造 params。`tool_name` 与 params key 都必须逐字取自 `references/tool-contracts.md` 的「工具总表」/ manifest / 契约，禁止凭工具名“像不像”拼造（如 `get_fund_qa` 不在表内即不存在）；拿不准先扫工具总表。未完成路由判定，禁止构造参数或调用。
+2. **key 逐字抄契约**：params 每个 key 必须从 `references/tool-contracts.md` 对应段落逐字复制；禁止翻译、造别名或套用其它 API 习惯（行情类标的字段永远是 `windcode`，绝不写 `code` / `ticker` / `symbol` / `sec_code`）。
+3. **值守三格式**：日期必须 `yyyyMMdd`，禁止 `-` 等分隔符；自然语言字段 `question` / `query` / `metricIdsStr` 禁止含空格；凡入参需填 Wind 指标 / 字段名（不限于 `*_price_indicators` 的 `indexes`），必须每次回 `references/indicators.md` 逐字复制精确字段名，禁止凭记忆、翻译或改写。
+4. **shell 先定型**：本会话首次调用前必须先确定 shell 并固定 JSON 引号写法后复用；**非 bash（PowerShell / cmd）调用前必须先读 `references/shell-escaping.md`**，命中 `INVALID_PARAMS_JSON` 同样以它为准。
+5. **失败按阶梯走**：CLI 退出码非 0 时，必须先读 stdout 的 `error.agent_action`，并按 `references/error-handling.md` 的「失败处理阶梯」处理：Key / shell / 网络 / 路由等非数据失败先在各自层面修复重试，**不算没取到数据、禁止据此换工具或上兜底**；数据类失败先做意图不变重试，仍失败才兜底。
+6. **只述返回值**：只回答 Wind 实际返回的数据；禁止用记忆、常识或 Web Search 补全缺失值，禁止添加无数据支撑的点评或背景。
 
 ## 工作流
 
@@ -70,16 +70,16 @@ examples:
 1. **分析意图**：判断用户要的是文档 / 新闻、宏观指标、行情或时序、专项业务数据、通用结构化取数，还是超范围请求。
 2. **判断标的类型**：识别 A 股、港股、美股、基金 / ETF / LOF、指数 / 板块、债券、文档主体或宏观指标。简称或别名可能歧义时先问用户。
 3. **选择 `server_type`**：用标的类型匹配上方范围表。A 股用 `stock_data`，港股 / 美股用 `global_stock_data`。
-4. **选择 `tool_name`**：按意图在 `references/tool-contracts.md` 中找到对应工具；调用前用 `references/tool-manifest.json` 校验该组合合法（不变量 1）。
-5. **分析参数**：只读取所选工具的契约段落，逐字使用契约中的参数 key（不变量 2），并守住三格式（不变量 3）。自然语言字段对应关系：
+4. **选择 `tool_name`**：按意图在 `references/tool-contracts.md` 中找到对应工具；调用前用 `references/tool-manifest.json` 校验该组合合法（铁律 1）。
+5. **分析参数**：只读取所选工具的契约段落，逐字使用契约中的参数 key（铁律 2），并守住三格式（铁律 3）。自然语言字段对应关系：
    - 领域 NL 工具和 `analytics_data` 使用 `question`
    - `financial_docs` 使用 `query`
    - `economic_data` 使用 `metricIdsStr`
 
    涉及行业筛选、行业分类或行业对比，且用户未指定分类体系时，默认使用 Wind 行业分类。
-6. **调用前检测**：逐条核对 6 条调用不变量；凡入参需要填写指标 / 字段名（如 `indexes`）时，先读 `references/indicators.md` 并逐项核对、逐字复制——每次调用都核对一遍，不复用记忆。
+6. **调用前检测**：逐条核对 6 条调用铁律；凡入参需要填写指标 / 字段名（如 `indexes`）时，先读 `references/indicators.md` 并逐项核对、逐字复制——每次调用都核对一遍，不复用记忆。
 7. **调用 CLI**：在本 skill 目录或用脚本完整路径执行 `node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'`（CLI 与当前工作目录无关）。shell 写法不确定或命中 `INVALID_PARAMS_JSON` 时读取 `references/shell-escaping.md`；涉及 Key、stdout / stderr 解析或 sandbox 时读取 `references/runtime-contract.md`。
-8. **处理结果**：成功则解析 stdout 并回答（不变量 6）；失败则按 stdout 中 `error.agent_action` 执行（不变量 5），需要完整分支时读取 `references/error-handling.md`。
+8. **处理结果**：成功则解析 stdout 并回答（铁律 6）；失败则按 stdout 中 `error.agent_action` 执行（铁律 5），需要完整分支时读取 `references/error-handling.md`。
 
 ## 路由顺序
 
@@ -110,11 +110,11 @@ examples:
 
 ## 失败与回答
 
-失败处理遵循不变量 5：先按 `error.agent_action` 行动。只有所有允许的 Wind MCP 路径（含允许的
+失败处理遵循铁律 5：先按 `error.agent_action` 行动。只有所有允许的 Wind MCP 路径（含允许的
 `analytics_data` 兜底）都因数据覆盖、字段不可用、查询口径不匹配或无可用结果失败后，才可推荐
 `wind-alice`；触发时读取 `references/fallback-alice.md` 并先问用户。
 
-回答遵循不变量 6：只返回 Wind 实际数据。若数据时效、缺失字段、报告期滞后、无结果或口径限制会
+回答遵循铁律 6：只返回 Wind 实际数据。若数据时效、缺失字段、报告期滞后、无结果或口径限制会
 影响解释，必须说明。成功返回数据时末尾附上：
 
 > 数据来源于万得 Wind 金融数据服务。

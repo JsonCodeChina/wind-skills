@@ -5,27 +5,28 @@
 只有 CLI 调用失败、需要判断是否重试 / fallback / 停止时读取本文件。完整错误码和
 `agent_action` 以 `references/error-codes.json` 为准；本文件只定义分组和处理策略。
 
-## 基本规则
+## 失败处理阶梯
 
-1. CLI 失败时先读取 stdout 的 `{ ok:false, error:{ code, agent_action } }`。
-2. 默认按 `error.agent_action` 执行。
-3. 只在本地修正点明确时重试；不要盲目换 server、换 tool 或改用 Web Search。
-4. Key、权限、额度、余额、网络、后端 5xx、JSON 转义、未知 server 或未知 tool 都不是数据覆盖失败。
+CLI 退出码非 0 时按下列顺序处理，**不得跳级，尤其不得用兜底掩盖非数据失败**。
 
-## 错误分组
+0. **读码**：先读 stdout 的 `error.code` 与 `error.agent_action`；默认按 `agent_action` 执行。
 
-| 分组 | Code | 动作 |
-| --- | --- | --- |
-| Key 缺失 | `KEY_MISSING` | 读取 `references/runtime-contract.md` 的 API Key 交互流程 |
-| Key 无效 / 无权限 | `KEY_INVALID` / `KEY_FORBIDDEN_SERVER` | 让用户修复 Key 或权限；不得换 server 绕过 |
-| 额度 / 余额 | `RATE_LIMIT_DAILY` / `BALANCE_INSUFFICIENT` | 等额度刷新、充值或更换有效 Key |
-| QPS / 网络 / 后端 | `RATE_LIMIT_QPS` / `NETWORK_ERROR` / `SERVER_5XX` | 等 3-5 秒后原样重试；网络需确认联网权限 |
-| JSON 转义 | `INVALID_PARAMS_JSON` | 读取 `references/shell-escaping.md`，只修 JSON / shell 引号后重试同一路由 |
-| 工具选择 | `UNKNOWN_TOOL_NAME` / `UNKNOWN_SERVER_TYPE` | 读取 manifest 重新选择合法组合；不得直接 fallback 到 analytics |
-| 本地命令 / 配置 | `USAGE_ERROR` / `TOOL_MANIFEST_INVALID` / `UNKNOWN_SCOPE` / `OPEN_PORTAL_FAILED` / `CONFIG_WRITE_ERROR` | 按 `error.agent_action` 修正命令、配置、scope 或手动打开开发者中心；不得改业务路由绕过 |
-| 参数校验 | `PARAM_VALIDATION_ERROR` | 读取 `references/tool-contracts.md` 和 `references/indicators.md` 修字段 |
-| 无结果 | `NO_RESULTS` | 在不改变用户意图的前提下调整关键词或参数 |
-| 协议 / 运行时 | `RESPONSE_PARSE_ERROR` / `MCP_PROTOCOL_ERROR` / `TOOL_RUNTIME_ERROR` / `UNKNOWN` | 保留原文；能明确修正则重试一次，否则停止 |
+1. **先排除“非数据失败”**——它们**不算“没取到数据 / 查询失败”，禁止据此换工具或上兜底**，必须在各自层面修复后重试同一 `server_type + tool_name`：
+   - `INVALID_PARAMS_JSON`（shell / JSON 转义）→ 读 `references/shell-escaping.md`，只修引号 / 转义。
+   - `KEY_MISSING` / `KEY_INVALID` / `KEY_FORBIDDEN_SERVER` → 按 Key 流程修复（`KEY_MISSING` 先问用户）。
+   - `RATE_LIMIT_DAILY` / `RATE_LIMIT_QPS` / `BALANCE_INSUFFICIENT` / `NETWORK_ERROR` / `SERVER_5XX` → 等待 / 充值 / 修网络后原样重试。
+   - `UNKNOWN_SERVER_TYPE` / `UNKNOWN_TOOL_NAME` → 按 `references/tool-manifest.json` 重选合法组合，不得直接转 analytics。
+   - 其余本地命令 / 配置 / 协议类（`USAGE_ERROR` / `TOOL_MANIFEST_INVALID` / `UNKNOWN_SCOPE` / `OPEN_PORTAL_FAILED` / `CONFIG_WRITE_ERROR` / `RESPONSE_PARSE_ERROR` / `MCP_PROTOCOL_ERROR` / `TOOL_RUNTIME_ERROR` / `UNKNOWN`）→ 按 `references/error-codes.json` 的 `agent_action` 修正；能明确修正则重试一次，否则保留原文停止。
+
+2. **数据类失败做“意图不变重试”**（`PARAM_VALIDATION_ERROR` / `NO_RESULTS`）：在**不改变用户标的与口径**的前提下修正后重试同一路由：
+   - `PARAM_VALIDATION_ERROR` → 按 `references/tool-contracts.md` / `references/indicators.md` 核对并修字段名、必填、日期、枚举、`indexes`。
+   - `NO_RESULTS` → 调整关键词、时间范围或粒度。
+   修正点明确时可再试一两次；**不得借口“问句复杂”跳过本步直接兜底**。
+
+3. **第 2 步仍失败才升级兜底**（仍报错或仍无数据，且根因属数据覆盖 / 字段不可用 / 口径不匹配 / 无结果）：
+   a. 属结构化取数、且专项工具覆盖不到 → `analytics_data.get_financial_data`（`question` 忠实用户原意图，详见下方「analytics_data 兜底」）。
+   b. analytics 也失败或问题不适合它 → `wind-alice` 最终兜底，**先问用户**（见 `references/fallback-alice.md`）。
+   超范围请求（欧股 / 日股 / 汇率 / 期货盘口 / 加密 / 非金融）直接 `OUT_OF_SCOPE`，不兜底。
 
 ## analytics_data 兜底
 

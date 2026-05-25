@@ -8,13 +8,43 @@
 
 ## 目录
 
-1. 参数签名
-2. 行情工具
-3. 领域 NL 工具
-4. 文档工具
-5. 宏观工具
-6. 通用取数兜底
-7. 调用示例
+1. 工具总表
+2. 参数签名
+3. 行情工具
+4. 领域 NL 工具
+5. 文档工具
+6. 宏观工具
+7. 通用取数兜底
+8. 调用示例
+
+## 工具总表
+
+**`tool_name` 必须逐字取自本表；不在表内的名字一律不存在（如 `get_fund_qa`），禁止自造或拼凑。**
+
+| server_type | tool_name | 入参 |
+| --- | --- | --- |
+| `stock_data` | `get_stock_price_indicators` | `windcode` + `indexes` |
+| `stock_data` | `get_stock_kline` | `windcode` + `begin_date` + `end_date`（+`period` / `count` / `aftime`…） |
+| `stock_data` | `get_stock_quote` | `windcode`（+`begin` / `end`） |
+| `stock_data` | `get_stock_basicinfo` / `get_stock_fundamentals` / `get_stock_equity_holders` / `get_stock_events` / `get_stock_technicals` / `get_risk_metrics` | `question`（+`lang`） |
+| `global_stock_data` | `get_global_stock_price_indicators` | `windcode` + `indexes` |
+| `global_stock_data` | `get_global_stock_kline` | `windcode` + `begin_date` + `end_date` |
+| `global_stock_data` | `get_global_stock_quote` | `windcode`（+`begin` / `end`） |
+| `global_stock_data` | `get_global_stock_basicinfo` / `get_global_stock_fundamentals` / `get_global_stock_equity_holders` / `get_global_stock_events` / `get_global_stock_technicals` / `get_global_stock_risk_metrics` | `question`（+`lang`） |
+| `fund_data` | `get_fund_price_indicators` | `windcode` + `indexes` |
+| `fund_data` | `get_fund_kline` | `windcode` + `begin_date` + `end_date` |
+| `fund_data` | `get_fund_quote` | `windcode`（+`begin` / `end`） |
+| `fund_data` | `get_fund_info` / `get_fund_financials` / `get_fund_holdings` / `get_fund_performance` / `get_fund_holders` / `get_fund_company_info` | `question`（+`lang`） |
+| `index_data` | `get_index_price_indicators` | `windcode` + `indexes` |
+| `index_data` | `get_index_kline` | `windcode` + `begin_date` + `end_date` |
+| `index_data` | `get_index_quote` | `windcode`（+`begin` / `end`） |
+| `index_data` | `get_index_basicinfo` / `get_index_fundamentals` / `get_index_technicals` | `question`（+`lang`） |
+| `bond_data` | `get_bond_basicinfo` / `get_bond_issuer_info` / `get_bond_market_data` / `get_bond_financial_data` | `question`（+`lang`）；无行情快照工具 |
+| `financial_docs` | `get_company_announcements` / `get_financial_news` | `query`（+`top_k`） |
+| `economic_data` | `get_economic_data` | `metricIdsStr`（+`beginDate` / `endDate` / `freq`…） |
+| `analytics_data` | `get_financial_data` | `question`（+`lang`） |
+
+字段级细节（`indexes` 取值、`period` / `freq` 枚举、日期格式）见下方各工具段落与 `references/indicators.md`。
 
 ## 参数签名
 
