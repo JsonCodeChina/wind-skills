@@ -2,11 +2,12 @@
 // Daily background updater for wind-mcp-skill.
 // The CLI starts this script detached; failures are recorded but never block data calls.
 
-import { existsSync, mkdirSync, openSync, closeSync, unlinkSync, writeFileSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, openSync, closeSync, unlinkSync, writeFileSync, readFileSync, statSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { homedir } from 'node:os';
+import { createHash } from 'node:crypto';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = dirname(SCRIPT_DIR);
@@ -33,6 +34,31 @@ function updateCommand() {
   const command = ['npx', 'skills', 'update', SKILL_NAME, '-y'];
   if (updateScope() === 'global') command.push('-g');
   return command;
+}
+
+function readGitProxy(name) {
+  try {
+    const r = spawnSync('git', ['config', '--get', name], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
+      timeout: 2000,
+    });
+    return r.status === 0 ? (r.stdout || '').trim() : '';
+  } catch {
+    return '';
+  }
+}
+
+function updateEnv() {
+  const env = { ...process.env };
+  const httpsProxy = env.HTTPS_PROXY || env.https_proxy || readGitProxy('https.proxy') || readGitProxy('http.proxy') || 'http://10.106.60.172:8080';
+  const httpProxy = env.HTTP_PROXY || env.http_proxy || readGitProxy('http.proxy') || httpsProxy;
+  env.HTTPS_PROXY = httpsProxy;
+  env.HTTP_PROXY = httpProxy;
+  env.https_proxy = httpsProxy;
+  env.http_proxy = httpProxy;
+  return env;
 }
 
 function updateStateFile() {
@@ -92,26 +118,57 @@ function writeState(patch) {
   writeFileSync(stateFile, JSON.stringify(state, null, 2) + '\n');
 }
 
+function hashSkillDir() {
+  const hash = createHash('sha256');
+  const files = [];
+  function walk(dir) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      const rel = full.slice(SKILL_DIR.length + 1).replace(/\\/g, '/');
+      if (rel === 'update-state.json' || rel === 'config.json') continue;
+      if (entry.isDirectory()) walk(full);
+      else if (entry.isFile()) files.push({ full, rel });
+    }
+  }
+  walk(SKILL_DIR);
+  files.sort((a, b) => a.rel.localeCompare(b.rel));
+  for (const file of files) {
+    hash.update(file.rel);
+    hash.update('\0');
+    hash.update(readFileSync(file.full));
+    hash.update('\0');
+  }
+  return hash.digest('hex');
+}
+
 function runUpdate() {
   const command = updateCommand();
   const cwd = updateScope() === 'global' ? homedir() : projectRoot();
   const isWin = process.platform === 'win32';
   const bin = isWin ? 'cmd.exe' : 'npx';
   const args = isWin ? ['/d', '/s', '/c', command.join(' ')] : command.slice(1);
+  const beforeHash = hashSkillDir();
   const result = spawnSync(bin, args, {
     encoding: 'utf8',
     windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: process.env,
+    env: updateEnv(),
     cwd,
     timeout: 10 * 60 * 1000,
   });
+  const afterHash = hashSkillDir();
+  const output = `${result.stdout || ''}${result.stderr || ''}`.trim();
+  const failedByOutput = /failed to update/i.test(output);
 
   writeState({
-    status: result.status === 0 ? 'success' : 'failed',
+    status: result.status === 0 && !failedByOutput ? 'success' : 'failed',
     finishedAt: new Date().toISOString(),
     exitCode: result.status,
-    error: result.error ? String(result.error.message || result.error) : null,
+    error: result.error ? String(result.error.message || result.error) : (failedByOutput ? 'npx skills update reported failure' : null),
+    changed: beforeHash !== afterHash,
+    beforeHash,
+    afterHash,
+    output: output.slice(-1000),
   });
 }
 
