@@ -245,6 +245,7 @@ const ERROR_PATTERNS = [
   ['KEY_INVALID', /密钥无效|key.*invalid|unauthorized|认证失败|auth.*fail/i, 'API Key 无效或过期 → 开发者中心重新生成。'],
   ['NO_RESULTS', /未获取到数据|"NO_RESULTS"|no\s*results?|not\s*found|empty\s*result/i, '未获取到匹配数据。先在不改变用户意图的前提下调整关键词或参数。'],
   ['PARAM_VALIDATION_ERROR', /参数验证失败|参数.*(错误|非法|无效)|字段.*(不存在|不识别|不支持|非法)|invalid\s*(param|argument|field)|missing\s*(param|argument|field|required)/i, '后端参数验证失败。先按 SKILL.md 工具表核对字段名、必填项、日期格式和枚举值后重试。'],
+  ['BACKEND_UNAVAILABLE', /服务.*暂不可用|服务.*不可用|service\s+unavailable|temporarily\s+unavailable/i, '服务暂不可用。常见原因之一是入参 key/value 与工具契约不匹配，先核对参数再重试。'],
   ['TOOL_RUNTIME_ERROR', /TOOL_ERROR|tool.*error|工具.*(执行|运行).*错误|runtime.*error/i, '后端工具运行错误。保留后端原文，先检查请求是否过大或口径是否受支持；不要直接切换工具绕过。'],
   ['KEY_MISSING', /WIND_API_KEY 未配置/, 'API Key 未配置。先让用户选择由 agent 打开开发者中心，还是自行获取 Key。'],
   ['UNKNOWN_SERVER_TYPE', /未知 server_type/, 'server_type 不在可用列表内。先 `cli.mjs` 看 USAGE 列表，按列表填。'],
@@ -322,10 +323,10 @@ const HTTP_ERROR_MAP = {
   401: ['KEY_INVALID', 'API Key 无效或过期 → 开发者中心重新生成'],
   403: ['KEY_FORBIDDEN_SERVER', 'API Key 权限不足或该 server 未订阅 → 开发者中心确认'],
   429: ['RATE_LIMIT_QPS', '请求过于频繁 → 等几秒重试'],
-  500: ['SERVER_5XX', '服务端异常 → 稍后重试或查 status.wind.com.cn'],
-  502: ['SERVER_5XX', '网关异常 → 稍后重试'],
-  503: ['SERVER_5XX', '服务暂不可用 → 稍后重试'],
-  504: ['SERVER_5XX', '网关超时 → 稍后重试，或减小请求复杂度'],
+  500: ['BACKEND_UNAVAILABLE', '服务端异常 → 稍后重试或查 status.wind.com.cn'],
+  502: ['BACKEND_UNAVAILABLE', '网关异常 → 稍后重试'],
+  503: ['BACKEND_UNAVAILABLE', '服务暂不可用 → 先核对 params key/value，再稍后重试'],
+  504: ['BACKEND_UNAVAILABLE', '网关超时 → 稍后重试，或减小请求复杂度'],
 };
 
 async function mcpRequest(server_type, method, params, {
