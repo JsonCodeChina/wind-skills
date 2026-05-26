@@ -39,6 +39,47 @@ function updateCommand() {
   return command;
 }
 
+function lockFile() {
+  return updateScope() === 'global'
+    ? join(homedir(), '.agents', '.skill-lock.json')
+    : join(projectRoot(), 'skills-lock.json');
+}
+
+function readLockEntry() {
+  try {
+    const file = lockFile();
+    if (!existsSync(file)) return null;
+    const data = JSON.parse(readFileSync(file, 'utf8'));
+    return data?.skills?.[SKILL_NAME] || null;
+  } catch {
+    return null;
+  }
+}
+
+function isGiteeSource(entry) {
+  const values = [entry?.sourceType, entry?.source, entry?.sourceUrl]
+    .filter(Boolean)
+    .map(value => String(value).toLowerCase());
+  return values.some(value => value.includes('gitee'));
+}
+
+function addCommand(entry) {
+  const source = entry?.sourceUrl || entry?.source;
+  if (!source) return null;
+  const command = ['npx', 'skills', 'add', source, '--skill', SKILL_NAME, '-y'];
+  if (updateScope() === 'global') command.push('-g');
+  return command;
+}
+
+function commandForUpdate() {
+  const entry = readLockEntry();
+  if (isGiteeSource(entry)) {
+    const command = addCommand(entry);
+    if (command) return { command, method: 'add', sourceType: entry?.sourceType || null };
+  }
+  return { command: updateCommand(), method: 'update', sourceType: entry?.sourceType || null };
+}
+
 function readGitProxy(name) {
   try {
     const r = spawnSync('git', ['config', '--get', name], {
@@ -128,12 +169,14 @@ function sleep(ms) {
 
 function writeState(patch) {
   const now = new Date();
-  const command = updateCommand();
+  const { command, method, sourceType } = commandForUpdate();
   const stateFile = updateStateFile();
   const state = {
     date: todayKey(),
     scope: updateScope(),
     command: command.join(' '),
+    method,
+    sourceType,
     updatedAt: now.toISOString(),
     ...patch,
   };
@@ -165,7 +208,7 @@ function hashSkillDir() {
 }
 
 function runUpdate() {
-  const command = updateCommand();
+  const { command, method, sourceType } = commandForUpdate();
   const cwd = updateScope() === 'global' ? homedir() : projectRoot();
   const isWin = process.platform === 'win32';
   const bin = isWin ? 'cmd.exe' : 'npx';
@@ -181,13 +224,16 @@ function runUpdate() {
   });
   const afterHash = hashSkillDir();
   const output = `${result.stdout || ''}${result.stderr || ''}`.trim();
-  const failedByOutput = /failed to update/i.test(output);
+  const failedByOutput = /failed to (update|add|install)/i.test(output);
 
   writeState({
     status: result.status === 0 && !failedByOutput ? 'success' : 'failed',
     finishedAt: new Date().toISOString(),
     exitCode: result.status,
-    error: result.error ? String(result.error.message || result.error) : (failedByOutput ? 'npx skills update reported failure' : null),
+    method,
+    sourceType,
+    command: command.join(' '),
+    error: result.error ? String(result.error.message || result.error) : (failedByOutput ? `npx skills ${method} reported failure` : null),
     changed: beforeHash !== afterHash,
     beforeHash,
     afterHash,
