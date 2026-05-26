@@ -1,4 +1,4 @@
----1111111111
+---
 name: wind-mcp-skill
 description: >-
   用户查询金融数据时触发：A 股、港股、美股行情快照、K 线、分钟行情、财务基本面、股东、事件、技术和风险；基金/ETF/LOF 行情、净值、规模、档案、持仓和业绩；指数/板块行情与基本面；债券档案与估值；上市公司公告、财经新闻、宏观经济和行业指标。不用于欧股、日股、汇率、期货盘口、加密货币或非金融数据。
@@ -43,16 +43,16 @@ examples:
 
 ## 范围
 
-| server_type | 覆盖范围 | 常见意图 |
-| --- | --- | --- |
-| `stock_data` | A 股 | 行情、K 线、分钟行情、档案、财务、股东、事件、技术、风险 |
-| `global_stock_data` | 港股 / 美股 | 行情、K 线、分钟行情、档案、财务、股东、事件、技术、风险 |
-| `fund_data` | 基金 / ETF / LOF | 行情、K 线、分钟行情、档案、财务、持仓、业绩、持有人、管理公司 |
-| `index_data` | 指数 / 板块 | 行情、K 线、分钟行情、档案、基本面、技术 |
-| `bond_data` | 债券 | 档案、发债主体、行情估值、主体财务 |
-| `financial_docs` | 公告 / 财经新闻 | 年报、季报、公告、招股书、新闻、快讯、报道 |
-| `economic_data` | 宏观 / 行业指标 | GDP、CPI、PPI、PMI、社融、利率、失业率、进出口等 EDB 指标 |
-| `analytics_data` | 通用结构化取数 | 仅在专项路由无法覆盖结构化取数时兜底 |
+| server_type         | 覆盖范围         | 常见意图                                                       |
+| ------------------- | ---------------- | -------------------------------------------------------------- |
+| `stock_data`        | A 股             | 行情、K 线、分钟行情、档案、财务、股东、事件、技术、风险       |
+| `global_stock_data` | 港股 / 美股      | 行情、K 线、分钟行情、档案、财务、股东、事件、技术、风险       |
+| `fund_data`         | 基金 / ETF / LOF | 行情、K 线、分钟行情、档案、财务、持仓、业绩、持有人、管理公司 |
+| `index_data`        | 指数 / 板块      | 行情、K 线、分钟行情、档案、基本面、技术                       |
+| `bond_data`         | 债券             | 档案、发债主体、行情估值、主体财务                             |
+| `financial_docs`    | 公告 / 财经新闻  | 年报、季报、公告、招股书、新闻、快讯、报道                     |
+| `economic_data`     | 宏观 / 行业指标  | GDP、CPI、PPI、PMI、社融、利率、失业率、进出口等 EDB 指标      |
+| `analytics_data`    | 通用结构化取数   | 仅在专项路由无法覆盖结构化取数时兜底                           |
 
 不用于欧股、日股、其它未覆盖市场、汇率、期货盘口、加密货币或非金融数据。不得用 Web Search、
 `analytics_data` 或 `wind-alice` 伪装支持超范围请求。
@@ -71,6 +71,7 @@ examples:
    - `economic_data` 使用 `metricIdsStr`
 
    涉及行业筛选、行业分类或行业对比，且用户未指定分类体系时，默认使用 Wind 行业分类。
+
 6. **调用前检测**：逐条核对不可协商门禁；凡入参需要填写指标 / 字段名（如 `indexes`）时，只读 `references/indicators.md` 的相关类别，逐项核对、逐字复制——每次调用都核对一遍，不复用记忆，不添加用户未请求的指标。
 7. **调用 CLI**：在本 skill 目录或用脚本完整路径执行 `node scripts/cli.mjs call <server_type> <tool_name> <params_json>`（CLI 与当前工作目录无关；`<params_json>` 的实际引号 / 转义以已锁定命令格式为准）。首次调用前若命令格式尚未锁定，读取 `references/shell-escaping.md` 并用 argv 探针通过后再调用；涉及 Key、stdout / stderr 解析或 sandbox 时读取 `references/runtime-contract.md`。
 8. **处理结果**：成功则解析 stdout 并回答；失败则执行 `error.agent_action`。每次重试前按下方「重试前审计」核对；若计划动作不属于该错误码对应错误域，停止并读 `references/error-handling.md`，不要自作主张重写命令或切换工具。
@@ -102,16 +103,16 @@ examples:
 
 ## 资源导航
 
-| 读取或运行 | 何时 | 权威于 |
-| --- | --- | --- |
-| `references/tool-manifest.json` | **MUST**：构造 params 前校验组合 | 合法 `server_type + tool_name` |
-| `references/tool-contracts.md` | **MUST**：选定工具后读对应段落 | 工具字段、参数、场景、示例 |
-| `references/indicators.md` | **MUST**：入参需填指标 / 字段名时（如 `indexes`），每次核对 | Wind 指标 / 字段名词典 |
-| `references/shell-escaping.md` | **MUST**：首次 CLI 调用前命令格式未锁定，或命中 `INVALID_PARAMS_JSON` | 当前执行路径的 params JSON 写法 |
-| `references/runtime-contract.md` | MAY：处理 Key / stdout / cwd / sandbox 时 | CLI 运行时契约 |
-| `references/error-handling.md` | MAY：`agent_action` 不足、reference 冲突，或需要判断重试 / 兜底 / 停止时 | 错误状态机与 fallback 策略 |
-| `references/error-codes.json` | MAY：查具体码义 | 完整错误码与 `agent_action` 总表 |
-| `references/fallback-alice.md` | MAY：判定可切 `wind-alice` 后 | wind-alice 最终兜底流程 |
+| 读取或运行                       | 何时                                                                     | 权威于                           |
+| -------------------------------- | ------------------------------------------------------------------------ | -------------------------------- |
+| `references/tool-manifest.json`  | **MUST**：构造 params 前校验组合                                         | 合法 `server_type + tool_name`   |
+| `references/tool-contracts.md`   | **MUST**：选定工具后读对应段落                                           | 工具字段、参数、场景、示例       |
+| `references/indicators.md`       | **MUST**：入参需填指标 / 字段名时（如 `indexes`），每次核对              | Wind 指标 / 字段名词典           |
+| `references/shell-escaping.md`   | **MUST**：首次 CLI 调用前命令格式未锁定，或命中 `INVALID_PARAMS_JSON`    | 当前执行路径的 params JSON 写法  |
+| `references/runtime-contract.md` | MAY：处理 Key / stdout / cwd / sandbox 时                                | CLI 运行时契约                   |
+| `references/error-handling.md`   | MAY：`agent_action` 不足、reference 冲突，或需要判断重试 / 兜底 / 停止时 | 错误状态机与 fallback 策略       |
+| `references/error-codes.json`    | MAY：查具体码义                                                          | 完整错误码与 `agent_action` 总表 |
+| `references/fallback-alice.md`   | MAY：判定可切 `wind-alice` 后                                            | wind-alice 最终兜底流程          |
 
 引用优先级：CLI stdout 的 `error.code` / `error.agent_action` 是当前失败的直接指令；
 `references/error-handling.md` 是同源状态机；业务参数以 `references/tool-contracts.md` 和
