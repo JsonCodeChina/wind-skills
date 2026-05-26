@@ -42,8 +42,10 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 - 失败：exit code 非 `0`，stdout 输出 `{ ok: false, error: { code, agent_action } }`。
 - stderr 只承载内部日志、更新提示或临时诊断，不改变成功 / 失败判定。
 
-处理失败时先读 stdout 的 `error.agent_action`，再按 `error.code` 和
-`references/error-handling.md` 分支。
+处理失败时先读 stdout 的 `error.code` 和 `error.agent_action`，再按
+`references/error-handling.md` 分支。错误只能在对应错误域内修复：
+命令传递错误修 JSON / 引号 / 执行器转义；业务参数错误修契约字段；认证、权限、额度、
+网络和后端错误修运行环境，不得跨域改动掩盖原错误。
 
 ## CLI 校验边界
 
