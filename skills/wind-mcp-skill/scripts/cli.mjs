@@ -2,14 +2,9 @@
 // wind-mcp-skill CLI: thin JSON-envelope wrapper around Wind MCP servers
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
-import {
-  readCache, computePending, collectEntries, cacheKeyFor,
-  deriveSourceUrl, buildUpgradeCommand, mergeCacheEntry,
-  shouldShowLongTail, setFallbackShown,
-} from './update-check.mjs';
 
 const SKILL_VERSION = '1.7.0';
 
@@ -55,8 +50,6 @@ const SKILL_DIR = dirname(dirname(fileURLToPath(
   import.meta.url)));
 
 const UPDATE_CHECK_PATH = join(SKILL_DIR, 'scripts', 'update-check.mjs');
-const CACHE_DIR = join(homedir(), '.cache', 'wind-aifinmarket');
-const UPDATE_STATE_FILE = join(CACHE_DIR, 'update-state.json');
 const TOOL_MANIFEST_PATH = join(SKILL_DIR, 'references', 'tool-manifest.json');
 const ERROR_CODES_PATH = join(SKILL_DIR, 'references', 'error-codes.json');
 const SKILL_NAME = 'wind-mcp-skill';
@@ -72,55 +65,48 @@ const CALL_EXAMPLES = [
   `cli.mjs call analytics_data get_financial_data '{"question":"查询中国A股市场过去一年的平均成交量"}'`,
 ];
 
-// ───── 更新检测 ─────
-// 不识别会话 / 远端变了才通知 / 失败完全静默 / lastNotifiedSha 去重
+// ───── 自动更新 ─────
+// 每天首次使用 skill 时异步执行一次 npx skills update，不阻塞主流程。
 
-// 访问远端的命令开头调: detached spawn 子进程异步探活刷 cache, 不阻塞主流程
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function normalizePath(value) {
+  const normalized = resolve(value).replace(/\\/g, '/');
+  return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
+}
+
+function updateScope() {
+  const globalRoot = normalizePath(join(homedir(), '.agents', 'skills'));
+  const skillDir = normalizePath(SKILL_DIR);
+  return skillDir.startsWith(globalRoot + '/') ? 'global' : 'project';
+}
+
+function updateStateFile() {
+  return join(SKILL_DIR, 'update-state.json');
+}
+
+function alreadyUpdatedToday() {
+  try {
+    const stateFile = updateStateFile();
+    if (!existsSync(stateFile)) return false;
+    const state = JSON.parse(readFileSync(stateFile, 'utf8'));
+    return state && state.date === todayKey() && state.status === 'success';
+  } catch {
+    return false;
+  }
+}
+
 function triggerUpdateCheck() {
   try {
     if (!existsSync(UPDATE_CHECK_PATH)) return;
+    if (alreadyUpdatedToday()) return;
     const child = spawn('node', [UPDATE_CHECK_PATH], { detached: true, stdio: 'ignore', windowsHide: true });
     child.on('error', () => {});
     child.unref();
   } catch {}
 }
-
-// 主业务 stdout result 输出之后调: 读 cache → 有 pending 则 stderr 一次 + 标记已通知
-// 失败完全静默 (探活失败由子进程吞掉, 这里只读 cache 结果)
-export function maybeNotifyUpdate() {
-  try {
-    const cache = readCache(UPDATE_STATE_FILE);
-    const entries = collectEntries();
-    const now = Date.now();
-    const cmds = new Set();
-    const toMark = [];
-    for (const { entry, lockPath, scope } of entries) {
-      const key = cacheKeyFor(SKILL_NAME, lockPath);
-      const state = cache.entries[key];
-      if (!computePending(state)) continue;
-      cmds.add(buildUpgradeCommand({ sourceUrl: deriveSourceUrl(entry) }, scope));
-      toMark.push({ key, latestSha: state.latestSha });
-    }
-    if (cmds.size > 0) {
-      const lines = ['[notice] wind-mcp-skill 有新版本可用', '升级命令:'];
-      for (const c of cmds) lines.push(`  ${c}`);
-      lines.push('本次调用结果不受影响。');
-      process.stderr.write(lines.join('\n') + '\n');
-      // 标记已通知: lastNotifiedSha = latestSha → 同版本不再重复通知
-      for (const m of toMark) mergeCacheEntry(UPDATE_STATE_FILE, m.key, { lastNotifiedSha: m.latestSha });
-      return;
-    }
-    // 无 pending: 长尾 fallback (内网长期断 GitHub 时, 整个生命周期最多提示一次)
-    if (shouldShowLongTail(cache, now)) {
-      process.stderr.write('[notice] wind-mcp-skill 更新检测连续 14 天无成功, 可能是网络问题, 不影响本次调用。\n');
-      setFallbackShown(UPDATE_STATE_FILE, now);
-    }
-  } catch {}
-}
-
-// 模块级标记: 访问远端的命令置 true, runMain 据此在 result 后调 maybeNotifyUpdate
-// 未来新增访问远端的命令, 各自在开头 triggerUpdateCheck() + _shouldNotify=true 即可, 零维护
-let _shouldNotify = false;
 
 export { triggerUpdateCheck };
 
@@ -442,8 +428,6 @@ async function mcpInitializeAndCall(server_type, method, params) {
 // section: 命令
 
 async function cmdCall(server_type, toolName, paramsJson) {
-  // 访问远端 → 触发更新检测 (异步 spawn 子进程刷 cache); 通知在 runMain 的 result 之后
-  _shouldNotify = true;
   triggerUpdateCheck();
 
   if (!server_type || !toolName || !paramsJson) {
@@ -588,16 +572,24 @@ async function cmdOpenPortal() {
   return data;
 }
 
-// 诊断: 输出 cache 概况
+// 诊断: 输出自动更新状态
 async function cmdDiagnose() {
-  const cache = readCache(UPDATE_STATE_FILE);
+  let updateState = null;
+  try {
+    const stateFile = updateStateFile();
+    if (existsSync(stateFile)) {
+      updateState = JSON.parse(readFileSync(stateFile, 'utf8'));
+    }
+  } catch {
+    updateState = { status: 'unreadable' };
+  }
   return {
     platform: process.platform,
     node_pid: process.pid,
-    cache_file: UPDATE_STATE_FILE,
-    cache_entries: Object.keys(cache.entries || {}),
-    meta: cache.meta || {},
-    ttl_hours: 6,
+    update_scope: updateScope(),
+    update_state_file: updateStateFile(),
+    update_state: updateState,
+    next_update_needed: !alreadyUpdatedToday(),
   };
 }
 
@@ -647,8 +639,6 @@ commands[cmd]()
       // open-portal / setup-key: 直接输出结构化数据 (无 envelope 包裹)
       writePlainSuccess(data);
     }
-    // result 输出后追加更新通知 (仅访问远端的命令; stdout 已 flush, 不污染)
-    if (_shouldNotify) maybeNotifyUpdate();
   })
   .catch((err) => {
     die('UNKNOWN', `执行失败: ${err.message || err}${err.stack ? ' | stack: ' + err.stack.slice(0, 300) : ''}`);
