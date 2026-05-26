@@ -87,6 +87,10 @@ function updateStateFile() {
   return join(SKILL_DIR, 'update-state.json');
 }
 
+function lastUsedFile() {
+  return join(SKILL_DIR, 'scripts', 'last-used.json');
+}
+
 function alreadyUpdatedToday() {
   try {
     const stateFile = updateStateFile();
@@ -102,6 +106,7 @@ function triggerUpdateCheck() {
   try {
     if (!existsSync(UPDATE_CHECK_PATH)) return;
     if (alreadyUpdatedToday()) return;
+    writeFileSync(lastUsedFile(), JSON.stringify({ at: new Date().toISOString(), pid: process.pid }) + '\n');
     const tmpDir = join(homedir(), '.cache', 'wind-aifinmarket');
     mkdirSync(tmpDir, { recursive: true });
     const runnerPath = join(tmpDir, `update-check-${SKILL_NAME}-${process.pid}.mjs`);

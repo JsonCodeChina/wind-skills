@@ -13,8 +13,10 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = process.argv[2] ? resolve(process.argv[2]) : dirname(SCRIPT_DIR);
 const SKILL_SCRIPTS_DIR = join(SKILL_DIR, 'scripts');
 const LOCK_FILE = join(SKILL_SCRIPTS_DIR, 'update.lock');
+const LAST_USED_FILE = join(SKILL_SCRIPTS_DIR, 'last-used.json');
 const SKILL_NAME = 'wind-mcp-skill';
 const LOCK_STALE_MS = 30 * 60 * 1000;
+const QUIET_MS = 10 * 1000;
 
 function normalizePath(value) {
   const normalized = resolve(value).replace(/\\/g, '/');
@@ -85,6 +87,22 @@ function alreadyUpdatedToday() {
   return state && state.date === todayKey() && state.status === 'success';
 }
 
+function lastUsedAt() {
+  try {
+    if (!existsSync(LAST_USED_FILE)) return 0;
+    const data = JSON.parse(readFileSync(LAST_USED_FILE, 'utf8'));
+    const ts = new Date(data.at).getTime();
+    return Number.isFinite(ts) ? ts : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function quietLongEnough() {
+  const last = lastUsedAt();
+  return last === 0 || Date.now() - last >= QUIET_MS;
+}
+
 function acquireLock() {
   try {
     if (!existsSync(SKILL_SCRIPTS_DIR)) mkdirSync(SKILL_SCRIPTS_DIR, { recursive: true });
@@ -130,7 +148,7 @@ function hashSkillDir() {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = join(dir, entry.name);
       const rel = full.slice(SKILL_DIR.length + 1).replace(/\\/g, '/');
-      if (rel === 'update-state.json' || rel === 'config.json') continue;
+      if (rel === 'update-state.json' || rel === 'config.json' || rel === 'scripts/last-used.json') continue;
       if (entry.isDirectory()) walk(full);
       else if (entry.isFile()) files.push({ full, rel });
     }
@@ -183,7 +201,17 @@ async function main() {
   if (fd === null) return;
   try {
     if (alreadyUpdatedToday()) return;
-    await sleep(2000);
+    await sleep(QUIET_MS);
+    if (!quietLongEnough()) {
+      writeState({
+        status: 'deferred',
+        finishedAt: new Date().toISOString(),
+        exitCode: null,
+        error: 'skill was used recently; update deferred',
+        changed: false,
+      });
+      return;
+    }
     runUpdate();
   } finally {
     releaseLock(fd);
