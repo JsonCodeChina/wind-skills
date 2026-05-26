@@ -1,5 +1,5 @@
 # wind-mcp-skill
-testtttttttttttttttttttttt
+test3
 > **访问万得 Wind 金融数据** · A 股 / 港股 / 美股 / 基金 / 指数 / 债券 / 公告 / 新闻 / 宏观经济
 
 ---
