@@ -288,11 +288,12 @@ function loadAgentActions() {
 
 const AGENT_ACTIONS = loadAgentActions();
 
-// USAGE_ERROR 例外: 完整 USAGE 不截断; 其它 code 上限 500 字防污染 envelope
+// detail 只保留短诊断，避免后端长文本淹没 agent_action。
 function buildAgentAction(code, detail) {
   const template = AGENT_ACTIONS[code] || AGENT_ACTIONS.UNKNOWN;
+  if (code === 'USAGE_ERROR') return template;
   if (detail && typeof detail === 'string' && detail.trim()) {
-    const d = code === 'USAGE_ERROR' ? detail.trim() : detail.trim().slice(0, 500);
+    const d = detail.trim().slice(0, 500);
     return `[${d}] ${template}`;
   }
   return template;

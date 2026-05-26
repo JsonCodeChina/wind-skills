@@ -6,14 +6,14 @@
     "failure": "失败路径返回 envelope: { ok: false, error: { code, agent_action } }。exit code 1。agent 用 exit code 判断成功/失败；失败时先按 error.code 定位错误域，再按 error.agent_action 执行。"
   },
   "codes": {
-    "USAGE_ERROR": "命令用法错误。读取当前错误详情中的用法文本，只修子命令或缺失参数；不要改数据意图。修正后重试同一目标任务。",
-    "INVALID_PARAMS_JSON": "命令传递错误。先读取 references/shell-escaping.md，并用同一执行路径运行 argv 探针，验证第三参数能被 JSON.parse 解析；探针通过前不得调用 Wind CLI。只修第三参数 JSON 字符串、shell 引号或外层执行器转义；重试同一 server_type、tool_name 和同一业务参数语义。禁止修改字段、日期、indexes、question 或切换工具。",
+    "USAGE_ERROR": "命令用法错误。使用 cli.mjs call <server_type> <tool_name> <params_json>；若写成 server.tool，改为 call server_type tool_name params_json。只修 CLI 形态，保持 server/tool/params 语义。",
+    "INVALID_PARAMS_JSON": "命令传递错误。读 shell-escaping.md，用同一执行路径跑 argv 探针；探针通过前不得调用 CLI。CLI 第三参数必须逐字符复用探针通过的 params_json。只修 JSON 字符串/引号/执行器转义；禁止改字段、日期、indexes、question 或工具。",
     "UNKNOWN_SERVER_TYPE": "路由错误：server_type 不合法。读取当前错误详情列出的可用 server_type 和 SKILL.md 范围表，只重选合法 server_type；保持用户原始数据意图，不要直接 fallback 到 analytics_data。",
     "UNKNOWN_TOOL_NAME": "路由错误：tool_name 不属于该 server_type。读取 references/tool-manifest.json 和 tool-contracts.md 工具总表，只重选该意图对应的合法工具；保持用户原始数据意图，不要直接 fallback 到 analytics_data。",
     "TOOL_MANIFEST_INVALID": "本地工具清单异常。不要继续猜工具名；提示用户 skill 安装不完整或 references/tool-manifest.json 异常，需要修复/重装 skill 后再调用。",
     "UNKNOWN_SCOPE": "setup-key 的 scope 非法或缺失。只修配置作用域：先询问用户选择 global 或 skill，再带 --scope <global|skill> 重试；不要改数据查询。",
     "OPEN_PORTAL_FAILED": "无法打开开发者中心。把错误详情中的 url 告知用户，让用户手动打开；不要继续执行 open-portal，也不要改数据查询。",
-    "PARAM_VALIDATION_ERROR": "业务参数错误。只读取当前 tool_name 在 references/tool-contracts.md 的对应段落；仅当参数包含 indexes 时，读取 references/indicators.md 的相关类别。只修字段名、必填项、日期格式、枚举值和用户明确请求的 indexes；只有契约证明当前工具无法表达该字段/口径时，才可切换同业务域专项工具。禁止修改 shell 引号/JSON 转义；禁止添加用户未请求的指标；禁止发明字段或指标；禁止直接上 analytics_data。",
+    "PARAM_VALIDATION_ERROR": "业务参数错误。只读当前工具契约；含 indexes 时读 indicators 相关类别。只修字段名、必填、日期、枚举和用户请求的 indexes；每个 index 必须逐字存在于 indicators。禁止改 shell、添加未请求指标、发明字段/指标或直接上 analytics。",
     "CONFIG_WRITE_ERROR": "配置写入错误。只处理目标路径或权限；必要时询问用户改用 global/skill 另一作用域后重试 setup-key。不要改数据查询。",
     "KEY_MISSING": "认证错误：缺少 WIND_API_KEY。先询问用户选择：由 agent 打开开发者中心，或用户自行获取 Key。拿到 Key 后询问/沿用 scope，执行 setup-key，再原样重试触发失败的调用。不要换工具绕过。",
     "KEY_INVALID": "认证错误：API Key 无效或过期。让用户重新生成或提供有效 Key，用 setup-key 配置后原样重试；不要切换 Wind 工具绕过。",
@@ -22,11 +22,11 @@
     "RATE_LIMIT_QPS": "限流错误：请求过于频繁。等待 3-5 秒后原样重试同一 server_type、tool_name 和参数；不要改数据意图或切换工具。",
     "BALANCE_INSUFFICIENT": "余额错误。提示用户充值或更换有余额的 Key，修复后原样重试；不要换工具绕过。",
     "NETWORK_ERROR": "运行环境错误：网络/DNS/代理/超时/沙箱拦截。检查网络和联网权限；修复后原样重试同一请求。不要改业务参数或路由。",
-    "BACKEND_UNAVAILABLE": "后端不可用或拒绝当前请求。先按当前 tool_name 的契约检查 params key 和 value：字段名、必填项、日期格式、枚举值、windcode 是否单标的、indexes 是否为用户明确请求且逐字来自 indicators。若入参有明确错误，只修该错误后重试一次；若入参无误，再稍后原样重试。禁止修改 shell 引号/JSON 转义；禁止换工具绕过。",
+    "BACKEND_UNAVAILABLE": "后端不可用或拒绝请求。先按当前工具契约检查 params key/value（必填、日期、枚举、单标的、indexes）。入参有错只修该错重试一次；入参无误再稍后原样重试。禁止改 shell 或换工具绕过。",
     "RESPONSE_PARSE_ERROR": "响应解析错误。保留后端原文；不要盲目重试或切换工具。若能明确定位为响应过大，可缩小范围后重试一次，否则停止并告知用户。",
     "NO_RESULTS": "数据结果为空。保持同一 server_type、tool_name 和用户意图；只可调整关键词、时间范围或粒度中与原问题直接相关的一项，最多重试一次。仍无结果且文档允许时才走 fallback。禁止编造值或用常识补全。",
     "MCP_PROTOCOL_ERROR": "协议错误。查看错误详情；只有明确指向请求形态问题时才修正并重试一次，否则保留原文停止。不要盲目切换工具。",
-    "TOOL_RUNTIME_ERROR": "后端工具运行错误。先查看错误详情；若出现服务暂不可用、工具执行失败或类似后端泛化提示，先按当前 tool_name 的契约检查 params key 和 value。只有错误详情明确指向请求过大、字段口径或数据覆盖问题时，才只修该项并重试一次。否则停止并保留原文告知用户。禁止盲目切换工具、修改 shell 或扩展指标。",
+    "TOOL_RUNTIME_ERROR": "后端工具运行错误。先看详情；泛化后端错误先核对当前工具 params key/value。仅当详情明确指向请求过大、字段口径或覆盖问题时，只修该项重试一次；否则停止并保留原文。禁止切工具、改 shell 或扩展指标。",
     "UNKNOWN": "未知错误。先查看错误详情；能定位到命令传递、业务参数、认证、网络或后端任一错误域时，只在该域修复并重试一次；无法定位则保留原文停止。"
   }
 }

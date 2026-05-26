@@ -42,7 +42,8 @@ PowerShell 调用 `node` 这类外部命令时，不要使用 `'{"windcode":"600
 node -e "JSON.parse(process.argv[1]); console.log(process.argv[1])" <params_json>
 ```
 
-探针成功后，才允许把同一 `<params_json>` 写法用于：
+探针成功后，最终 CLI 调用的第三参数必须逐字符复用探针通过的 `<params_json>`。
+不得重新手写、重新格式化或删除转义。只有满足该条件，才允许把同一 `<params_json>` 写法用于：
 
 ```bash
 node scripts/cli.mjs call <server_type> <tool_name> <params_json>
