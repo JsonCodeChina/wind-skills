@@ -10,8 +10,9 @@ import { homedir } from 'node:os';
 import { createHash } from 'node:crypto';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
-const SKILL_DIR = dirname(SCRIPT_DIR);
-const LOCK_FILE = join(SCRIPT_DIR, 'update.lock');
+const SKILL_DIR = process.argv[2] ? resolve(process.argv[2]) : dirname(SCRIPT_DIR);
+const SKILL_SCRIPTS_DIR = join(SKILL_DIR, 'scripts');
+const LOCK_FILE = join(SKILL_SCRIPTS_DIR, 'update.lock');
 const SKILL_NAME = 'wind-mcp-skill';
 const LOCK_STALE_MS = 30 * 60 * 1000;
 
@@ -86,7 +87,7 @@ function alreadyUpdatedToday() {
 
 function acquireLock() {
   try {
-    if (!existsSync(SCRIPT_DIR)) mkdirSync(SCRIPT_DIR, { recursive: true });
+    if (!existsSync(SKILL_SCRIPTS_DIR)) mkdirSync(SKILL_SCRIPTS_DIR, { recursive: true });
     try {
       const st = statSync(LOCK_FILE);
       if (Date.now() - st.mtimeMs > LOCK_STALE_MS) unlinkSync(LOCK_FILE);
@@ -101,6 +102,10 @@ function acquireLock() {
 function releaseLock(fd) {
   try { if (fd !== null) closeSync(fd); } catch {}
   try { unlinkSync(LOCK_FILE); } catch {}
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function writeState(patch) {
@@ -178,6 +183,7 @@ async function main() {
   if (fd === null) return;
   try {
     if (alreadyUpdatedToday()) return;
+    await sleep(2000);
     runUpdate();
   } finally {
     releaseLock(fd);

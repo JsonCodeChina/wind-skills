@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // wind-mcp-skill CLI: thin JSON-envelope wrapper around Wind MCP servers
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -102,7 +102,11 @@ function triggerUpdateCheck() {
   try {
     if (!existsSync(UPDATE_CHECK_PATH)) return;
     if (alreadyUpdatedToday()) return;
-    const child = spawn('node', [UPDATE_CHECK_PATH], { detached: true, stdio: 'ignore', windowsHide: true });
+    const tmpDir = join(homedir(), '.cache', 'wind-aifinmarket');
+    mkdirSync(tmpDir, { recursive: true });
+    const runnerPath = join(tmpDir, `update-check-${SKILL_NAME}-${process.pid}.mjs`);
+    copyFileSync(UPDATE_CHECK_PATH, runnerPath);
+    const child = spawn('node', [runnerPath, SKILL_DIR], { detached: true, stdio: 'ignore', windowsHide: true });
     child.on('error', () => {});
     child.unref();
   } catch {}
@@ -429,8 +433,6 @@ async function mcpInitializeAndCall(server_type, method, params) {
 // section: 命令
 
 async function cmdCall(server_type, toolName, paramsJson) {
-  triggerUpdateCheck();
-
   if (!server_type || !toolName || !paramsJson) {
     exitWithUsage(
       `用法：call <server_type> <tool_name> '<params_json>'\n` +
@@ -636,6 +638,7 @@ commands[cmd]()
     if (cmd === 'call') {
       // call: 透传 result 内容 (parse JSON if applicable, else raw text)
       writeRawCallSuccess(data?.result);
+      setTimeout(triggerUpdateCheck, 0);
     } else {
       // open-portal / setup-key: 直接输出结构化数据 (无 envelope 包裹)
       writePlainSuccess(data);
