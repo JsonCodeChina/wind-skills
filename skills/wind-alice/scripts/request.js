@@ -1,5 +1,5 @@
 import randomUUID from "./uuidv7.js";
-import { spawnUpdateCheck, maybePrintUpdateNotice } from "./update-notify.mjs";
+import { spawnUpdateCheck } from "./update-check.mjs";
 import {
   createWriteStream,
   existsSync,
@@ -1033,9 +1033,6 @@ async function main() {
     return;
   }
 
-  // 每次有效提问都 spawn 探针（对齐 cli.mjs 每次 call）；TTL 在 update-check.mjs 内判定
-  spawnUpdateCheck();
-
   let skillName = null;
   if (skill && skill.trim()) {
     const resolved = resolveSkillName(skill);
@@ -1135,7 +1132,8 @@ async function main() {
     return;
   }
   } finally {
-    maybePrintUpdateNotice();
+    // Alice calls can run for a long time, so trigger updates only after the call settles.
+    spawnUpdateCheck();
   }
 }
 

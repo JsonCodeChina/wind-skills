@@ -16,7 +16,7 @@ const REPO = resolve(__dirname, '../../..');
 // 各 skill 的通知入口 (module, 导出函数名)
 const NOTIFY = {
   'wind-mcp-skill':          [join(REPO, 'skills/wind-mcp-skill/scripts/cli.mjs'),                'maybeNotifyUpdate'],
-  'wind-alice':              [join(REPO, 'skills/wind-alice/scripts/update-notify.mjs'),         'maybePrintUpdateNotice'],
+  'wind-alice':              [join(REPO, 'skills/wind-alice/scripts/update-check.mjs'),          'maybePrintUpdateNotice'],
   'wind-find-finance-skill': [join(REPO, 'skills/wind-find-finance-skill/scripts/update-check.mjs'), 'maybeNotifyUpdate'],
 };
 

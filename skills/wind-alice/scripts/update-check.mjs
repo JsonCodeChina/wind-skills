@@ -1,463 +1,372 @@
 #!/usr/bin/env node
-// wind-skills 更新检测 — 由各 skill CLI 异步 spawn 调用
-// 探活远端 tree (ETag/304) → 跟本地 cache 基线对比 → 写 cache; 失败完全静默
-// 原则: 不识别会话 / 远端变了才通知 / 失败静默 / lastNotifiedSha 去重
+// Daily background updater for wind-alice.
+// The CLI starts this script detached; failures are recorded but never block Alice calls.
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, openSync, closeSync, statSync, realpathSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join, dirname, resolve, normalize, basename } from 'node:path';
+import { existsSync, mkdirSync, openSync, closeSync, unlinkSync, writeFileSync, readFileSync, statSync, readdirSync, copyFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { homedir } from 'node:os';
+import { createHash } from 'node:crypto';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
-const SKILL_NAME = basename(dirname(SCRIPT_DIR));
+const RUN_UPDATE_ARG = '--run-update';
+const runUpdateMode = process.argv.includes(RUN_UPDATE_ARG);
+const skillDirArg = runUpdateMode
+  ? process.argv.find(arg => arg !== RUN_UPDATE_ARG && arg !== process.argv[0] && arg !== process.argv[1])
+  : null;
+const SKILL_DIR = skillDirArg ? resolve(skillDirArg) : dirname(SCRIPT_DIR);
+const SKILL_SCRIPTS_DIR = join(SKILL_DIR, 'scripts');
+const LOCK_FILE = join(SKILL_SCRIPTS_DIR, 'update.lock');
+const SKILL_NAME = 'wind-alice';
+const LOCK_STALE_MS = 30 * 60 * 1000;
+const QUIET_MS = 10 * 1000;
 
-const CACHE_DIR = join(homedir(), '.cache', 'wind-aifinmarket');
-const CACHE_FILE = join(CACHE_DIR, 'update-state.json');
-const CACHE_VERSION = 1;
-
-const TTL_MS = 6 * 60 * 60 * 1000;                 // 6h
-const NETWORK_TIMEOUT_MS = 5_000;
-const INSTALLED_AT_TOLERANCE_MS = 60 * 60 * 1000;  // installedAt 反查容差 1h
-const LONG_TAIL_MS = 14 * 24 * 60 * 60 * 1000;     // 长尾 fallback: 14d 无成功
-const LONG_TAIL_MIN_CALLS = 10;
-
-// ───── 路径规范化 (cache key) ─────
-
-// realpath 解析软链接; 失败 (路径不存在) 降级 resolve+normalize; Windows 大小写不敏感
-function canonicalizeLockPath(lockPath) {
-  let p = resolve(String(lockPath || ''));
-  try { p = realpathSync.native(p); }
-  catch { p = normalize(p); }
-  if (process.platform === 'win32') p = p.toLowerCase();
-  return p;
+function normalizePath(value) {
+  const normalized = resolve(value).replace(/\\/g, '/');
+  return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
 }
 
-function cacheKeyFor(skillName, lockPath) {
-  return `${skillName}|${canonicalizeLockPath(lockPath)}`;
+function updateScope() {
+  const globalRoot = normalizePath(join(homedir(), '.agents', 'skills'));
+  const skillDir = normalizePath(SKILL_DIR);
+  return skillDir.startsWith(globalRoot + '/') ? 'global' : 'project';
 }
 
-// ───── lock 文件探测 ─────
-
-function walkUp(startDir) {
-  const dirs = [];
-  let dir = resolve(startDir);
-  while (true) { dirs.push(dir); const parent = dirname(dir); if (parent === dir) break; dir = parent; }
-  return dirs;
+function projectRoot() {
+  return resolve(SKILL_DIR, '..', '..', '..');
 }
 
-// global lock 候选 (XDG / ~/.agents); 其它视为 project lock → 决定升级命令是否加 -g
-function globalLockPaths() {
-  const xdg = process.env.XDG_STATE_HOME;
-  return [
-    xdg ? join(xdg, 'skills', '.skill-lock.json') : null,
-    join(homedir(), '.agents', '.skill-lock.json'),
-  ].filter(Boolean);
+function updateCommand() {
+  const command = ['npx', 'skills', 'update', SKILL_NAME, '-y'];
+  if (updateScope() === 'global') command.push('-g');
+  return command;
 }
 
-function classifyLockScope(lockPath) {
-  return globalLockPaths().includes(lockPath) ? 'global' : 'project';
+function lockFile() {
+  return updateScope() === 'global'
+    ? join(homedir(), '.agents', '.skill-lock.json')
+    : join(projectRoot(), 'skills-lock.json');
 }
 
-function findLockFiles() {
-  const candidates = new Set();
-  for (const p of globalLockPaths()) candidates.add(p);
-  for (const dir of walkUp(SCRIPT_DIR)) candidates.add(join(dir, 'skills-lock.json'));
-  try { for (const dir of walkUp(process.cwd())) candidates.add(join(dir, 'skills-lock.json')); } catch {}
-  return [...candidates].filter(p => existsSync(p));
+function readLockEntry() {
+  try {
+    const file = lockFile();
+    if (!existsSync(file)) return null;
+    const data = JSON.parse(readFileSync(file, 'utf8'));
+    return data?.skills?.[SKILL_NAME] || null;
+  } catch {
+    return null;
+  }
 }
 
-// lock schema 版本: global 装=v3 (有 sourceUrl/installedAt), project 装=v1 (缺这些)
-function detectLockSchemaVersion(lock) {
-  return lock?.version === 3 ? 3 : 1;
+function isGiteeSource(entry) {
+  const values = [entry?.sourceType, entry?.source, entry?.sourceUrl]
+    .filter(Boolean)
+    .map(value => String(value).toLowerCase());
+  return values.some(value => value.includes('gitee'));
 }
 
-function collectEntries() {
-  const found = [];
-  for (const lockPath of findLockFiles()) {
+function sourceUrl(entry) {
+  if (!entry) return null;
+  if (entry.sourceUrl) return entry.sourceUrl;
+  if (entry.sourceType === 'github' && /^[^/\s]+\/[^/\s]+$/.test(entry.source || '')) {
+    return `https://github.com/${entry.source}.git`;
+  }
+  return entry.source || null;
+}
+
+function remoteHead(entry) {
+  const source = sourceUrl(entry);
+  if (!source) return null;
+  try {
+    const result = spawnSync('git', ['ls-remote', source, 'HEAD'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      env: updateEnv(),
+      timeout: 60 * 1000,
+    });
+    if (result.status !== 0) return null;
+    const head = (result.stdout || '').trim().split(/\s+/)[0];
+    return /^[0-9a-f]{40}$/i.test(head) ? head : null;
+  } catch {
+    return null;
+  }
+}
+
+function addCommand(entry) {
+  const source = sourceUrl(entry);
+  if (!source) return null;
+  const command = ['npx', 'skills', 'add', source, '--skill', SKILL_NAME, '-y'];
+  if (updateScope() === 'global') command.push('-g');
+  return command;
+}
+
+function commandForUpdate() {
+  const entry = readLockEntry();
+  if (isGiteeSource(entry)) {
+    const command = addCommand(entry);
+    if (command) return { command, method: 'add', sourceType: entry?.sourceType || null };
+  }
+  return { command: updateCommand(), method: 'update', sourceType: entry?.sourceType || null };
+}
+
+function updateEnv() {
+  return { ...process.env };
+}
+
+function updateStateFile() {
+  return join(SKILL_SCRIPTS_DIR, 'update-state.json');
+}
+
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function readState() {
+  try {
+    const stateFile = updateStateFile();
+    if (!existsSync(stateFile)) return null;
+    return JSON.parse(readFileSync(stateFile, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function writeStatePatch(patch) {
+  const stateFile = updateStateFile();
+  mkdirSync(dirname(stateFile), { recursive: true });
+  const state = { ...(readState() || {}), ...patch };
+  writeFileSync(stateFile, JSON.stringify(state, null, 2) + '\n');
+}
+
+function alreadyUpdatedToday() {
+  const state = readState();
+  if (!state || state.date !== todayKey() || state.status !== 'success') return false;
+  const entry = readLockEntry();
+  if (!entry || isGiteeSource(entry)) return true;
+  const head = remoteHead(entry);
+  return !head || head === state.lastAppliedRemoteHead;
+}
+
+function locallyUpdatedToday() {
+  const state = readState();
+  return state && state.date === todayKey() && state.status === 'success';
+}
+
+function lastUsedAt() {
+  try {
+    const state = readState();
+    const ts = new Date(state?.lastUsedAt).getTime();
+    return Number.isFinite(ts) ? ts : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function quietLongEnough() {
+  const last = lastUsedAt();
+  return last === 0 || Date.now() - last >= QUIET_MS;
+}
+
+function clearLastUsed() {
+  try {
+    const state = readState();
+    if (!state) return;
+    delete state.lastUsedAt;
+    delete state.lastUsedPid;
+    writeFileSync(updateStateFile(), JSON.stringify(state, null, 2) + '\n');
+  } catch {}
+}
+
+function markSkillUsed() {
+  writeStatePatch({
+    lastUsedAt: new Date().toISOString(),
+    lastUsedPid: process.pid,
+  });
+}
+
+export function spawnUpdateCheck() {
+  try {
+    if (locallyUpdatedToday()) return;
+    markSkillUsed();
+    const tmpDir = join(homedir(), '.cache', 'wind-aifinmarket');
+    mkdirSync(tmpDir, { recursive: true });
+    const runnerPath = join(tmpDir, `update-check-${SKILL_NAME}-${process.pid}.mjs`);
+    copyFileSync(fileURLToPath(import.meta.url), runnerPath);
+    const child = spawn('node', [runnerPath, RUN_UPDATE_ARG, SKILL_DIR], { detached: true, stdio: 'ignore', windowsHide: true });
+    child.on('error', () => {});
+    child.unref();
+  } catch {}
+}
+
+export function maybePrintUpdateNotice() {}
+
+function acquireLock() {
+  try {
+    if (!existsSync(SKILL_SCRIPTS_DIR)) mkdirSync(SKILL_SCRIPTS_DIR, { recursive: true });
     try {
-      const lock = JSON.parse(readFileSync(lockPath, 'utf8'));
-      const entry = lock?.skills?.[SKILL_NAME];
-      if (entry) found.push({
-        entry, lockPath,
-        scope: classifyLockScope(lockPath),
-        schemaVersion: detectLockSchemaVersion(lock),
-      });
+      const st = statSync(LOCK_FILE);
+      if (Date.now() - st.mtimeMs > LOCK_STALE_MS) unlinkSync(LOCK_FILE);
     } catch {}
+    const fd = openSync(LOCK_FILE, 'wx');
+    return fd;
+  } catch {
+    return null;
   }
-  return found;
 }
 
-// ───── entry 解析 ─────
-
-// 探活 URL: 有 sourceUrl 直接用; 缺时从 source + sourceType 推导
-// SSH URL (git@...) 直接作为探活地址, 不做拼接
-function deriveSourceUrl(entry) {
-  if (entry?.sourceUrl) return entry.sourceUrl;
-  if (typeof entry?.source !== 'string' || !entry.source) return null;
-  if (entry.source.startsWith('git@')) return entry.source;        // SSH 直通
-  if (/^https?:\/\//.test(entry.source)) return entry.source;
-  const t = entry.sourceType;
-  if (t === 'github') return `https://github.com/${entry.source}.git`;
-  if (t === 'git' || t === 'gitee') return `https://gitee.com/${entry.source}.git`;
-  return null;
+function releaseLock(fd) {
+  try { if (fd !== null) closeSync(fd); } catch {}
+  try { unlinkSync(LOCK_FILE); } catch {}
 }
 
-// 从 URL (https 或 ssh) 解析 {host, owner, repo} 供 API 调用
-function parseSourceUrl(sourceUrl) {
-  if (typeof sourceUrl !== 'string' || !sourceUrl) return null;
-  let host = null;
-  if (sourceUrl.includes('github.com')) host = 'github';
-  else if (sourceUrl.includes('gitee.com')) host = 'gitee';
-  else return null;
-  const m = sourceUrl.match(/(?:github\.com|gitee\.com)[:/]([^/]+)\/([^/?#]+?)(?:\.git)?(?:$|[/?#])/);
-  if (!m) return null;
-  return { host, owner: m[1], repo: m[2] };
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function normalizeSkillDir(skillPath) {
-  return String(skillPath || '').replace(/\\/g, '/').replace(/\/?SKILL\.md$/i, '').replace(/\/+$/, '');
+function writeState(patch) {
+  const now = new Date();
+  const { command, method, sourceType } = commandForUpdate();
+  const stateFile = updateStateFile();
+  const state = {
+    date: todayKey(),
+    scope: updateScope(),
+    command: command.join(' '),
+    method,
+    sourceType,
+    updatedAt: now.toISOString(),
+    ...patch,
+  };
+  mkdirSync(dirname(stateFile), { recursive: true });
+  writeFileSync(stateFile, JSON.stringify(state, null, 2) + '\n');
 }
 
-// 白名单字段签名: v3 用 installedAt, v1 用 computedHash — 变了说明客户重装/升级, 需重探
-function buildLockSignature(entry, schemaVer) {
-  if (schemaVer === 3) return String(entry?.installedAt || entry?.updatedAt || '');
-  return String(entry?.computedHash || entry?.skillFolderHash || '');
-}
-
-// ───── cache 读写 (容错 + 文件锁 + only-patch-self) ─────
-
-function emptyCache() {
-  return { version: CACHE_VERSION, meta: { callCount: 0, fallbackShownAt: null }, entries: {} };
-}
-
-function readCache(cacheFile) {
-  try {
-    if (!existsSync(cacheFile)) return emptyCache();
-    const data = JSON.parse(readFileSync(cacheFile, 'utf8'));
-    if (!data || data.version !== CACHE_VERSION || typeof data.entries !== 'object' || !data.entries) {
-      return emptyCache();
-    }
-    return {
-      version: CACHE_VERSION,
-      meta: (data.meta && typeof data.meta === 'object') ? data.meta : { callCount: 0, fallbackShownAt: null },
-      entries: data.entries,
-    };
-  } catch { return emptyCache(); }
-}
-
-const LOCK_STALE_MS = 30_000;
-function sleepSync(ms) {
-  try { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); } catch {}
-}
-
-// O_EXCL 文件锁; 陈旧锁 >30s 自动清; 拿不到等 100ms 重试 5 次后放弃 (绝不阻塞主流程)
-function withLock(cacheFile, fn) {
-  const lockFile = cacheFile + '.lock';
-  const dir = dirname(cacheFile);
-  for (let i = 0; i < 5; i++) {
-    try {
-      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-      try { const st = statSync(lockFile); if (Date.now() - st.mtimeMs > LOCK_STALE_MS) unlinkSync(lockFile); } catch {}
-      const fd = openSync(lockFile, 'wx');
-      try { return fn(); }
-      finally { try { closeSync(fd); } catch {} try { unlinkSync(lockFile); } catch {} }
-    } catch (e) {
-      if (e?.code !== 'EEXIST') return undefined;
-      sleepSync(100);
+function hashSkillDir() {
+  const hash = createHash('sha256');
+  const files = [];
+  function walk(dir) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      const rel = full.slice(SKILL_DIR.length + 1).replace(/\\/g, '/');
+      if (rel === 'config.json' || rel === 'scripts/update-state.json') continue;
+      if (entry.isDirectory()) walk(full);
+      else if (entry.isFile()) files.push({ full, rel });
     }
   }
-  return undefined;
+  walk(SKILL_DIR);
+  files.sort((a, b) => a.rel.localeCompare(b.rel));
+  for (const file of files) {
+    hash.update(file.rel);
+    hash.update('\0');
+    hash.update(readFileSync(file.full));
+    hash.update('\0');
+  }
+  return hash.digest('hex');
 }
 
-// 锁内重读 → 只 patch 自己的 key → 其它 entry 原样透传 (并发写安全)
-function mergeCacheEntry(cacheFile, key, patch) {
-  withLock(cacheFile, () => {
-    const cache = readCache(cacheFile);          // 锁内重读最新磁盘内容
-    cache.entries[key] = { ...(cache.entries[key] || {}), ...patch };
-    writeFileSync(cacheFile, JSON.stringify(cache, null, 2));
+function runSkillCommand(command, method) {
+  const cwd = updateScope() === 'global' ? homedir() : projectRoot();
+  const isWin = process.platform === 'win32';
+  const bin = isWin ? 'cmd.exe' : 'npx';
+  const args = isWin ? ['/d', '/s', '/c', command.join(' ')] : command.slice(1);
+  const result = spawnSync(bin, args, {
+    encoding: 'utf8',
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: updateEnv(),
+    cwd,
+    timeout: 10 * 60 * 1000,
   });
-}
-
-function bumpCallCount(cacheFile) {
-  withLock(cacheFile, () => {
-    const cache = readCache(cacheFile);
-    if (!cache.meta || typeof cache.meta !== 'object') cache.meta = { callCount: 0, fallbackShownAt: null };
-    cache.meta.callCount = (cache.meta.callCount || 0) + 1;
-    writeFileSync(cacheFile, JSON.stringify(cache, null, 2));
-  });
-}
-
-// ───── 判定 ─────
-
-// 通知判定: 必须 latestSha + lastNotifiedSha 都有且不等 (首次只写基线不通知)
-function computePending(entry) {
-  return !!(entry && entry.latestSha && entry.lastNotifiedSha && entry.latestSha !== entry.lastNotifiedSha);
-}
-
-// 探活判定: 无 lastCheckedAt / 超 TTL / signature 变 (客户升级后) → 需重探
-// abs 兜底 NTP 倒退 (时间被改到过去时不会永远不过期)
-function computeStale(entry, now, ttlMs, currentSig) {
-  if (!entry || !entry.lastCheckedAt) return true;
-  if (currentSig !== undefined && entry.lockSignature !== currentSig) return true;
-  const checked = new Date(entry.lastCheckedAt).getTime();
-  if (!Number.isFinite(checked)) return true;
-  return Math.abs(now - checked) > ttlMs;
-}
-
-// ───── 代理 (env → git config 兜底, 沙箱剥 env 时常见) ─────
-
-let _gitProxyMemo;
-function loadGitProxy() {
-  if (_gitProxyMemo !== undefined) return _gitProxyMemo;
-  try {
-    const httpsR = spawnSync('git', ['config', '--get', 'https.proxy'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 2000, windowsHide: true });
-    const httpR = spawnSync('git', ['config', '--get', 'http.proxy'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 2000, windowsHide: true });
-    const https = httpsR.error ? '' : (httpsR.stdout || '').trim();
-    const http = httpR.error ? '' : (httpR.stdout || '').trim();
-    if (!https && !http) { _gitProxyMemo = null; return null; }
-    _gitProxyMemo = { HTTPS_PROXY: https || http, HTTP_PROXY: http || https };
-    return _gitProxyMemo;
-  } catch { _gitProxyMemo = null; return null; }
-}
-
-function buildCurlEnv() {
-  const merged = { ...process.env };
-  const env = process.env;
-  const hasEnvProxy = env.HTTPS_PROXY || env.https_proxy || env.HTTP_PROXY || env.http_proxy || env.ALL_PROXY || env.all_proxy;
-  if (hasEnvProxy) return merged;
-  const git = loadGitProxy();
-  if (!git) return merged;
-  if (git.HTTPS_PROXY) merged.HTTPS_PROXY = git.HTTPS_PROXY;
-  if (git.HTTP_PROXY) merged.HTTP_PROXY = git.HTTP_PROXY;
-  return merged;
-}
-
-// ───── HTTP (curl 优先支持代理+TLS跳过, 解析 ETag; fetch 兜底) ─────
-
-// -i 把 response header 一起输出; -k 跳 TLS 验证 (只 GET 公开 JSON, MITM 最多漏报)
-function curlFetch(url, headers = {}) {
-  const MARK = '\n__WIND_STATUS__:';
-  const args = ['-sS', '-k', '-i', '--max-time', String(Math.ceil(NETWORK_TIMEOUT_MS / 1000)), '-A', `${SKILL_NAME}-update-check`];
-  for (const [k, v] of Object.entries(headers)) args.push('-H', `${k}: ${v}`);
-  args.push('-w', `${MARK}%{http_code}`, url);
-  const r = spawnSync('curl', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, env: buildCurlEnv() });
-  if (r.error?.code === 'ENOENT') return { _curlMissing: true };
-  if (r.error) return { status: 0 };
-  const out = r.stdout || '';
-  const mi = out.lastIndexOf(MARK);
-  const status = mi >= 0 ? Number(out.slice(mi + MARK.length).trim()) : 0;
-  const blob = mi >= 0 ? out.slice(0, mi) : out;
-  // 取最后一段 HTTP 响应 (跳过代理 CONNECT / 重定向的前置 header 段)
-  const lastHttp = blob.lastIndexOf('\nHTTP/') >= 0 ? blob.lastIndexOf('\nHTTP/') + 1 : (blob.startsWith('HTTP/') ? 0 : -1);
-  const seg = lastHttp >= 0 ? blob.slice(lastHttp) : blob;
-  let sep = seg.indexOf('\r\n\r\n'); let sepLen = 4;
-  if (sep < 0) { sep = seg.indexOf('\n\n'); sepLen = 2; }
-  const headerBlob = sep >= 0 ? seg.slice(0, sep) : '';
-  const body = sep >= 0 ? seg.slice(sep + sepLen) : seg;
-  const etagMatch = headerBlob.match(/^etag:[ \t]*(.+?)[ \t]*$/im);
-  const etag = etagMatch ? etagMatch[1] : null;
+  const output = `${result.stdout || ''}${result.stderr || ''}`.trim();
+  const failedByOutput = /failed to (update|add|install)/i.test(output);
   return {
-    status,
-    headers: { get: (k) => (String(k).toLowerCase() === 'etag' ? etag : null) },
-    async json() { return JSON.parse(body); },
-    async text() { return body; },
+    command,
+    method,
+    result,
+    output,
+    ok: result.status === 0 && !failedByOutput,
+    error: result.error ? String(result.error.message || result.error) : (failedByOutput ? `npx skills ${method} reported failure` : null),
   };
 }
 
-async function defaultFetch(url, opts = {}) {
-  const viaCurl = curlFetch(url, opts.headers || {});
-  if (!viaCurl._curlMissing) return viaCurl;
-  // curl 不在 PATH → Node fetch 兜底 (不走代理)
-  return fetch(url, { headers: opts.headers, signal: AbortSignal.timeout(NETWORK_TIMEOUT_MS) });
-}
+function runUpdate() {
+  const entry = readLockEntry();
+  const { command, method, sourceType } = commandForUpdate();
+  const state = readState();
+  const beforeRemoteHead = remoteHead(entry);
+  const remoteChanged = Boolean(beforeRemoteHead && beforeRemoteHead !== state?.lastAppliedRemoteHead);
+  const beforeHash = hashSkillDir();
+  let attempt = runSkillCommand(command, method);
+  let usedFallback = false;
+  let fallbackReason = null;
 
-// 探活单个 URL: 带 If-None-Match, 返回 {status, sha, etag, body}; fetchImpl 可注入 (测试用)
-async function fetchTreeWithETag(url, etag, { fetchImpl } = {}) {
-  const doFetch = fetchImpl || defaultFetch;
-  const headers = { 'User-Agent': `${SKILL_NAME}-update-check`, 'Accept': 'application/json' };
-  if (etag) headers['If-None-Match'] = etag;
-  let resp;
-  try { resp = await doFetch(url, { headers, signal: AbortSignal.timeout(NETWORK_TIMEOUT_MS) }); }
-  catch (e) { return { status: 0, error: e?.name === 'TimeoutError' ? 'timeout' : 'network' }; }
-  const status = resp.status;
-  if (status === 304) return { status: 304 };
-  if (status >= 200 && status < 300) {
-    let body;
-    try { body = await resp.json(); } catch { return { status, error: 'shape' }; }
-    const getEtag = typeof resp.headers?.get === 'function' ? resp.headers.get('etag') : resp.headers?.etag;
-    return { status, sha: body?.sha || null, etag: getEtag || null, body };
+  if ((!attempt.ok || (attempt.ok && remoteChanged && beforeHash === hashSkillDir())) && method !== 'add') {
+    const fallbackCommand = addCommand(entry);
+    if (fallbackCommand) {
+      fallbackReason = attempt.ok ? 'remote changed but update did not change local files' : 'update failed';
+      const fallback = runSkillCommand(fallbackCommand, 'add');
+      usedFallback = true;
+      attempt = {
+        ...fallback,
+        output: [attempt.output, fallback.output].filter(Boolean).join('\n\n--- fallback: npx skills add ---\n\n'),
+        error: fallback.ok ? null : fallback.error || attempt.error,
+      };
+    }
   }
-  if (status === 403 || status === 429) return { status, error: 'rate_limit' };
-  return { status, error: status ? `http_${status}` : 'network' };
-}
 
-// ───── 远端 API ─────
+  const afterHash = hashSkillDir();
 
-function apiBase(host) {
-  return host === 'github' ? 'https://api.github.com' : 'https://gitee.com/api/v5';
-}
-
-function findSkillSha(treeBody, skillDir) {
-  if (!treeBody) return null;
-  if (!skillDir) return treeBody.sha || null;
-  const arr = Array.isArray(treeBody.tree) ? treeBody.tree : [];
-  return arr.find(t => t.type === 'tree' && t.path === skillDir)?.sha || null;
-}
-
-// 探活当前 skill 子目录 SHA (带 ETag); 多 branch 尝试
-async function fetchSkillSha(parsed, ref, skillDir, etag) {
-  const branches = ref ? [ref] : (parsed.host === 'gitee' ? ['main', 'master'] : ['HEAD', 'main', 'master']);
-  let lastError = null;
-  for (const branch of branches) {
-    const url = `${apiBase(parsed.host)}/repos/${parsed.owner}/${parsed.repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`;
-    const r = await fetchTreeWithETag(url, etag);
-    if (r.status === 304) return { status: 304 };
-    if (r.error) { lastError = r.error; if (r.error === 'rate_limit') break; continue; }
-    if (r.body && Array.isArray(r.body.tree)) return { status: 200, sha: findSkillSha(r.body, skillDir), etag: r.etag };
-    lastError = 'shape';
-  }
-  return { error: lastError || 'shape' };
-}
-
-// v3 path: 反查 installedAt 时刻的 skill SHA (识别"客户装了老版本")
-async function fetchInstalledSha(parsed, ref, skillDir, installedAt) {
-  try {
-    const until = new Date(new Date(installedAt).getTime() + INSTALLED_AT_TOLERANCE_MS).toISOString();
-    const params = new URLSearchParams({ until, per_page: '1' });
-    if (skillDir) params.set('path', skillDir);
-    if (ref) params.set('sha', ref);
-    const r = await fetchTreeWithETag(`${apiBase(parsed.host)}/repos/${parsed.owner}/${parsed.repo}/commits?${params}`, null);
-    if (r.error || !Array.isArray(r.body) || r.body.length === 0) return null;
-    const commitSha = r.body[0]?.sha;
-    if (!commitSha) return null;
-    const tr = await fetchTreeWithETag(`${apiBase(parsed.host)}/repos/${parsed.owner}/${parsed.repo}/git/trees/${commitSha}?recursive=1`, null);
-    if (tr.error || !tr.body) return null;
-    return findSkillSha(tr.body, skillDir);
-  } catch { return null; }
-}
-
-// ───── 升级命令 + GC + 长尾 ─────
-
-// scope=global → -g; project → 不带 (项目级升全局会装错位置)
-// Gitee 不支持 npx skills update → 退回 add 重装
-function buildUpgradeCommand(o, scope) {
-  const sc = scope || o?.scope || 'global';
-  const flag = sc === 'global' ? ' -g' : '';
-  const isGitee = typeof o?.sourceUrl === 'string' && o.sourceUrl.includes('gitee.com');
-  return isGitee
-    ? `npx skills add ${o.sourceUrl} --skill ${SKILL_NAME}${flag} -y`
-    : `npx skills update ${SKILL_NAME}${flag} -y`;
-}
-
-// 删 lockPath 已不存在的孤儿 entry (纯函数)
-function lazyGC(cache) {
-  const entries = {};
-  for (const [key, val] of Object.entries(cache.entries || {})) {
-    const idx = key.indexOf('|');
-    const lockPath = idx >= 0 ? key.slice(idx + 1) : null;
-    if (lockPath && existsSync(lockPath)) entries[key] = val;
-  }
-  return { ...cache, entries };
-}
-
-// 长尾 fallback: 14d 无成功探活 + 累计 ≥10 次调用 + 整个生命周期未提示过
-function shouldShowLongTail(cache, now) {
-  const meta = cache.meta || {};
-  if (meta.fallbackShownAt) return false;
-  if ((meta.callCount || 0) < LONG_TAIL_MIN_CALLS) return false;
-  for (const e of Object.values(cache.entries || {})) {
-    if (!e.lastSuccessAt) continue;
-    if (now - new Date(e.lastSuccessAt).getTime() > LONG_TAIL_MS) return true;
-  }
-  return false;
-}
-
-// 标记长尾 fallback 已提示 (生命周期一次)
-function setFallbackShown(cacheFile, ts) {
-  withLock(cacheFile, () => {
-    const cache = readCache(cacheFile);
-    if (!cache.meta || typeof cache.meta !== 'object') cache.meta = { callCount: 0, fallbackShownAt: null };
-    cache.meta.fallbackShownAt = new Date(ts).toISOString();
-    writeFileSync(cacheFile, JSON.stringify(cache, null, 2));
+  writeState({
+    status: attempt.ok ? 'success' : 'failed',
+    finishedAt: new Date().toISOString(),
+    exitCode: attempt.result.status,
+    method: attempt.method,
+    usedFallback,
+    fallbackReason,
+    sourceType,
+    command: attempt.command.join(' '),
+    error: attempt.error,
+    remoteHead: beforeRemoteHead,
+    remoteChanged,
+    lastAppliedRemoteHead: attempt.ok ? (beforeRemoteHead || state?.lastAppliedRemoteHead || null) : (state?.lastAppliedRemoteHead || null),
+    changed: beforeHash !== afterHash,
+    beforeHash,
+    afterHash,
+    output: attempt.output.slice(-2000),
   });
 }
-
-// ───── 主逻辑 (子进程探活) ─────
 
 async function main() {
-  const entries = collectEntries();
-  if (entries.length === 0) return;
-  bumpCallCount(CACHE_FILE);
-  const now = Date.now();
-
-  for (const { entry, lockPath, schemaVersion } of entries) {
-    const key = cacheKeyFor(SKILL_NAME, lockPath);
-    const state = readCache(CACHE_FILE).entries[key] || {};
-    const currentSig = buildLockSignature(entry, schemaVersion);
-    if (!computeStale(state, now, TTL_MS, currentSig)) continue;
-
-    const sourceUrl = deriveSourceUrl(entry);
-    if (!sourceUrl) continue;
-    const parsed = parseSourceUrl(sourceUrl);
-    if (!parsed) continue;
-
-    const skillDir = normalizeSkillDir(entry.skillPath);
-    const ref = entry.ref || null;
-    const result = await fetchSkillSha(parsed, ref, skillDir, state.etag);
-    if (result.error) continue;                      // 探活失败 → 完全静默, 不写 cache
-
-    const nowIso = new Date(now).toISOString();
-    if (result.status === 304) {                     // 远端没变 → 只刷 lastCheckedAt
-      mergeCacheEntry(CACHE_FILE, key, { lastCheckedAt: nowIso, lockSignature: currentSig });
-      continue;
+  if (alreadyUpdatedToday()) return;
+  const fd = acquireLock();
+  if (fd === null) return;
+  try {
+    if (alreadyUpdatedToday()) return;
+    await sleep(QUIET_MS);
+    if (!quietLongEnough()) {
+      clearLastUsed();
+      writeState({
+        status: 'deferred',
+        finishedAt: new Date().toISOString(),
+        exitCode: null,
+        error: 'skill was used recently; update deferred',
+        changed: false,
+      });
+      return;
     }
-
-    const currentSha = result.sha;
-    if (!currentSha) continue;
-
-    // 首次基线: v3 反查装时刻 sha (识别老版本); v1 用 currentSha
-    let baselineSha = currentSha;
-    if (!state.lastNotifiedSha) {
-      const installedAt = entry.updatedAt || entry.installedAt;
-      if (schemaVersion === 3 && installedAt) {
-        const inst = await fetchInstalledSha(parsed, ref, skillDir, installedAt);
-        if (inst) baselineSha = inst;
-      }
-    }
-
-    const patch = {
-      lockSchemaVersion: schemaVersion,
-      latestSha: currentSha,
-      etag: result.etag || state.etag || null,
-      lastCheckedAt: nowIso,
-      lastSuccessAt: nowIso,
-      lockSignature: currentSig,
-    };
-    if (!state.lastNotifiedSha) patch.lastNotifiedSha = baselineSha;   // 首次写基线, 不通知
-    mergeCacheEntry(CACHE_FILE, key, patch);
+    clearLastUsed();
+    runUpdate();
+  } finally {
+    releaseLock(fd);
   }
-
-  // Lazy GC: 清孤儿 entry
-  withLock(CACHE_FILE, () => {
-    const cache = readCache(CACHE_FILE);
-    const gc = lazyGC(cache);
-    if (Object.keys(gc.entries).length !== Object.keys(cache.entries).length) {
-      writeFileSync(CACHE_FILE, JSON.stringify(gc, null, 2));
-    }
-  });
 }
 
-export {
-  canonicalizeLockPath, cacheKeyFor, detectLockSchemaVersion,
-  deriveSourceUrl, parseSourceUrl, normalizeSkillDir, buildLockSignature,
-  readCache, mergeCacheEntry, bumpCallCount,
-  computePending, computeStale,
-  fetchTreeWithETag, fetchSkillSha, findSkillSha,
-  collectEntries, globalLockPaths, classifyLockScope,
-  buildUpgradeCommand, lazyGC, shouldShowLongTail, setFallbackShown,
-  CACHE_FILE, TTL_MS, SKILL_NAME,
-};
-
 const IS_MAIN = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
-if (IS_MAIN) main().catch(() => {});
+
+if (runUpdateMode) {
+  main().catch(() => {});
+} else if (IS_MAIN) {
+  spawnUpdateCheck();
+}

@@ -129,9 +129,11 @@ CLI 在每次调用结束时会自动扫描 value 中的可下载文件链接，
 7. **不要凭空构造 `selectedSkillIds` / `agentCard` 之类的旧字段去指定 Skill** — 已实测不生效，必须走文本前缀。
 
 
-## 更新提示处理
+## 更新检查处理
 
-每次调用 wind-alice.mjs 后，留意 stderr 是否包含 `[notice]` 前缀的提示。更新探活失败（网络不通等）完全静默、不输出任何内容，无需理会。
+每次有效调用 `wind-alice.mjs` 结束后，脚本会静默触发后台更新检查；该机制参考 `wind-mcp-skill`：
 
-- **有新版可用**（`有新版本可用`）：同一会话首次看到时必须转告用户一次（同会话再次调用不重复）；把 `升级命令:` 那一行完整带给用户。**命令是否带 `-g` 由脚本按 lock 来源自动决定**（global 装的带 `-g`，project 装的不带；Gitee 源会改成 `npx skills add ...` 重装），直接照搬即可，不要自行加减 `-g`。
-- 遇到版本相关错误，可建议用户升级 skill（命令以实际 stderr 输出的 `升级命令:` 为准）。
+- 只记录当前 skill 刚被使用，并后台启动 `scripts/update-check.mjs`，不阻塞 Alice 主请求收尾。
+- 后台检查会等待短暂 quiet window，避免 skill 正在使用时被更新覆盖。
+- 按安装范围读取 lock，检查远端 HEAD，每日成功态去重；Gitee 源或 `skills update` 未落盘时改用 `npx skills add ... --skill wind-alice` 重装。
+- 更新失败、网络不通或无更新时均不输出内容，也不影响本次 Alice 调用。
