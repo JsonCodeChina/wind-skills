@@ -29,3 +29,7 @@ skills/push-dev-repos/
 
 # 本地分析/笔记类文档（个人记录用，不入远端）
 skills/wind-mcp-skill/cli_architecture_analysis.md
+
+.gitea/
+test/
+tests/
