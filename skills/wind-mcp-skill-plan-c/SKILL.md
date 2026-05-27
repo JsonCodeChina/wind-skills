@@ -4,7 +4,7 @@ description: >-
   用户查询金融数据时触发：A 股选股筛选、行情快照、K 线、分钟行情、财务基本面、股东、事件、技术和风险；港股/美股选股筛选、行情和基本面；基金/ETF/LOF 基金筛选、行情、净值、规模、档案、持仓和业绩；指数/板块行情与基本面；债券档案与估值；上市公司公告、财经新闻、宏观经济和行业指标。不用于欧股、日股、汇率、期货盘口、加密货币或非金融数据。
 author: Wind
 homepage: https://aifinmarket.wind.com.cn
-auto_invoke: false
+auto_invoke: true
 security:
   child_process: true
   eval: false
@@ -25,12 +25,12 @@ examples:
 
 <!-- ENCODING: UTF-8. If this file looks garbled, re-read it with UTF-8 before routing or calling Wind CLI. -->
 
-# Wind 万得金融数据 (Plan C - 内置参数校验)
+# Wind 万得金融数据（CLI 内置参数校验）
 
 你是 Wind MCP 调用路由器。将用户问题映射到 Wind 支持的
 `server_type + tool_name`，调用 CLI，并只基于 Wind 返回结果回答。
 
-**与原版的核心区别**：CLI 内置参数校验，会自动检查字段名拼写、必填项、日期格式、枚举值和指标名合法性。agent 不再需要读取 tool-contracts.md 和 indicators.md——CLI 是参数校验的唯一来源。
+**关键特性**：CLI 在发送到后端前内置参数校验，自动检查字段名拼写、必填项、日期格式、枚举值和指标名合法性，并对错误给出具体修正建议（可用字段、合法枚举值、相似指标名等）。因此本 skill **不提供** tool-contracts.md / indicators.md——参数 Schema 与指标词典改由 CLI 的 `show-tool` / `list-indicators` 命令按需暴露，CLI 是参数校验的唯一来源。
 
 ## 不可协商门禁
 
@@ -40,7 +40,7 @@ examples:
 2. **参数构造**：用 `show-tool` 命令查看工具参数 Schema，按 Schema 构造 params。
 3. **参数值**：日期必须是 `yyyyMMdd`；自然语言入参 `question` / `query` / `metricIdsStr` 不得含空格或其它空白字符。
 4. **单标的**：单次工具调用只允许一个标的；行情类 `windcode` 必须是单个字符串，禁止数组或逗号拼接。多标的对比拆成多次调用后合并。
-5. **指标**：使用 `indexes` 时，只选择用户明确请求的指标；指标名由 CLI 校验，不在词典中的指标会触发 `PARAM_VALIDATION_ERROR` 并给出相似指标建议。
+5. **指标**：使用 `indexes` 时，只选择用户明确请求的指标；指标名由 CLI 校验，不在词典中的指标会触发 `PARAM_VALIDATION_ERROR` 并给出相似指标建议。不确定有哪些指标时，先运行 `node scripts/cli.mjs list-indicators [类别]` 枚举可用字段，不要凭印象或用英文/拼音猜。
 6. **命令格式**：首次 CLI 调用前必须锁定当前执行路径的 params JSON 写法；未锁定时读 `references/shell-escaping.md` 并通过 argv 探针。锁定后除非命中 `INVALID_PARAMS_JSON`，不得修改 shell 引号或 JSON 转义。
 7. **失败**：非 0 退出先读 stdout 的 `error.code` 和 `error.agent_action`；`agent_action` 包含完整的操作步骤，直接执行即可。
 8. **回答**：只报告 Wind 返回值和必要限制，不补常识、不补点评。
@@ -192,6 +192,7 @@ examples:
 | 读取或运行                       | 何时                                                                     | 权威于                           |
 | -------------------------------- | ------------------------------------------------------------------------ | -------------------------------- |
 | `node scripts/cli.mjs show-tool <server_type> <tool_name>` | **MUST**：选定工具后查看完整参数 Schema        | 工具字段、类型、必填、枚举值     |
+| `node scripts/cli.mjs list-indicators [类别]` | **MUST**：填 `indexes` 且不确定字段名时        | 行情指标词典（indexes 取值）     |
 | `references/shell-escaping.md`   | **MUST**：首次 CLI 调用前命令格式未锁定，或命中 `INVALID_PARAMS_JSON`    | 当前执行路径的 params JSON 写法  |
 | `references/fallback-alice.md`   | MAY：判定可切 `wind-alice` 后                                            | wind-alice 最终兜底流程          |
 

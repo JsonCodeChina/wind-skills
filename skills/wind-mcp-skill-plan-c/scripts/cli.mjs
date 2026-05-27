@@ -464,6 +464,8 @@ function validateParams(server_type, tool_name, params) {
             let msg = `指标 '${indName}' 不在指标词典中。`;
             if (suggestions.length > 0) {
               msg += ` 相似指标：${suggestions.join(', ')}`;
+            } else {
+              msg += ` 无相似项（可能是英文/拼音/口语词）。运行 node scripts/cli.mjs list-indicators 查看全部类别，再 list-indicators <类别> 查看具体字段。`;
             }
             errors.push(msg);
           }
@@ -478,6 +480,9 @@ function validateParams(server_type, tool_name, params) {
 // section: 错误码
 
 const ERROR_PATTERNS = [
+  ['TEMPORARILY_UNAVAILABLE', /temporarily_unavailable/i, '后端偶发不可用。'],
+  ['INVALID_PARAM_VALUE', /invalid_param_value/i, '后端参数值错误。'],
+  ['INVALID_PARAM_NAME', /invalid_param_name/i, '后端参数名错误。'],
   ['QUOTA_ERROR', /单日请求次数超限|daily.*limit|余额不足|请先充值|insufficient.*balance|请求过于频繁|qps.*limit|too.*frequent/i, '额度/限流错误。等待额度刷新、换备用 Key 或充值后原样重试。'],
   ['AUTH_ERROR', /密钥无效|key.*invalid|unauthorized|认证失败|auth.*fail/i, '认证/权限错误。按 Key 机制修复后原样重试。'],
   ['NO_RESULTS', /未获取到数据|"NO_RESULTS"|no\s*results?|not\s*found|empty\s*result/i, '未获取到匹配数据。先在不改变用户意图的前提下调整关键词或参数。'],
@@ -884,6 +889,34 @@ function cmdShowTool(server_type, toolName) {
   process.exit(0);
 }
 
+/**
+ * list-indicators: discover valid indexes values (Plan C dropped indicators.md,
+ * so this is the agent's only way to enumerate the indicator dictionary).
+ * Usage: cli.mjs list-indicators [category]
+ */
+function cmdListIndicators(category) {
+  const data = loadIndicators();
+  const cats = data.categories || {};
+  const lines = [];
+  if (category) {
+    const norm = s => s.replace(/\s/g, '');
+    const match = Object.keys(cats).find(c => c === category)
+      || Object.keys(cats).find(c => norm(c).includes(norm(category)));
+    if (!match) {
+      die('UNKNOWN', `未知指标类别: ${category}。可用类别：${Object.keys(cats).join(' / ')}`);
+    }
+    lines.push(`=== ${match} (${cats[match].length}) ===`);
+    lines.push(cats[match].join(', '));
+  } else {
+    lines.push('指标类别（再用 list-indicators <类别> 查看该类别下的精确字段名，如 list-indicators 估值）:');
+    for (const [c, arr] of Object.entries(cats)) {
+      lines.push(`  ${c} (${arr.length})`);
+    }
+  }
+  process.stdout.write(lines.join('\n') + '\n');
+  process.exit(0);
+}
+
 // section: 主入口
 
 const IS_MAIN = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
@@ -894,11 +927,12 @@ function runMain() {
 const [cmd, ...args] = process.argv.slice(2);
 
 const USAGE =
-  `wind-mcp-skill (Plan C - 内置参数校验)\n` +
+  `Wind 万得金融数据 CLI（内置参数校验）\n` +
   `访问万得 Wind 金融数据（按数据域分类调用）\n\n` +
   `用法:\n` +
   `  cli.mjs call <server_type> <tool_name> '<params_json>'\n` +
   `  cli.mjs show-tool <server_type> <tool_name>              # 显示工具参数 Schema\n` +
+  `  cli.mjs list-indicators [类别]                           # 列出可用行情指标（indexes 取值）\n` +
   `  cli.mjs open-portal                                # 打开万得开发者中心拿 API Key\n` +
   `  cli.mjs setup-key <KEY> --scope <global|skill>     # 配置 API Key（先问用户存放位置）\n` +
   `  cli.mjs diagnose                                   # 诊断自动更新状态\n\n` +
@@ -910,6 +944,7 @@ const USAGE =
 const commands = {
   call: () => cmdCall(args[0], args[1], args[2]),
   'show-tool': () => cmdShowTool(args[0], args[1]),
+  'list-indicators': () => cmdListIndicators(args[0]),
   'open-portal': () => cmdOpenPortal(),
   'setup-key': () => cmdSetupKey(...args),
   diagnose: () => cmdDiagnose(),

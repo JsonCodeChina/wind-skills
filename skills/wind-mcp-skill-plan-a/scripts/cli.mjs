@@ -6,7 +6,7 @@ import { join, dirname, basename, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 
-const SKILL_VERSION = '1.7.0';
+const SKILL_VERSION = '1.7.0-plan-a';
 
 // 本地 registry: 工具选择可在任何网络调用前失败
 const SERVERS = {
@@ -317,6 +317,9 @@ function getApiKey() {
 // section: 错误码 — message 来自 HTTP / JSON-RPC / 工具内嵌 JSON, 统一映射成稳定 code
 
 const ERROR_PATTERNS = [
+  ['TEMPORARILY_UNAVAILABLE', /temporarily_unavailable/i, '后端偶发不可用。'],
+  ['INVALID_PARAM_VALUE', /invalid_param_value/i, '后端参数值错误。'],
+  ['INVALID_PARAM_NAME', /invalid_param_name/i, '后端参数名错误。'],
   ['QUOTA_ERROR', /单日请求次数超限|daily.*limit|余额不足|请先充值|insufficient.*balance|请求过于频繁|qps.*limit|too.*frequent/i, '额度/限流错误。等待额度刷新、换备用 Key 或充值后原样重试。'],
   ['AUTH_ERROR', /密钥无效|key.*invalid|unauthorized|认证失败|auth.*fail/i, '认证/权限错误。按 Key 机制修复后原样重试。'],
   ['NO_RESULTS', /未获取到数据|"NO_RESULTS"|no\s*results?|not\s*found|empty\s*result/i, '未获取到匹配数据。先在不改变用户意图的前提下调整关键词或参数。'],
