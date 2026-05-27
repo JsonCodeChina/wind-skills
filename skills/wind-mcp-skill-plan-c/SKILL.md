@@ -74,7 +74,7 @@ examples:
    - 选股筛选、领域 NL 工具和 `analytics_data` 使用 `question`
    - `financial_docs` 使用 `query`
    - `economic_data` 使用 `metricIdsStr`
-7. **调用 CLI**：从任意目录用脚本完整路径执行 `node <skill_dir>/scripts/cli.mjs call <server_type> <tool_name> '<params_json>'`。CLI 会自动校验参数——字段名拼写、必填项、日期格式、枚举值和指标名。校验失败会返回 `PARAM_VALIDATION_ERROR`，detail 中包含具体错误和可用选项。
+7. **调用 CLI**：调用前必须先 `cd` 到 skill 目录，即本 `SKILL.md` 所在目录、不是当前项目目录，再用相对路径执行 `node scripts/cli.mjs ...`；call、show-tool、list-indicators、setup-key 都一样。不 `cd` 会找不到脚本。CLI 会自动校验参数：字段名拼写、必填项、日期格式、枚举值和指标名；校验失败返回 `PARAM_VALIDATION_ERROR`，detail 含具体错误和可用选项。
 8. **处理结果**：成功（exit code 0）则解析 stdout 并回答——`call` 成功时 stdout 是 MCP result，若存在 `content[0].text`，优先解析其中的文本或 JSON。失败（exit code 1）则执行 `error.agent_action`。
 
 ### 重试前审计

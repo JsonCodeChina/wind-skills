@@ -75,7 +75,7 @@ examples:
    涉及行业筛选、行业分类或行业对比，且用户未指定分类体系时，默认使用 Wind 行业分类。
 
 6. **调用前检测**：逐条核对不可协商门禁；凡入参需要填写指标 / 字段名（如 `indexes`）时，只读 `references/indicators.md` 的相关类别，逐项核对、逐字复制——每次调用都核对一遍，不复用记忆，不添加用户未请求的指标。
-7. **调用 CLI**：CLI 与工作目录无关，从任意目录用脚本完整路径执行 `node <skill_dir>/scripts/cli.mjs call <server_type> <tool_name> <params_json>`。`<params_json>` 的实际引号 / 转义以已锁定命令格式为准。首次调用前若命令格式尚未锁定，读取 `references/shell-escaping.md` 并用 argv 探针通过后再调用。
+7. **调用 CLI**：调用前必须先 `cd` 到 skill 目录，即本 `SKILL.md` 所在目录、不是当前项目目录，再用相对路径执行 `node scripts/cli.mjs call <server_type> <tool_name> <params_json>`。不 `cd` 会找不到脚本。`<params_json>` 的引号 / 转义以已锁定命令格式为准；首次调用前命令格式未锁定时，先读 `references/shell-escaping.md` 并过 argv 探针。
 8. **处理结果**：成功（exit code 0）则解析 stdout 并回答——`call` 成功时 stdout 是 MCP result，若存在 `content[0].text`，优先解析其中的文本或 JSON。失败（exit code 1）则执行 `error.agent_action`。每次重试前按下方「重试前审计」核对。
 
 ### 重试前审计

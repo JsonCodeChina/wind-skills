@@ -7,6 +7,8 @@
 本文件只处理命令传递问题。只有 `INVALID_PARAMS_JSON` 允许修改 params JSON 写法、
 shell 引号或外层执行器转义；其它错误码回到 `error.agent_action`。
 
+> **路径前提**：下面所有 `node ...` 命令调用前都必须先 `cd` 到 skill 目录，即本 `SKILL.md` 所在目录、不是当前项目目录，再用相对路径执行。不 `cd` 会找不到脚本。
+
 ## 命令格式门禁
 
 首次调用 `scripts/cli.mjs call` 前，必须锁定当前执行路径的 params JSON 写法。

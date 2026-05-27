@@ -320,8 +320,7 @@ params JSON 的 key 必须逐字复制本文件的字段名。不得把用户口
 
 ## 调用示例
 
-以下示例默认在本 skill 目录下执行。优先把命令工作目录设为 `<skill_dir>`，
-再使用 `node scripts/cli.mjs ...`。
+以下示例都要求先 `cd` 到 skill 目录，即本 `SKILL.md` 所在目录、不是当前项目目录，再用相对路径执行 `node scripts/cli.mjs ...`。不 `cd` 会找不到脚本。
 
 ```bash
 node scripts/cli.mjs call stock_data search_stocks '{"question":"筛选沪深市场市值超500亿且连续5日上涨的股票"}'

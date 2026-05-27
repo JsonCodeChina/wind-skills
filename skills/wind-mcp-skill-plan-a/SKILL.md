@@ -70,7 +70,7 @@ examples:
 2. **定标的与 server_type**：识别 A 股、港股、美股、基金、指数、债券、文档主体或宏观指标，按范围表选 `server_type`（A 股 `stock_data`，港美股 `global_stock_data`）。简称或别名可能歧义时先问用户。
 3. **选 tool 并构造参数**：在 `references/tool-contracts-<server_type>.md` 找对应工具，只读其段落、逐字取 params key（守门禁 3/4/5）。NL 字段对应：选股筛选 / 领域 NL / `analytics_data` 用 `question`，`financial_docs` 用 `query`，`economic_data` 用 `metricIdsStr`；行业分类未指定时默认 Wind 行业分类。
 4. **填指标名**：凡需填 `indexes` 等指标名，按下方「指标 → 分片速查」只读对应 `references/indicators-<category>.md`，逐字复制、每次核对、不复用记忆、不加用户未请求的指标。
-5. **调用 CLI**：锁定命令格式后从任意目录执行 `node <skill_dir>/scripts/cli.mjs call <server_type> <tool_name> <params_json>`；首次或命中 `INVALID_PARAMS_JSON` 时先读 `references/shell-escaping.md` 过 argv 探针。
+5. **调用 CLI**：调用前必须先 `cd` 到 skill 目录，即本 `SKILL.md` 所在目录、不是当前项目目录，再用相对路径执行 `node scripts/cli.mjs call <server_type> <tool_name> <params_json>`。不 `cd` 会找不到脚本。首次或命中 `INVALID_PARAMS_JSON` 时先读 `references/shell-escaping.md` 过 argv 探针。
 6. **处理结果**：成功（exit 0）解析 stdout 回答（`call` 成功时优先解析 `content[0].text` 里的文本或 JSON）；失败（exit 1）按下方「重试前审计」核对后执行 `error.agent_action`。
 
 ### 重试前审计
