@@ -13,7 +13,6 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = process.argv[2] ? resolve(process.argv[2]) : dirname(SCRIPT_DIR);
 const SKILL_SCRIPTS_DIR = join(SKILL_DIR, 'scripts');
 const LOCK_FILE = join(SKILL_SCRIPTS_DIR, 'update.lock');
-const LAST_USED_FILE = join(SKILL_SCRIPTS_DIR, 'last-used.json');
 const SKILL_NAME = 'wind-mcp-skill';
 const LOCK_STALE_MS = 30 * 60 * 1000;
 const QUIET_MS = 10 * 1000;
@@ -63,8 +62,36 @@ function isGiteeSource(entry) {
   return values.some(value => value.includes('gitee'));
 }
 
+function sourceUrl(entry) {
+  if (!entry) return null;
+  if (entry.sourceUrl) return entry.sourceUrl;
+  if (entry.sourceType === 'github' && /^[^/\s]+\/[^/\s]+$/.test(entry.source || '')) {
+    return `https://github.com/${entry.source}.git`;
+  }
+  return entry.source || null;
+}
+
+function remoteHead(entry) {
+  const source = sourceUrl(entry);
+  if (!source) return null;
+  try {
+    const result = spawnSync('git', ['ls-remote', source, 'HEAD'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      env: updateEnv(),
+      timeout: 60 * 1000,
+    });
+    if (result.status !== 0) return null;
+    const head = (result.stdout || '').trim().split(/\s+/)[0];
+    return /^[0-9a-f]{40}$/i.test(head) ? head : null;
+  } catch {
+    return null;
+  }
+}
+
 function addCommand(entry) {
-  const source = entry?.sourceUrl || entry?.source;
+  const source = sourceUrl(entry);
   if (!source) return null;
   const command = ['npx', 'skills', 'add', source, '--skill', SKILL_NAME, '-y'];
   if (updateScope() === 'global') command.push('-g');
@@ -106,7 +133,7 @@ function updateEnv() {
 }
 
 function updateStateFile() {
-  return join(SKILL_DIR, 'update-state.json');
+  return join(SKILL_SCRIPTS_DIR, 'update-state.json');
 }
 
 function todayKey() {
@@ -125,14 +152,17 @@ function readState() {
 
 function alreadyUpdatedToday() {
   const state = readState();
-  return state && state.date === todayKey() && state.status === 'success';
+  if (!state || state.date !== todayKey() || state.status !== 'success') return false;
+  const entry = readLockEntry();
+  if (!entry || isGiteeSource(entry)) return true;
+  const head = remoteHead(entry);
+  return !head || head === state.lastAppliedRemoteHead;
 }
 
 function lastUsedAt() {
   try {
-    if (!existsSync(LAST_USED_FILE)) return 0;
-    const data = JSON.parse(readFileSync(LAST_USED_FILE, 'utf8'));
-    const ts = new Date(data.at).getTime();
+    const state = readState();
+    const ts = new Date(state?.lastUsedAt).getTime();
     return Number.isFinite(ts) ? ts : 0;
   } catch {
     return 0;
@@ -142,6 +172,16 @@ function lastUsedAt() {
 function quietLongEnough() {
   const last = lastUsedAt();
   return last === 0 || Date.now() - last >= QUIET_MS;
+}
+
+function clearLastUsed() {
+  try {
+    const state = readState();
+    if (!state) return;
+    delete state.lastUsedAt;
+    delete state.lastUsedPid;
+    writeFileSync(updateStateFile(), JSON.stringify(state, null, 2) + '\n');
+  } catch {}
 }
 
 function acquireLock() {
@@ -191,7 +231,7 @@ function hashSkillDir() {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = join(dir, entry.name);
       const rel = full.slice(SKILL_DIR.length + 1).replace(/\\/g, '/');
-      if (rel === 'update-state.json' || rel === 'config.json' || rel === 'scripts/last-used.json') continue;
+      if (rel === 'config.json' || rel === 'scripts/update-state.json') continue;
       if (entry.isDirectory()) walk(full);
       else if (entry.isFile()) files.push({ full, rel });
     }
@@ -207,13 +247,11 @@ function hashSkillDir() {
   return hash.digest('hex');
 }
 
-function runUpdate() {
-  const { command, method, sourceType } = commandForUpdate();
+function runSkillCommand(command, method) {
   const cwd = updateScope() === 'global' ? homedir() : projectRoot();
   const isWin = process.platform === 'win32';
   const bin = isWin ? 'cmd.exe' : 'npx';
   const args = isWin ? ['/d', '/s', '/c', command.join(' ')] : command.slice(1);
-  const beforeHash = hashSkillDir();
   const result = spawnSync(bin, args, {
     encoding: 'utf8',
     windowsHide: true,
@@ -222,22 +260,62 @@ function runUpdate() {
     cwd,
     timeout: 10 * 60 * 1000,
   });
-  const afterHash = hashSkillDir();
   const output = `${result.stdout || ''}${result.stderr || ''}`.trim();
   const failedByOutput = /failed to (update|add|install)/i.test(output);
+  return {
+    command,
+    method,
+    result,
+    output,
+    ok: result.status === 0 && !failedByOutput,
+    error: result.error ? String(result.error.message || result.error) : (failedByOutput ? `npx skills ${method} reported failure` : null),
+  };
+}
+
+function runUpdate() {
+  const entry = readLockEntry();
+  const { command, method, sourceType } = commandForUpdate();
+  const state = readState();
+  const beforeRemoteHead = remoteHead(entry);
+  const remoteChanged = Boolean(beforeRemoteHead && beforeRemoteHead !== state?.lastAppliedRemoteHead);
+  const beforeHash = hashSkillDir();
+  let attempt = runSkillCommand(command, method);
+  let usedFallback = false;
+  let fallbackReason = null;
+
+  if ((!attempt.ok || (attempt.ok && remoteChanged && beforeHash === hashSkillDir())) && method !== 'add') {
+    const fallbackCommand = addCommand(entry);
+    if (fallbackCommand) {
+      fallbackReason = attempt.ok ? 'remote changed but update did not change local files' : 'update failed';
+      const fallback = runSkillCommand(fallbackCommand, 'add');
+      usedFallback = true;
+      attempt = {
+        ...fallback,
+        output: [attempt.output, fallback.output].filter(Boolean).join('\n\n--- fallback: npx skills add ---\n\n'),
+        error: fallback.ok ? null : fallback.error || attempt.error,
+      };
+    }
+  }
+
+  const afterHash = hashSkillDir();
 
   writeState({
-    status: result.status === 0 && !failedByOutput ? 'success' : 'failed',
+    status: attempt.ok ? 'success' : 'failed',
     finishedAt: new Date().toISOString(),
-    exitCode: result.status,
-    method,
+    exitCode: attempt.result.status,
+    method: attempt.method,
+    usedFallback,
+    fallbackReason,
     sourceType,
-    command: command.join(' '),
-    error: result.error ? String(result.error.message || result.error) : (failedByOutput ? `npx skills ${method} reported failure` : null),
+    command: attempt.command.join(' '),
+    error: attempt.error,
+    remoteHead: beforeRemoteHead,
+    remoteChanged,
+    lastAppliedRemoteHead: attempt.ok ? (beforeRemoteHead || state?.lastAppliedRemoteHead || null) : (state?.lastAppliedRemoteHead || null),
     changed: beforeHash !== afterHash,
     beforeHash,
     afterHash,
-    output: output.slice(-1000),
+    output: attempt.output.slice(-2000),
   });
 }
 
@@ -249,6 +327,7 @@ async function main() {
     if (alreadyUpdatedToday()) return;
     await sleep(QUIET_MS);
     if (!quietLongEnough()) {
+      clearLastUsed();
       writeState({
         status: 'deferred',
         finishedAt: new Date().toISOString(),
@@ -258,6 +337,7 @@ async function main() {
       });
       return;
     }
+    clearLastUsed();
     runUpdate();
   } finally {
     releaseLock(fd);

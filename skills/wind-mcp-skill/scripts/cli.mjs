@@ -84,29 +84,47 @@ function updateScope() {
 }
 
 function updateStateFile() {
-  return join(SKILL_DIR, 'update-state.json');
+  return join(SKILL_DIR, 'scripts', 'update-state.json');
 }
 
-function lastUsedFile() {
-  return join(SKILL_DIR, 'scripts', 'last-used.json');
+function readUpdateState() {
+  try {
+    const stateFile = updateStateFile();
+    if (!existsSync(stateFile)) return null;
+    return JSON.parse(readFileSync(stateFile, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function writeUpdateStatePatch(patch) {
+  const stateFile = updateStateFile();
+  mkdirSync(dirname(stateFile), { recursive: true });
+  const state = { ...(readUpdateState() || {}), ...patch };
+  writeFileSync(stateFile, JSON.stringify(state, null, 2) + '\n');
 }
 
 function alreadyUpdatedToday() {
   try {
-    const stateFile = updateStateFile();
-    if (!existsSync(stateFile)) return false;
-    const state = JSON.parse(readFileSync(stateFile, 'utf8'));
+    const state = readUpdateState();
     return state && state.date === todayKey() && state.status === 'success';
   } catch {
     return false;
   }
 }
 
+function markSkillUsed() {
+  writeUpdateStatePatch({
+    lastUsedAt: new Date().toISOString(),
+    lastUsedPid: process.pid,
+  });
+}
+
 function triggerUpdateCheck() {
   try {
     if (!existsSync(UPDATE_CHECK_PATH)) return;
     if (alreadyUpdatedToday()) return;
-    writeFileSync(lastUsedFile(), JSON.stringify({ at: new Date().toISOString(), pid: process.pid }) + '\n');
+    markSkillUsed();
     const tmpDir = join(homedir(), '.cache', 'wind-aifinmarket');
     mkdirSync(tmpDir, { recursive: true });
     const runnerPath = join(tmpDir, `update-check-${SKILL_NAME}-${process.pid}.mjs`);
