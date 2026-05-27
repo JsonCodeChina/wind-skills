@@ -19,8 +19,13 @@ const SKILL_DIR = skillDirArg ? resolve(skillDirArg) : dirname(SCRIPT_DIR);
 const SKILL_SCRIPTS_DIR = join(SKILL_DIR, 'scripts');
 const LOCK_FILE = join(SKILL_SCRIPTS_DIR, 'update.lock');
 const SKILL_NAME = 'wind-alice';
+const DEFAULT_SOURCES = [
+  'Wind-Information-Co-Ltd/wind-skills',
+  'git@gitee.com:wind_info/wind-skills.git',
+];
 const LOCK_STALE_MS = 30 * 60 * 1000;
 const QUIET_MS = 10 * 1000;
+const MAX_WAIT_MS = 10 * 60 * 1000;
 
 function normalizePath(value) {
   const normalized = resolve(value).replace(/\\/g, '/');
@@ -37,27 +42,69 @@ function projectRoot() {
   return resolve(SKILL_DIR, '..', '..', '..');
 }
 
+function uniquePaths(paths) {
+  const seen = new Set();
+  const result = [];
+  for (const path of paths.filter(Boolean).map(value => resolve(value))) {
+    const key = normalizePath(path);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(path);
+  }
+  return result;
+}
+
 function updateCommand() {
   const command = ['npx', 'skills', 'update', SKILL_NAME, '-y'];
   if (updateScope() === 'global') command.push('-g');
   return command;
 }
 
-function lockFile() {
+function projectLockCandidates() {
+  const roots = [projectRoot(), process.cwd(), process.env.INIT_CWD];
+  let current = resolve(SKILL_DIR);
+  while (true) {
+    roots.push(current);
+    const parent = dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return uniquePaths(roots.map(root => join(root, 'skills-lock.json')));
+}
+
+function globalLockCandidates() {
+  const xdg = process.env.XDG_STATE_HOME;
+  return uniquePaths([
+    xdg ? join(xdg, 'skills', '.skill-lock.json') : null,
+    join(homedir(), '.agents', '.skill-lock.json'),
+  ]);
+}
+
+function lockFileCandidates() {
+  const globalCandidates = globalLockCandidates();
+  const projectCandidates = projectLockCandidates();
   return updateScope() === 'global'
-    ? join(homedir(), '.agents', '.skill-lock.json')
-    : join(projectRoot(), 'skills-lock.json');
+    ? uniquePaths([...globalCandidates, ...projectCandidates])
+    : uniquePaths([...projectCandidates, ...globalCandidates]);
+}
+
+function readLockInfo() {
+  const candidates = lockFileCandidates();
+  let firstExistingFile = null;
+  for (const file of candidates) {
+    try {
+      if (!existsSync(file)) continue;
+      firstExistingFile ||= file;
+      const data = JSON.parse(readFileSync(file, 'utf8'));
+      const entry = data?.skills?.[SKILL_NAME] || null;
+      if (entry) return { file, entry, candidates };
+    } catch {}
+  }
+  return { file: firstExistingFile || candidates[0] || null, entry: null, candidates };
 }
 
 function readLockEntry() {
-  try {
-    const file = lockFile();
-    if (!existsSync(file)) return null;
-    const data = JSON.parse(readFileSync(file, 'utf8'));
-    return data?.skills?.[SKILL_NAME] || null;
-  } catch {
-    return null;
-  }
+  return readLockInfo().entry;
 }
 
 function isGiteeSource(entry) {
@@ -72,6 +119,9 @@ function sourceUrl(entry) {
   if (entry.sourceUrl) return entry.sourceUrl;
   if (entry.sourceType === 'github' && /^[^/\s]+\/[^/\s]+$/.test(entry.source || '')) {
     return `https://github.com/${entry.source}.git`;
+  }
+  if ((entry.sourceType === 'gitee' || entry.sourceType === 'git') && /^[^/\s]+\/[^/\s]+$/.test(entry.source || '')) {
+    return `https://gitee.com/${entry.source}.git`;
   }
   return entry.source || null;
 }
@@ -95,12 +145,30 @@ function remoteHead(entry) {
   }
 }
 
-function addCommand(entry) {
-  const source = sourceUrl(entry);
+function addCommandForSource(source) {
   if (!source) return null;
   const command = ['npx', 'skills', 'add', source, '--skill', SKILL_NAME, '-y'];
   if (updateScope() === 'global') command.push('-g');
   return command;
+}
+
+function addCommand(entry) {
+  return addCommandForSource(sourceUrl(entry));
+}
+
+function fallbackAddCommands(entry) {
+  const sources = [sourceUrl(entry), ...DEFAULT_SOURCES];
+  const seen = new Set();
+  return sources
+    .filter(Boolean)
+    .filter(source => {
+      const key = String(source).toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map(addCommandForSource)
+    .filter(Boolean);
 }
 
 function commandForUpdate() {
@@ -226,13 +294,27 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+async function waitForQuietWindow() {
+  const startedAt = Date.now();
+
+  while (!quietLongEnough()) {
+    if (Date.now() - startedAt >= MAX_WAIT_MS) return false;
+    await sleep(QUIET_MS);
+  }
+
+  return true;
+}
+
 function writeState(patch) {
   const now = new Date();
   const { command, method, sourceType } = commandForUpdate();
+  const lock = readLockInfo();
   const stateFile = updateStateFile();
   const state = {
     date: todayKey(),
     scope: updateScope(),
+    lockFile: lock.file,
+    lockFound: Boolean(lock.entry),
     command: command.join(' '),
     method,
     sourceType,
@@ -280,7 +362,7 @@ function runSkillCommand(command, method) {
     timeout: 10 * 60 * 1000,
   });
   const output = `${result.stdout || ''}${result.stderr || ''}`.trim();
-  const failedByOutput = /failed to (update|add|install)/i.test(output);
+  const failedByOutput = /failed to (update|add|install)|No installed skills found matching/i.test(output);
   return {
     command,
     method,
@@ -303,16 +385,23 @@ function runUpdate() {
   let fallbackReason = null;
 
   if ((!attempt.ok || (attempt.ok && remoteChanged && beforeHash === hashSkillDir())) && method !== 'add') {
-    const fallbackCommand = addCommand(entry);
-    if (fallbackCommand) {
-      fallbackReason = attempt.ok ? 'remote changed but update did not change local files' : 'update failed';
-      const fallback = runSkillCommand(fallbackCommand, 'add');
+    const fallbackCommands = fallbackAddCommands(entry);
+    if (fallbackCommands.length > 0) {
+      fallbackReason = entry
+        ? (attempt.ok ? 'remote changed but update did not change local files' : 'update failed')
+        : 'lock entry missing or update did not find installed skill';
+      const outputs = [attempt.output].filter(Boolean);
       usedFallback = true;
-      attempt = {
-        ...fallback,
-        output: [attempt.output, fallback.output].filter(Boolean).join('\n\n--- fallback: npx skills add ---\n\n'),
-        error: fallback.ok ? null : fallback.error || attempt.error,
-      };
+      for (const fallbackCommand of fallbackCommands) {
+        const fallback = runSkillCommand(fallbackCommand, 'add');
+        outputs.push(fallback.output);
+        attempt = {
+          ...fallback,
+          output: outputs.filter(Boolean).join('\n\n--- fallback: npx skills add ---\n\n'),
+          error: fallback.ok ? null : fallback.error || attempt.error,
+        };
+        if (fallback.ok) break;
+      }
     }
   }
 
@@ -344,19 +433,23 @@ async function main() {
   if (fd === null) return;
   try {
     if (alreadyUpdatedToday()) return;
-    await sleep(QUIET_MS);
-    if (!quietLongEnough()) {
-      clearLastUsed();
+    if (!(await waitForQuietWindow())) {
       writeState({
         status: 'deferred',
         finishedAt: new Date().toISOString(),
         exitCode: null,
-        error: 'skill was used recently; update deferred',
+        error: 'skill kept being used; update deferred after max wait',
         changed: false,
       });
       return;
     }
-    clearLastUsed();
+
+    writeState({
+      status: 'updating',
+      startedAt: new Date().toISOString(),
+      exitCode: null,
+      changed: false,
+    });
     runUpdate();
   } finally {
     releaseLock(fd);
@@ -366,7 +459,17 @@ async function main() {
 const IS_MAIN = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (runUpdateMode) {
-  main().catch(() => {});
+  main().catch((err) => {
+    try {
+      writeState({
+        status: 'failed',
+        finishedAt: new Date().toISOString(),
+        exitCode: null,
+        error: String(err?.message || err),
+        changed: false,
+      });
+    } catch {}
+  });
 } else if (IS_MAIN) {
   spawnUpdateCheck();
 }

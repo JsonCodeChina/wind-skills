@@ -1,21 +1,50 @@
 #!/usr/bin/env node
-// Daily background updater for wind-mcp-skill.
+ // Daily background updater for wind-mcp-skill.
 // The CLI starts this script detached; failures are recorded but never block data calls.
 
-import { existsSync, mkdirSync, openSync, closeSync, unlinkSync, writeFileSync, readFileSync, statSync, readdirSync } from 'node:fs';
-import { dirname, basename, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
-import { homedir } from 'node:os';
-import { createHash } from 'node:crypto';
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import {
+  createHash
+} from 'node:crypto';
+import {
+  spawnSync
+} from 'node:child_process';
+import {
+  homedir
+} from 'node:os';
+import {
+  basename,
+  dirname,
+  join,
+  resolve
+} from 'node:path';
+import {
+  fileURLToPath
+} from 'node:url';
 
-const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
+const SCRIPT_DIR = dirname(fileURLToPath(
+  import.meta.url));
 const SKILL_DIR = process.argv[2] ? resolve(process.argv[2]) : dirname(SCRIPT_DIR);
 const SKILL_SCRIPTS_DIR = join(SKILL_DIR, 'scripts');
 const LOCK_FILE = join(SKILL_SCRIPTS_DIR, 'update.lock');
 const SKILL_NAME = basename(SKILL_DIR);
+const DEFAULT_SOURCES = [
+  'Wind-Information-Co-Ltd/wind-skills',
+  'git@gitee.com:wind_info/wind-skills.git',
+];
 const LOCK_STALE_MS = 30 * 60 * 1000;
 const QUIET_MS = 10 * 1000;
+const MAX_WAIT_MS = 10 * 60 * 1000;
 
 function normalizePath(value) {
   const normalized = resolve(value).replace(/\\/g, '/');
@@ -25,11 +54,25 @@ function normalizePath(value) {
 function updateScope() {
   const globalRoot = normalizePath(join(homedir(), '.agents', 'skills'));
   const skillDir = normalizePath(SKILL_DIR);
-  return skillDir.startsWith(globalRoot + '/') ? 'global' : 'project';
+  return skillDir.startsWith(`${globalRoot}/`) ? 'global' : 'project';
 }
 
 function projectRoot() {
   return resolve(SKILL_DIR, '..', '..', '..');
+}
+
+function uniquePaths(paths) {
+  const seen = new Set();
+  const result = [];
+
+  for (const path of paths.filter(Boolean).map((value) => resolve(value))) {
+    const key = normalizePath(path);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(path);
+  }
+
+  return result;
 }
 
 function updateCommand() {
@@ -38,50 +81,114 @@ function updateCommand() {
   return command;
 }
 
-function lockFile() {
-  return updateScope() === 'global'
-    ? join(homedir(), '.agents', '.skill-lock.json')
-    : join(projectRoot(), 'skills-lock.json');
+function projectLockCandidates() {
+  const roots = [projectRoot(), process.cwd(), process.env.INIT_CWD];
+  let current = resolve(SKILL_DIR);
+
+  while (true) {
+    roots.push(current);
+    const parent = dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+
+  return uniquePaths(
+    roots.filter(Boolean).map((root) => join(root, 'skills-lock.json')),
+  );
+}
+
+function globalLockCandidates() {
+  const xdg = process.env.XDG_STATE_HOME;
+  return uniquePaths([
+    xdg ? join(xdg, 'skills', '.skill-lock.json') : null,
+    join(homedir(), '.agents', '.skill-lock.json'),
+  ]);
+}
+
+function lockFileCandidates() {
+  const globalCandidates = globalLockCandidates();
+  const projectCandidates = projectLockCandidates();
+
+  return updateScope() === 'global' ?
+    uniquePaths([...globalCandidates, ...projectCandidates]) :
+    uniquePaths([...projectCandidates, ...globalCandidates]);
+}
+
+function readLockInfo() {
+  const candidates = lockFileCandidates();
+  let firstExistingFile = null;
+
+  for (const file of candidates) {
+    try {
+      if (!existsSync(file)) continue;
+      firstExistingFile ||= file;
+
+      const data = JSON.parse(readFileSync(file, 'utf8'));
+      const entry = data?.skills?.[SKILL_NAME] || null;
+      if (entry) return {
+        file,
+        entry,
+        candidates
+      };
+    } catch {}
+  }
+
+  return {
+    file: firstExistingFile || candidates[0] || null,
+    entry: null,
+    candidates,
+  };
 }
 
 function readLockEntry() {
-  try {
-    const file = lockFile();
-    if (!existsSync(file)) return null;
-    const data = JSON.parse(readFileSync(file, 'utf8'));
-    return data?.skills?.[SKILL_NAME] || null;
-  } catch {
-    return null;
-  }
+  return readLockInfo().entry;
 }
 
 function isGiteeSource(entry) {
   const values = [entry?.sourceType, entry?.source, entry?.sourceUrl]
     .filter(Boolean)
-    .map(value => String(value).toLowerCase());
-  return values.some(value => value.includes('gitee'));
+    .map((value) => String(value).toLowerCase());
+
+  return values.some((value) => value.includes('gitee'));
 }
 
 function sourceUrl(entry) {
   if (!entry) return null;
   if (entry.sourceUrl) return entry.sourceUrl;
+
   if (entry.sourceType === 'github' && /^[^/\s]+\/[^/\s]+$/.test(entry.source || '')) {
     return `https://github.com/${entry.source}.git`;
   }
+
+  if (
+    (entry.sourceType === 'gitee' || entry.sourceType === 'git') &&
+    /^[^/\s]+\/[^/\s]+$/.test(entry.source || '')
+  ) {
+    return `https://gitee.com/${entry.source}.git`;
+  }
+
   return entry.source || null;
+}
+
+function updateEnv() {
+  return {
+    ...process.env
+  };
 }
 
 function remoteHead(entry) {
   const source = sourceUrl(entry);
   if (!source) return null;
+
   try {
     const result = spawnSync('git', ['ls-remote', source, 'HEAD'], {
       encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
       env: updateEnv(),
+      stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 60 * 1000,
+      windowsHide: true,
     });
+
     if (result.status !== 0) return null;
     const head = (result.stdout || '').trim().split(/\s+/)[0];
     return /^[0-9a-f]{40}$/i.test(head) ? head : null;
@@ -90,25 +197,53 @@ function remoteHead(entry) {
   }
 }
 
-function addCommand(entry) {
-  const source = sourceUrl(entry);
+function addCommandForSource(source) {
   if (!source) return null;
+
   const command = ['npx', 'skills', 'add', source, '--skill', SKILL_NAME, '-y'];
   if (updateScope() === 'global') command.push('-g');
   return command;
 }
 
-function commandForUpdate() {
-  const entry = readLockEntry();
-  if (isGiteeSource(entry)) {
-    const command = addCommand(entry);
-    if (command) return { command, method: 'add', sourceType: entry?.sourceType || null };
-  }
-  return { command: updateCommand(), method: 'update', sourceType: entry?.sourceType || null };
+function addCommand(entry) {
+  return addCommandForSource(sourceUrl(entry));
 }
 
-function updateEnv() {
-  return { ...process.env };
+function fallbackAddCommands(entry) {
+  const sources = [sourceUrl(entry), ...DEFAULT_SOURCES];
+  const seen = new Set();
+
+  return sources
+    .filter(Boolean)
+    .filter((source) => {
+      const key = String(source).toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map(addCommandForSource)
+    .filter(Boolean);
+}
+
+function commandForUpdate() {
+  const entry = readLockEntry();
+
+  if (isGiteeSource(entry)) {
+    const command = addCommand(entry);
+    if (command) {
+      return {
+        command,
+        method: 'add',
+        sourceType: entry?.sourceType || null,
+      };
+    }
+  }
+
+  return {
+    command: updateCommand(),
+    method: 'update',
+    sourceType: entry?.sourceType || null,
+  };
 }
 
 function updateStateFile() {
@@ -132,8 +267,10 @@ function readState() {
 function alreadyUpdatedToday() {
   const state = readState();
   if (!state || state.date !== todayKey() || state.status !== 'success') return false;
+
   const entry = readLockEntry();
   if (!entry || isGiteeSource(entry)) return true;
+
   const head = remoteHead(entry);
   return !head || head === state.lastAppliedRemoteHead;
 }
@@ -141,8 +278,8 @@ function alreadyUpdatedToday() {
 function lastUsedAt() {
   try {
     const state = readState();
-    const ts = new Date(state?.lastUsedAt).getTime();
-    return Number.isFinite(ts) ? ts : 0;
+    const timestamp = new Date(state?.lastUsedAt).getTime();
+    return Number.isFinite(timestamp) ? timestamp : 0;
   } catch {
     return 0;
   }
@@ -153,76 +290,107 @@ function quietLongEnough() {
   return last === 0 || Date.now() - last >= QUIET_MS;
 }
 
-function clearLastUsed() {
-  try {
-    const state = readState();
-    if (!state) return;
-    delete state.lastUsedAt;
-    delete state.lastUsedPid;
-    writeFileSync(updateStateFile(), JSON.stringify(state, null, 2) + '\n');
-  } catch {}
+function sleep(ms) {
+  return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
+}
+
+async function waitForQuietWindow() {
+  const startedAt = Date.now();
+
+  while (!quietLongEnough()) {
+    if (Date.now() - startedAt >= MAX_WAIT_MS) return false;
+    await sleep(QUIET_MS);
+  }
+
+  return true;
 }
 
 function acquireLock() {
   try {
-    if (!existsSync(SKILL_SCRIPTS_DIR)) mkdirSync(SKILL_SCRIPTS_DIR, { recursive: true });
+    if (!existsSync(SKILL_SCRIPTS_DIR)) mkdirSync(SKILL_SCRIPTS_DIR, {
+      recursive: true
+    });
+
     try {
       const st = statSync(LOCK_FILE);
       if (Date.now() - st.mtimeMs > LOCK_STALE_MS) unlinkSync(LOCK_FILE);
     } catch {}
-    const fd = openSync(LOCK_FILE, 'wx');
-    return fd;
+
+    return openSync(LOCK_FILE, 'wx');
   } catch {
     return null;
   }
 }
 
 function releaseLock(fd) {
-  try { if (fd !== null) closeSync(fd); } catch {}
-  try { unlinkSync(LOCK_FILE); } catch {}
-}
+  try {
+    if (fd !== null) closeSync(fd);
+  } catch {}
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  try {
+    unlinkSync(LOCK_FILE);
+  } catch {}
 }
 
 function writeState(patch) {
-  const now = new Date();
-  const { command, method, sourceType } = commandForUpdate();
+  const {
+    command,
+    method,
+    sourceType
+  } = commandForUpdate();
+  const lock = readLockInfo();
   const stateFile = updateStateFile();
   const state = {
     date: todayKey(),
     scope: updateScope(),
+    lockFile: lock.file,
+    lockFound: Boolean(lock.entry),
     command: command.join(' '),
     method,
     sourceType,
-    updatedAt: now.toISOString(),
+    updatedAt: new Date().toISOString(),
     ...patch,
   };
-  mkdirSync(dirname(stateFile), { recursive: true });
-  writeFileSync(stateFile, JSON.stringify(state, null, 2) + '\n');
+
+  mkdirSync(dirname(stateFile), {
+    recursive: true
+  });
+  writeFileSync(stateFile, `${JSON.stringify(state, null, 2)}\n`);
 }
 
 function hashSkillDir() {
   const hash = createHash('sha256');
   const files = [];
+
   function walk(dir) {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    for (const entry of readdirSync(dir, {
+        withFileTypes: true
+      })) {
       const full = join(dir, entry.name);
       const rel = full.slice(SKILL_DIR.length + 1).replace(/\\/g, '/');
+
       if (rel === 'config.json' || rel === 'scripts/update-state.json') continue;
-      if (entry.isDirectory()) walk(full);
-      else if (entry.isFile()) files.push({ full, rel });
+      if (entry.isDirectory()) {
+        walk(full);
+      } else if (entry.isFile()) {
+        files.push({
+          full,
+          rel
+        });
+      }
     }
   }
+
   walk(SKILL_DIR);
   files.sort((a, b) => a.rel.localeCompare(b.rel));
+
   for (const file of files) {
     hash.update(file.rel);
     hash.update('\0');
     hash.update(readFileSync(file.full));
     hash.update('\0');
   }
+
   return hash.digest('hex');
 }
 
@@ -232,28 +400,38 @@ function runSkillCommand(command, method) {
   const bin = isWin ? 'cmd.exe' : 'npx';
   const args = isWin ? ['/d', '/s', '/c', command.join(' ')] : command.slice(1);
   const result = spawnSync(bin, args, {
-    encoding: 'utf8',
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env: updateEnv(),
     cwd,
+    encoding: 'utf8',
+    env: updateEnv(),
+    stdio: ['ignore', 'pipe', 'pipe'],
     timeout: 10 * 60 * 1000,
+    windowsHide: true,
   });
   const output = `${result.stdout || ''}${result.stderr || ''}`.trim();
-  const failedByOutput = /failed to (update|add|install)/i.test(output);
+  const failedByOutput =
+    /failed to (update|add|install)|No installed skills found matching/i.test(output);
+
   return {
     command,
     method,
     result,
     output,
     ok: result.status === 0 && !failedByOutput,
-    error: result.error ? String(result.error.message || result.error) : (failedByOutput ? `npx skills ${method} reported failure` : null),
+    error: result.error ?
+      String(result.error.message || result.error) :
+      failedByOutput ?
+      `npx skills ${method} reported failure` :
+      null,
   };
 }
 
 function runUpdate() {
   const entry = readLockEntry();
-  const { command, method, sourceType } = commandForUpdate();
+  const {
+    command,
+    method,
+    sourceType
+  } = commandForUpdate();
   const state = readState();
   const beforeRemoteHead = remoteHead(entry);
   const remoteChanged = Boolean(beforeRemoteHead && beforeRemoteHead !== state?.lastAppliedRemoteHead);
@@ -263,16 +441,27 @@ function runUpdate() {
   let fallbackReason = null;
 
   if ((!attempt.ok || (attempt.ok && remoteChanged && beforeHash === hashSkillDir())) && method !== 'add') {
-    const fallbackCommand = addCommand(entry);
-    if (fallbackCommand) {
-      fallbackReason = attempt.ok ? 'remote changed but update did not change local files' : 'update failed';
-      const fallback = runSkillCommand(fallbackCommand, 'add');
+    const fallbackCommands = fallbackAddCommands(entry);
+
+    if (fallbackCommands.length > 0) {
+      fallbackReason = entry ?
+        attempt.ok ?
+        'remote changed but update did not change local files' :
+        'update failed' :
+        'lock entry missing or update did not find installed skill';
+      const outputs = [attempt.output].filter(Boolean);
       usedFallback = true;
-      attempt = {
-        ...fallback,
-        output: [attempt.output, fallback.output].filter(Boolean).join('\n\n--- fallback: npx skills add ---\n\n'),
-        error: fallback.ok ? null : fallback.error || attempt.error,
-      };
+
+      for (const fallbackCommand of fallbackCommands) {
+        const fallback = runSkillCommand(fallbackCommand, 'add');
+        outputs.push(fallback.output);
+        attempt = {
+          ...fallback,
+          output: outputs.filter(Boolean).join('\n\n--- fallback: npx skills add ---\n\n'),
+          error: fallback.ok ? null : fallback.error || attempt.error,
+        };
+        if (fallback.ok) break;
+      }
     }
   }
 
@@ -290,7 +479,9 @@ function runUpdate() {
     error: attempt.error,
     remoteHead: beforeRemoteHead,
     remoteChanged,
-    lastAppliedRemoteHead: attempt.ok ? (beforeRemoteHead || state?.lastAppliedRemoteHead || null) : (state?.lastAppliedRemoteHead || null),
+    lastAppliedRemoteHead: attempt.ok ?
+      beforeRemoteHead || state?.lastAppliedRemoteHead || null :
+      state?.lastAppliedRemoteHead || null,
     changed: beforeHash !== afterHash,
     beforeHash,
     afterHash,
@@ -300,27 +491,44 @@ function runUpdate() {
 
 async function main() {
   if (alreadyUpdatedToday()) return;
+
   const fd = acquireLock();
   if (fd === null) return;
+
   try {
     if (alreadyUpdatedToday()) return;
-    await sleep(QUIET_MS);
-    if (!quietLongEnough()) {
-      clearLastUsed();
+
+    if (!(await waitForQuietWindow())) {
       writeState({
         status: 'deferred',
         finishedAt: new Date().toISOString(),
         exitCode: null,
-        error: 'skill was used recently; update deferred',
+        error: 'skill kept being used; update deferred after max wait',
         changed: false,
       });
       return;
     }
-    clearLastUsed();
+
+    writeState({
+      status: 'updating',
+      startedAt: new Date().toISOString(),
+      exitCode: null,
+      changed: false,
+    });
     runUpdate();
   } finally {
     releaseLock(fd);
   }
 }
 
-main().catch(() => {});
+main().catch((err) => {
+  try {
+    writeState({
+      status: 'failed',
+      finishedAt: new Date().toISOString(),
+      exitCode: null,
+      error: String(err?.message || err),
+      changed: false,
+    });
+  } catch {}
+});
