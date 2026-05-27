@@ -69,7 +69,7 @@ function projectLockCandidates() {
     if (parent === current) break;
     current = parent;
   }
-  return uniquePaths(roots.map(root => join(root, 'skills-lock.json')));
+  return uniquePaths(roots.filter(Boolean).map(root => join(root, 'skills-lock.json')));
 }
 
 function globalLockCandidates() {

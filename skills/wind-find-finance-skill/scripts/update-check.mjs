@@ -12,7 +12,9 @@ import { createHash } from 'node:crypto';
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const RUN_UPDATE_ARG = '--run-update';
 const runUpdateMode = process.argv.includes(RUN_UPDATE_ARG);
-const skillDirArg = process.argv.find(arg => arg !== RUN_UPDATE_ARG && arg !== process.argv[0] && arg !== process.argv[1]);
+const skillDirArg = runUpdateMode
+  ? process.argv.find(arg => arg !== RUN_UPDATE_ARG && arg !== process.argv[0] && arg !== process.argv[1])
+  : null;
 const SKILL_DIR = skillDirArg ? resolve(skillDirArg) : dirname(SCRIPT_DIR);
 const SKILL_SCRIPTS_DIR = join(SKILL_DIR, 'scripts');
 const LOCK_FILE = join(SKILL_SCRIPTS_DIR, 'update.lock');
@@ -67,7 +69,7 @@ function projectLockCandidates() {
     if (parent === current) break;
     current = parent;
   }
-  return uniquePaths(roots.map(root => join(root, 'skills-lock.json')));
+  return uniquePaths(roots.filter(Boolean).map(root => join(root, 'skills-lock.json')));
 }
 
 function globalLockCandidates() {
