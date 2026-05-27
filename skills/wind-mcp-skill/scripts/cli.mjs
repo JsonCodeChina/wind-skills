@@ -12,15 +12,15 @@ const SKILL_VERSION = '1.7.0';
 const SERVERS = {
   stock_data: {
     endpoint: 'https://mcp.wind.com.cn/vserver_stock_data/mcp/',
-    label: 'Wind A 股股票（档案/财务/股本/事件/技术/风险 + 行情/K线/分钟）',
+    label: 'Wind A 股股票（选股筛选 + 档案/财务/股本/事件/技术/风险 + 行情/K线/分钟）',
   },
   global_stock_data: {
     endpoint: 'https://mcp.wind.com.cn/vserver_global_stock_data/mcp/',
-    label: 'Wind 全球股票/港股美股（档案/财务/股本/事件/技术/风险 + 行情/K线/分钟）',
+    label: 'Wind 全球股票/港股美股（港美股筛选 + 档案/财务/股本/事件/技术/风险 + 行情/K线/分钟）',
   },
   fund_data: {
     endpoint: 'https://mcp.wind.com.cn/vserver_fund_data/mcp/',
-    label: 'Wind 基金（档案/财务/持仓/业绩/持有人/公司 + 行情/K线/分钟）',
+    label: 'Wind 基金（基金筛选 + 档案/财务/持仓/业绩/持有人/公司 + 行情/K线/分钟）',
   },
   index_data: {
     endpoint: 'https://mcp.wind.com.cn/vserver_index_data/mcp/',
@@ -55,6 +55,9 @@ const ERROR_CODES_PATH = join(SKILL_DIR, 'references', 'error-codes.json');
 const SKILL_NAME = 'wind-mcp-skill';
 
 const CALL_EXAMPLES = [
+  `cli.mjs call stock_data search_stocks '{"question":"筛选沪深市场市值超500亿且连续5日上涨的股票"}'`,
+  `cli.mjs call global_stock_data search_global_stocks '{"question":"筛选港股中市值超1000亿港元的科技股"}'`,
+  `cli.mjs call fund_data search_funds '{"question":"筛选股票型基金中近一年收益率超20%的产品"}'`,
   `cli.mjs call stock_data get_stock_basicinfo '{"question":"600519.SH公司基本档案"}'`,
   `cli.mjs call stock_data get_stock_price_indicators '{"windcode":"600519.SH","indexes":"中文简称,最新成交价,涨跌幅"}'`,
   `cli.mjs call fund_data get_fund_kline '{"windcode":"588200.SH","begin_date":"20260401","end_date":"20260430"}'`,

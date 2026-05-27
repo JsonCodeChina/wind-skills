@@ -23,14 +23,17 @@
 
 | server_type | tool_name | 入参 |
 | --- | --- | --- |
+| `stock_data` | `search_stocks` | `question`（+`lang` / `version`） |
 | `stock_data` | `get_stock_price_indicators` | `windcode` + `indexes` |
 | `stock_data` | `get_stock_kline` | `windcode` + `begin_date` + `end_date`（+`period` / `count` / `aftime`…） |
 | `stock_data` | `get_stock_quote` | `windcode`（+`begin` / `end`） |
 | `stock_data` | `get_stock_basicinfo` / `get_stock_fundamentals` / `get_stock_equity_holders` / `get_stock_events` / `get_stock_technicals` / `get_risk_metrics` | `question`（+`lang`） |
+| `global_stock_data` | `search_global_stocks` | `question`（+`lang` / `version`） |
 | `global_stock_data` | `get_global_stock_price_indicators` | `windcode` + `indexes` |
 | `global_stock_data` | `get_global_stock_kline` | `windcode` + `begin_date` + `end_date` |
 | `global_stock_data` | `get_global_stock_quote` | `windcode`（+`begin` / `end`） |
 | `global_stock_data` | `get_global_stock_basicinfo` / `get_global_stock_fundamentals` / `get_global_stock_equity_holders` / `get_global_stock_events` / `get_global_stock_technicals` / `get_global_stock_risk_metrics` | `question`（+`lang`） |
+| `fund_data` | `search_funds` | `question`（+`lang` / `version`） |
 | `fund_data` | `get_fund_price_indicators` | `windcode` + `indexes` |
 | `fund_data` | `get_fund_kline` | `windcode` + `begin_date` + `end_date` |
 | `fund_data` | `get_fund_quote` | `windcode`（+`begin` / `end`） |
@@ -51,6 +54,9 @@
 | 工具组 | 入参 | 适用范围 |
 | --- | --- | --- |
 | 行情类 | `{windcode, ...}` | 股票 / 港美股 / 基金 / 指数行情工具 |
+| 股票筛选 | `{question, lang?, version?}` | `stock_data.search_stocks` |
+| 港美股筛选 | `{question, lang?, version?}` | `global_stock_data.search_global_stocks` |
+| 基金筛选 | `{question, lang?, version?}` | `fund_data.search_funds` |
 | 专项 NL | `{question, lang?}` | `stock_data`、`global_stock_data`、`fund_data`、`index_data`、`bond_data` NL 工具 |
 | 文档 RAG | `{query, top_k?}` | `financial_docs` 工具 |
 | 宏观 EDB | `{metricIdsStr, ...}` | `economic_data.get_economic_data` |
@@ -75,6 +81,60 @@ params JSON 的 key 必须逐字复制本文件的字段名。不得把用户口
 - 指数：`000300.SH`、`000905.SH`、`HSI.HI`
 
 简称或别名可能映射多个标的时先问用户，不要让后端静默选错。
+
+## 股票筛选
+
+`stock_data.search_stocks`（股票筛选）从全市场 A 股中筛选符合条件的股票，返回股票代码列表。
+
+触发条件：用户未指定具体股票，而是描述 A 股选股条件，例如市值、涨跌幅、行业、上市板、
+连续上涨 / 下跌、技术形态或其它筛选条件。
+
+不要用于：已指定单只股票的行情 / 财务查询；港股、美股、基金、指数、债券筛选；需要返回字段值而非股票代码列表的取数。
+
+| 字段 | 必填 | 说明 |
+| --- | --- | --- |
+| `question` | 是 | 自然语言选股问句；调用前移除空格，不得添加用户未给出的筛选条件 |
+| `lang` | | `"English"` / `"中文"`；默认 `"中文"` |
+| `version` | | 后端版本参数；仅当用户或系统明确指定时传入，不得自造 |
+
+示例：`{"question":"筛选沪深市场市值超500亿且连续5日上涨的股票"}`
+
+## 港美股筛选
+
+`global_stock_data.search_global_stocks`（港美股筛选）从港股 / 美股中筛选符合条件的股票，
+返回港股 / 美股代码列表。
+
+触发条件：用户未指定具体港股 / 美股，而是描述选股条件，例如市场、市值、涨跌幅、行业、
+交易所、上市地或其它筛选条件。
+
+不要用于：已指定单只港股 / 美股的行情 / 财务查询；A 股、基金、指数、债券筛选；
+需要返回字段值而非股票代码列表的取数。
+
+| 字段 | 必填 | 说明 |
+| --- | --- | --- |
+| `question` | 是 | 自然语言港美股筛选问句；调用前移除空格，不得添加用户未给出的筛选条件 |
+| `lang` | | `"English"` / `"中文"`；默认 `"中文"` |
+| `version` | | 后端版本参数；仅当用户或系统明确指定时传入，不得自造 |
+
+示例：`{"question":"筛选港股中市值超1000亿港元的科技股"}`
+
+## 基金筛选
+
+`fund_data.search_funds`（基金筛选）从基金产品中筛选符合条件的基金，返回基金代码列表。
+
+触发条件：用户未指定具体基金 / ETF / LOF，而是描述筛选条件，例如基金类型、ETF 主题、
+收益率、管理规模、基金公司、投资主题、风险收益特征或其它筛选条件。
+
+不要用于：已指定单只基金的净值 / 规模 / 档案 / 持仓 / 业绩查询；股票、指数、债券筛选；
+需要返回字段值而非基金代码列表的取数。
+
+| 字段 | 必填 | 说明 |
+| --- | --- | --- |
+| `question` | 是 | 自然语言基金筛选问句；调用前移除空格，不得添加用户未给出的筛选条件 |
+| `lang` | | `"English"` / `"中文"`；默认 `"中文"` |
+| `version` | | 后端版本参数；仅当用户或系统明确指定时传入，不得自造 |
+
+示例：`{"question":"筛选股票型基金中近一年收益率超20%的产品"}`
 
 ## 行情工具
 
@@ -163,6 +223,7 @@ params JSON 的 key 必须逐字复制本文件的字段名。不得把用户口
 
 | 工具 | 适用场景 | `question` 示例 |
 | --- | --- | --- |
+| `search_stocks` | 全市场 A 股股票筛选，返回代码列表 | `"筛选沪深市场市值超500亿且连续5日上涨的股票"` |
 | `get_stock_basicinfo` | 公司档案、主营、行业、IPO、上市板 | `"600519.SH公司基本档案"` |
 | `get_stock_fundamentals` | 盈利、资产负债、利润、现金流、增长率、银行业专项 | `"贵州茅台2024年ROE和净利润增速"` |
 | `get_stock_equity_holders` | 股本、流通、前十大股东、实控人、限售 | `"贵州茅台前十大股东"` |
@@ -174,6 +235,7 @@ params JSON 的 key 必须逐字复制本文件的字段名。不得把用户口
 
 | 工具 | 适用场景 | `question` 示例 |
 | --- | --- | --- |
+| `search_global_stocks` | 港股 / 美股股票筛选，返回代码列表 | `"筛选港股中市值超1000亿港元的科技股"` |
 | `get_global_stock_basicinfo` | 公司档案、注册地、经营范围、交易所、行业、指数成份 | `"AAPL.O公司基本档案"` |
 | `get_global_stock_fundamentals` | 财务、PE / PB / PS、历史分位 | `"腾讯(00700.HK)2024年ROE和营收"` |
 | `get_global_stock_equity_holders` | 股本、主要股东、机构持仓、限售解禁 | `"腾讯(00700.HK)前十大股东"` |
@@ -185,6 +247,7 @@ params JSON 的 key 必须逐字复制本文件的字段名。不得把用户口
 
 | 工具 | 适用场景 | `question` 示例 |
 | --- | --- | --- |
+| `search_funds` | 全市场基金产品筛选，返回代码列表 | `"筛选股票型基金中近一年收益率超20%的产品"` |
 | `get_fund_info` | 基金档案、费率、经理、风格、业绩基准 | `"易方达蓝筹精选(005827.OF)基金档案"` |
 | `get_fund_financials` | 利润、净值、收入、费用、分红 | `"005827.OF2024年净利润和分红"` |
 | `get_fund_holdings` | 重仓股、资产配置、行业配置 | `"005827.OF最新一期重仓股"` |
@@ -261,6 +324,9 @@ params JSON 的 key 必须逐字复制本文件的字段名。不得把用户口
 再使用 `node scripts/cli.mjs ...`。
 
 ```bash
+node scripts/cli.mjs call stock_data search_stocks '{"question":"筛选沪深市场市值超500亿且连续5日上涨的股票"}'
+node scripts/cli.mjs call global_stock_data search_global_stocks '{"question":"筛选港股中市值超1000亿港元的科技股"}'
+node scripts/cli.mjs call fund_data search_funds '{"question":"筛选股票型基金中近一年收益率超20%的产品"}'
 node scripts/cli.mjs call stock_data get_stock_price_indicators '{"windcode":"600519.SH","indexes":"中文简称,最新成交价,涨跌幅,成交量"}'   # indexes 逐字抄 indicators.md
 node scripts/cli.mjs call stock_data get_stock_kline '{"windcode":"600519.SH","begin_date":"20260401","end_date":"20260430"}'   # 日期 yyyyMMdd，不带 -
 node scripts/cli.mjs call global_stock_data get_global_stock_kline '{"windcode":"00700.HK","begin_date":"20260401","end_date":"20260430"}'
