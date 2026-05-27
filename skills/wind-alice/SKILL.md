@@ -23,8 +23,8 @@ Using "<英文 Skill 名>" skill:<原 prompt>
 
 - `--skill` **同时支持中文名和英文名**，不是 id。例如下列写法等价：
   - `--skill "上市公司调研问题清单"` （中文 nameZh）
-  - `--skill "Stock DD List"`            （英文 nameEn）
-  - `--skill "stock-dd-list"`            （英文模糊：忽略大小写/空格/`-_`）
+  - `--skill "Stock DD List"` （英文 nameEn）
+  - `--skill "stock-dd-list"` （英文模糊：忽略大小写/空格/`-_`）
 - 命中后 CLI **统一回填英文名**拼入文本前缀（服务端按英文识别 Skill）。
 - 未在 `KNOWN_SKILLS` 中登记的名称会以 `[warn]` 提示，但仍按字面值拼接前缀提交（portal 上新建/改名的 Skill 也能立刻使用）。
 
@@ -128,10 +128,9 @@ CLI 在每次调用结束时会自动扫描 value 中的可下载文件链接，
 6. **耗时预期与耐心提示**：调用前须提醒用户 Alice Skill 可能较慢；执行中不得因等待过久而中断 CLI、改走其它工具或并行重复调用同一任务。
 7. **不要凭空构造 `selectedSkillIds` / `agentCard` 之类的旧字段去指定 Skill** — 已实测不生效，必须走文本前缀。
 
-
 ## 更新检查处理
 
-每次有效调用 `wind-alice.mjs` 结束后，脚本会静默触发后台更新检查；该机制参考 `wind-mcp-skill`：
+每次有效调用 `wind-alice.mjs` 结束后，脚本会静默触发后台更新检查：
 
 - 只记录当前 skill 刚被使用，并后台启动 `scripts/update-check.mjs`，不阻塞 Alice 主请求收尾。
 - 后台检查会等待短暂 quiet window，避免 skill 正在使用时被更新覆盖。

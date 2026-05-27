@@ -77,7 +77,7 @@ npx skills update wind-find-finance-skill -g -y
 npx skills update wind-find-finance-skill -y
 ```
 
-`node scripts/update-check.mjs` 会非阻塞触发静默更新检查并写入本地状态，不再输出升级提醒。
+`node scripts/update-check.mjs` 会非阻塞触发静默更新检查并写入本地状态，不输出升级提醒。
 
 `references/skills-catalog.md` 随 skill 包一起更新。
 
