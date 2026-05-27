@@ -41,7 +41,7 @@ examples:
 3. **参数值**：日期必须是 `yyyyMMdd`；自然语言入参 `question` / `query` / `metricIdsStr` 不得含空格或其它空白字符。
 4. **单标的**：单次工具调用只允许一个标的；行情类 `windcode` 必须是单个字符串，禁止数组或逗号拼接。多标的对比拆成多次调用后合并。
 5. **指标**：使用 `indexes` 时，只选择用户明确请求的指标；指标名由 CLI 校验，不在词典中的指标会触发 `PARAM_VALIDATION_ERROR` 并给出相似指标建议。不确定有哪些指标时，先运行 `node scripts/cli.mjs list-indicators [类别]` 枚举可用字段，不要凭印象或用英文/拼音猜。
-6. **命令格式**：首次 CLI 调用前必须锁定当前执行路径的 params JSON 写法；未锁定时读 `references/shell-escaping.md` 并通过 argv 探针。锁定后除非命中 `INVALID_PARAMS_JSON`，不得修改 shell 引号或 JSON 转义。
+6. **命令格式**：首次 CLI 调用前先确认 shell / 执行器类型，按下方「params JSON 写法」表锁定 `<params_json>` 引号。锁定后除非命中 `INVALID_PARAMS_JSON`，不得修改 shell 引号或 JSON 转义。
 7. **失败**：非 0 退出先读 stdout 的 `error.code` 和 `error.agent_action`；`agent_action` 包含完整的操作步骤，直接执行即可。
 8. **回答**：只报告 Wind 返回值和必要限制，不补常识、不补点评。
 
@@ -187,13 +187,25 @@ examples:
 | --- | --- | --- |
 | `get_financial_data` | `question` | 仅专项路由无法覆盖时使用 |
 
+## params JSON 写法
+
+调用前先确认命令最终交给哪种 shell / 执行器，按下表写 `<params_json>` 的引号；同一会话锁定一种写法，命中 `INVALID_PARAMS_JSON` 前不改写。
+
+| 执行路径 | `<params_json>` 写法 |
+| --- | --- |
+| Bash / zsh / sh / Git Bash / WSL | `'{"windcode":"600519.SH"}'` |
+| Windows PowerShell | `'{\"windcode\":\"600519.SH\"}'` |
+| cmd.exe | `"{\"windcode\":\"600519.SH\"}"` |
+| agent 工具 / JSON-RPC / 任务运行器等包一层的执行器 | 先按 Bash 式写；命中 `INVALID_PARAMS_JSON` 时按其 agent_action 用 argv 探针校准 |
+
+判断标准只有一个：第三参数必须能被 Node 当 `process.argv[2]` 读取并 `JSON.parse` 解析。不要凭屏幕显示判断转义对错。
+
 ## 资源导航
 
 | 读取或运行                       | 何时                                                                     | 权威于                           |
 | -------------------------------- | ------------------------------------------------------------------------ | -------------------------------- |
 | `node scripts/cli.mjs show-tool <server_type> <tool_name>` | **MUST**：选定工具后查看完整参数 Schema        | 工具字段、类型、必填、枚举值     |
 | `node scripts/cli.mjs list-indicators [类别]` | **MUST**：填 `indexes` 且不确定字段名时        | 行情指标词典（indexes 取值）     |
-| `references/shell-escaping.md`   | **MUST**：首次 CLI 调用前命令格式未锁定，或命中 `INVALID_PARAMS_JSON`    | 当前执行路径的 params JSON 写法  |
 | `references/fallback-alice.md`   | MAY：判定可切 `wind-alice` 后                                            | wind-alice 最终兜底流程          |
 
 **注意**：本方案不再需要读取 `tool-contracts.md` 和 `indicators.md`。参数 Schema 由 CLI 内置的 `schemas/tool-params.json` 和 `schemas/indicators.json` 管理，CLI 在调用时自动校验。

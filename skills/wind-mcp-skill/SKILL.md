@@ -39,7 +39,7 @@ examples:
 3. **参数值**：日期必须是 `yyyyMMdd`；自然语言入参 `question` / `query` / `metricIdsStr` 不得含空格或其它空白字符。
 4. **单标的**：单次工具调用只允许一个标的；行情类 `windcode` 必须是单个字符串，禁止数组、逗号拼接或多代码字符串。多标的对比拆成多次调用后合并。
 5. **指标**：使用 `indexes` 时，只选择用户明确请求的指标；值必须逐字来自 `references/indicators.md`，不得补充用户未提到的指标。
-6. **命令格式**：首次 CLI 调用前必须锁定当前执行路径的 params JSON 写法；未锁定时读 `references/shell-escaping.md` 并通过 argv 探针。锁定后除非命中 `INVALID_PARAMS_JSON`，不得修改 shell 引号或 JSON 转义。
+6. **命令格式**：首次 CLI 调用前先确认 shell / 执行器类型，按下方「params JSON 写法」表锁定 `<params_json>` 引号。锁定后除非命中 `INVALID_PARAMS_JSON`，不得修改 shell 引号或 JSON 转义。
 7. **失败**：非 0 退出先读 stdout 的 `error.code` 和 `error.agent_action`；`agent_action` 包含完整的域分类和具体操作步骤，直接执行即可。错误只能在对应错误域内修复，不得跨域改动。
 8. **回答**：只报告 Wind 返回值和必要限制，不补常识、不补点评。
 
@@ -75,7 +75,7 @@ examples:
    涉及行业筛选、行业分类或行业对比，且用户未指定分类体系时，默认使用 Wind 行业分类。
 
 6. **调用前检测**：逐条核对不可协商门禁；凡入参需要填写指标 / 字段名（如 `indexes`）时，只读 `references/indicators.md` 的相关类别，逐项核对、逐字复制——每次调用都核对一遍，不复用记忆，不添加用户未请求的指标。
-7. **调用 CLI**：调用前必须先 `cd` 到 skill 目录，即本 `SKILL.md` 所在目录、不是当前项目目录，再用相对路径执行 `node scripts/cli.mjs call <server_type> <tool_name> <params_json>`。不 `cd` 会找不到脚本。`<params_json>` 的引号 / 转义以已锁定命令格式为准；首次调用前命令格式未锁定时，先读 `references/shell-escaping.md` 并过 argv 探针。
+7. **调用 CLI**：调用前必须先 `cd` 到 skill 目录，即本 `SKILL.md` 所在目录、不是当前项目目录，再用相对路径执行 `node scripts/cli.mjs call <server_type> <tool_name> <params_json>`。不 `cd` 会找不到脚本。`<params_json>` 的引号 / 转义以已锁定命令格式为准，见下方「params JSON 写法」表。
 8. **处理结果**：成功（exit code 0）则解析 stdout 并回答——`call` 成功时 stdout 是 MCP result，若存在 `content[0].text`，优先解析其中的文本或 JSON。失败（exit code 1）则执行 `error.agent_action`。每次重试前按下方「重试前审计」核对。
 
 ### 重试前审计
@@ -106,17 +106,29 @@ examples:
 `analytics_data` 不是复杂问句入口。只有专项工具无法覆盖剩余结构化数据，或允许的专项路径因字段 /
 口径 / 无结果失败后，才可用它补取并合并结果。单次工具调用只查一个标的；多标的对比拆成多次调用后合并。
 
+## params JSON 写法
+
+调用前先确认命令最终交给哪种 shell / 执行器，按下表写 `<params_json>` 的引号；同一会话锁定一种写法，命中 `INVALID_PARAMS_JSON` 前不改写。
+
+| 执行路径 | `<params_json>` 写法 |
+| --- | --- |
+| Bash / zsh / sh / Git Bash / WSL | `'{"windcode":"600519.SH"}'` |
+| Windows PowerShell | `'{\"windcode\":\"600519.SH\"}'` |
+| cmd.exe | `"{\"windcode\":\"600519.SH\"}"` |
+| agent 工具 / JSON-RPC / 任务运行器等包一层的执行器 | 先按 Bash 式写；命中 `INVALID_PARAMS_JSON` 时按其 agent_action 用 argv 探针校准 |
+
+判断标准只有一个：第三参数必须能被 Node 当 `process.argv[2]` 读取并 `JSON.parse` 解析。不要凭屏幕显示判断转义对错。
+
 ## 资源导航
 
 | 读取或运行                       | 何时                                                                     | 权威于                           |
 | -------------------------------- | ------------------------------------------------------------------------ | -------------------------------- |
 | `references/tool-contracts.md`   | **MUST**：选定工具后读对应段落                                           | 工具字段、参数、场景、示例       |
 | `references/indicators.md`       | **MUST**：入参需填指标 / 字段名时（如 `indexes`），每次核对              | Wind 指标 / 字段名词典           |
-| `references/shell-escaping.md`   | **MUST**：首次 CLI 调用前命令格式未锁定，或命中 `INVALID_PARAMS_JSON`    | 当前执行路径的 params JSON 写法  |
 | `references/fallback-alice.md`   | MAY：判定可切 `wind-alice` 后                                            | wind-alice 最终兜底流程          |
 
 引用优先级：CLI stdout 的 `error.code` / `error.agent_action` 是当前失败的直接指令，包含完整的操作步骤；
-业务参数以 `references/tool-contracts.md` 和 `references/indicators.md` 为准；命令传递只以 `references/shell-escaping.md` 为准。
+业务参数以 `references/tool-contracts.md` 和 `references/indicators.md` 为准；命令传递写法见「params JSON 写法」表。
 不同 reference 看似冲突时，停止重试并说明文档不一致，不得自行选择更方便的解释。
 
 ## 失败与回答

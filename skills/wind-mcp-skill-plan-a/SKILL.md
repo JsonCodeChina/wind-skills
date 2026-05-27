@@ -40,7 +40,7 @@ examples:
 3. **参数值**：日期必须是 `yyyyMMdd`；自然语言入参 `question` / `query` / `metricIdsStr` 不得含空格或其它空白字符。
 4. **单标的**：单次工具调用只允许一个标的；行情类 `windcode` 必须是单个字符串，禁止数组、逗号拼接或多代码字符串。多标的对比拆成多次调用后合并。
 5. **指标**：使用 `indexes` 时只选用户明确请求的指标；值必须逐字来自 `references/indicators-<category>.md`，不得补充用户未提到的指标。
-6. **命令格式**：首次 CLI 调用前必须锁定当前执行路径的 params JSON 写法；未锁定时读 `references/shell-escaping.md` 并通过 argv 探针。锁定后除非命中 `INVALID_PARAMS_JSON`，不得修改 shell 引号或 JSON 转义。
+6. **命令格式**：首次 CLI 调用前先确认 shell / 执行器类型，按下方「params JSON 写法」表锁定 `<params_json>` 引号。锁定后除非命中 `INVALID_PARAMS_JSON`，不得修改 shell 引号或 JSON 转义。
 7. **失败**：非 0 退出先读 stdout 的 `error.code` 和 `error.agent_action`；`agent_action` 含完整域分类和操作步骤，直接执行。错误只能在对应错误域内修复，不得跨域改动。
 8. **回答**：只报告 Wind 返回值和必要限制，不补常识、不补点评。
 
@@ -70,7 +70,7 @@ examples:
 2. **定标的与 server_type**：识别 A 股、港股、美股、基金、指数、债券、文档主体或宏观指标，按范围表选 `server_type`（A 股 `stock_data`，港美股 `global_stock_data`）。简称或别名可能歧义时先问用户。
 3. **选 tool 并构造参数**：在 `references/tool-contracts-<server_type>.md` 找对应工具，只读其段落、逐字取 params key（守门禁 3/4/5）。NL 字段对应：选股筛选 / 领域 NL / `analytics_data` 用 `question`，`financial_docs` 用 `query`，`economic_data` 用 `metricIdsStr`；行业分类未指定时默认 Wind 行业分类。
 4. **填指标名**：凡需填 `indexes` 等指标名，按下方「指标 → 分片速查」只读对应 `references/indicators-<category>.md`，逐字复制、每次核对、不复用记忆、不加用户未请求的指标。
-5. **调用 CLI**：调用前必须先 `cd` 到 skill 目录，即本 `SKILL.md` 所在目录、不是当前项目目录，再用相对路径执行 `node scripts/cli.mjs call <server_type> <tool_name> <params_json>`。不 `cd` 会找不到脚本。首次或命中 `INVALID_PARAMS_JSON` 时先读 `references/shell-escaping.md` 过 argv 探针。
+5. **调用 CLI**：调用前必须先 `cd` 到 skill 目录，即本 `SKILL.md` 所在目录、不是当前项目目录，再用相对路径执行 `node scripts/cli.mjs call <server_type> <tool_name> <params_json>`。不 `cd` 会找不到脚本。`<params_json>` 引号见下方「params JSON 写法」表；命中 `INVALID_PARAMS_JSON` 按其 agent_action 处理。
 6. **处理结果**：成功（exit 0）解析 stdout 回答（`call` 成功时优先解析 `content[0].text` 里的文本或 JSON）；失败（exit 1）按下方「重试前审计」核对后执行 `error.agent_action`。
 
 ### 重试前审计
@@ -99,13 +99,25 @@ examples:
 
 `analytics_data` 不是复杂问句入口；仅当专项工具无法覆盖、或允许的专项路径因字段 / 口径 / 无结果失败后，才用它补取并合并。
 
+## params JSON 写法
+
+调用前先确认命令最终交给哪种 shell / 执行器，按下表写 `<params_json>` 的引号；同一会话锁定一种写法，命中 `INVALID_PARAMS_JSON` 前不改写。
+
+| 执行路径 | `<params_json>` 写法 |
+| --- | --- |
+| Bash / zsh / sh / Git Bash / WSL | `'{"windcode":"600519.SH"}'` |
+| Windows PowerShell | `'{\"windcode\":\"600519.SH\"}'` |
+| cmd.exe | `"{\"windcode\":\"600519.SH\"}"` |
+| agent 工具 / JSON-RPC / 任务运行器等包一层的执行器 | 先按 Bash 式写；命中 `INVALID_PARAMS_JSON` 时按其 agent_action 用 argv 探针校准 |
+
+判断标准只有一个：第三参数必须能被 Node 当 `process.argv[2]` 读取并 `JSON.parse` 解析。不要凭屏幕显示判断转义对错。
+
 ## 资源导航
 
 | 读取或运行 | 何时 | 权威于 |
 |---|---|---|
 | `references/tool-contracts-<server_type>.md` | **MUST**：选定 server_type 后读对应文件 | 该 server_type 的工具字段 / 参数 / 场景 |
 | `references/indicators-<category>.md` | **MUST**：入参需填指标名时，按下表选分片 | 该类别的 Wind 指标名词典 |
-| `references/shell-escaping.md` | **MUST**：首次调用命令格式未锁定，或命中 `INVALID_PARAMS_JSON` | params JSON 写法 |
 | `references/fallback-alice.md` | MAY：判定可切 `wind-alice` 后 | wind-alice 兜底流程 |
 
 **指标 → 分片速查**（下表是**常见示例，非完整清单**；每个分片开头有该类别全部字段名与适用品种，**以分片内为准**。表里没列到的指标，按其数据性质对号入座——价格/估值/成交/资金类归 `quotes`、形态/均线/希腊字母归 `technical`、债券收益率久期归 `bond`、基金净值规模归 `fund`；逐字找不到就告诉用户该指标不在 Wind 行情字段范围内，**不要猜拼写、不要用英文 / 拼音**）：
@@ -121,7 +133,7 @@ examples:
 分片内某字段返空或报错，不要反复试拼写，直接切对应 NL 工具兜底。
 
 引用优先级：失败时 CLI stdout 的 `error.code` / `error.agent_action` 是直接指令；业务参数以
-`tool-contracts-<server_type>.md` + `indicators-<category>.md` 为准；命令传递只以 `shell-escaping.md` 为准。
+`tool-contracts-<server_type>.md` + `indicators-<category>.md` 为准；命令传递写法见「params JSON 写法」表。
 多份 reference 看似冲突时，停止重试、说明不一致，不自行挑更方便的解释。
 
 ## 失败与回答
