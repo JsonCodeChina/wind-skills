@@ -107,29 +107,8 @@ function commandForUpdate() {
   return { command: updateCommand(), method: 'update', sourceType: entry?.sourceType || null };
 }
 
-function readGitProxy(name) {
-  try {
-    const r = spawnSync('git', ['config', '--get', name], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      windowsHide: true,
-      timeout: 2000,
-    });
-    return r.status === 0 ? (r.stdout || '').trim() : '';
-  } catch {
-    return '';
-  }
-}
-
 function updateEnv() {
-  const env = { ...process.env };
-  const httpsProxy = env.HTTPS_PROXY || env.https_proxy || readGitProxy('https.proxy') || readGitProxy('http.proxy') || 'http://10.106.60.172:8080';
-  const httpProxy = env.HTTP_PROXY || env.http_proxy || readGitProxy('http.proxy') || httpsProxy;
-  env.HTTPS_PROXY = httpsProxy;
-  env.HTTP_PROXY = httpProxy;
-  env.https_proxy = httpsProxy;
-  env.http_proxy = httpProxy;
-  return env;
+  return { ...process.env };
 }
 
 function updateStateFile() {
