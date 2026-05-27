@@ -1,0 +1,21 @@
+{
+  "date": "2026-05-27",
+  "scope": "project",
+  "command": "npx skills update wind-mcp-skill -y",
+  "method": "update",
+  "sourceType": null,
+  "updatedAt": "2026-05-27T07:33:23.841Z",
+  "status": "success",
+  "finishedAt": "2026-05-27T07:33:23.841Z",
+  "exitCode": 0,
+  "usedFallback": false,
+  "fallbackReason": null,
+  "error": null,
+  "remoteHead": null,
+  "remoteChanged": false,
+  "lastAppliedRemoteHead": null,
+  "changed": false,
+  "beforeHash": "2057f08529b9e7e8e1a12b4d0299b101d6c8f0f7c7f3d27f7c111da377450aa5",
+  "afterHash": "2057f08529b9e7e8e1a12b4d0299b101d6c8f0f7c7f3d27f7c111da377450aa5",
+  "output": "\u001b[38;5;145mUpdating wind-mcp-skill...\u001b[0m\n\n\u001b[38;5;102mNo installed skills found matching: wind-mcp-skill\u001b[0m\n\n\n(node:16400) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.\n(Use `node --trace-warnings ...` to show where the warning was created)"
+}

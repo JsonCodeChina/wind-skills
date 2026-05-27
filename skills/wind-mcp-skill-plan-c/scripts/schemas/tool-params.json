@@ -1,0 +1,737 @@
+{
+  "stock_data": {
+    "search_stocks": {
+      "description": "A股股票筛选，返回代码列表",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "自然语言选股问句；调用前移除空白字符，不得添加用户未给出的筛选条件"
+          },
+          "lang": {
+            "type": "string",
+            "enum": ["English", "中文"],
+            "description": "默认 中文"
+          },
+          "version": {
+            "type": "string",
+            "description": "后端版本参数；仅当用户或系统明确指定时传入，不得自造"
+          }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_stock_price_indicators": {
+      "description": "A股行情快照指标",
+      "params": {
+        "type": "object",
+        "properties": {
+          "windcode": {
+            "type": "string",
+            "description": "单个标的名称或代码；禁止数组、多代码字符串或逗号拼接",
+            "singleValue": true
+          },
+          "indexes": {
+            "type": "string",
+            "description": "逗号分隔的精确指标名；每个值必须逐字存在于 indicators.json",
+            "validateIndicators": true
+          }
+        },
+        "required": ["windcode", "indexes"]
+      }
+    },
+    "get_stock_kline": {
+      "description": "A股K线（历史行情序列）",
+      "params": {
+        "type": "object",
+        "properties": {
+          "windcode": {
+            "type": "string",
+            "description": "单个标的名称或代码；禁止数组、多代码字符串或逗号拼接",
+            "singleValue": true
+          },
+          "begin_date": {
+            "type": "string",
+            "description": "yyyyMMdd 格式日期",
+            "format": "yyyyMMdd"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "yyyyMMdd 格式日期",
+            "format": "yyyyMMdd"
+          },
+          "count": {
+            "type": "number",
+            "description": "正数表示从 begin_date 向后取 N 条；负数表示从 end_date 向前取 N 条"
+          },
+          "period": {
+            "type": "string",
+            "enum": ["1", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"],
+            "enumLabels": {
+              "1": "1分钟", "3": "5分钟", "4": "10分钟", "5": "15分钟",
+              "6": "30分钟", "7": "60分钟", "8": "120分钟", "9": "240分钟",
+              "10": "日K", "11": "周K", "12": "月K", "13": "年K",
+              "14": "季K", "15": "半年K"
+            },
+            "description": "默认 10 (日K)"
+          },
+          "aftime": {
+            "type": "string",
+            "enum": ["0", "1"],
+            "enumLabels": { "0": "前复权", "1": "后复权" },
+            "description": "默认 0 (前复权)"
+          },
+          "issusp": {
+            "type": "string",
+            "enum": ["0", "1"],
+            "enumLabels": { "0": "不含停牌", "1": "含停牌" },
+            "description": "默认 1 (含停牌)"
+          },
+          "afdate": {
+            "type": "string",
+            "description": "可选复权基准日，yyyyMMdd",
+            "format": "yyyyMMdd"
+          }
+        },
+        "required": ["windcode", "begin_date", "end_date"]
+      }
+    },
+    "get_stock_quote": {
+      "description": "A股分钟行情",
+      "params": {
+        "type": "object",
+        "properties": {
+          "windcode": {
+            "type": "string",
+            "description": "单个标的名称或代码；禁止数组、多代码字符串或逗号拼接",
+            "singleValue": true
+          },
+          "begin": {
+            "type": "string",
+            "description": "yyyyMMdd 或 LAST",
+            "format": "yyyyMMddOrLAST"
+          },
+          "end": {
+            "type": "string",
+            "description": "yyyyMMdd 或 LAST",
+            "format": "yyyyMMddOrLAST"
+          }
+        },
+        "required": ["windcode"]
+      }
+    },
+    "get_stock_basicinfo": {
+      "description": "A股公司档案、主营、行业、IPO、上市板",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "标的加业务问题的自然语言"
+          },
+          "lang": {
+            "type": "string",
+            "enum": ["English", "中文"],
+            "description": "默认 中文"
+          }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_stock_fundamentals": {
+      "description": "A股盈利、资产负债、利润、现金流、增长率",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "标的加业务问题的自然语言"
+          },
+          "lang": {
+            "type": "string",
+            "enum": ["English", "中文"],
+            "description": "默认 中文"
+          }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_stock_equity_holders": {
+      "description": "A股股本、流通、前十大股东、实控人、限售",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "标的加业务问题的自然语言"
+          },
+          "lang": {
+            "type": "string",
+            "enum": ["English", "中文"],
+            "description": "默认 中文"
+          }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_stock_events": {
+      "description": "A股 IPO、增发、配股、并购、ST、分红",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "标的加业务问题的自然语言"
+          },
+          "lang": {
+            "type": "string",
+            "enum": ["English", "中文"],
+            "description": "默认 中文"
+          }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_stock_technicals": {
+      "description": "A股 MACD、KDJ、RSI、BOLL、融资融券、龙虎榜",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "标的加业务问题的自然语言"
+          },
+          "lang": {
+            "type": "string",
+            "enum": ["English", "中文"],
+            "description": "默认 中文"
+          }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_risk_metrics": {
+      "description": "A股 Beta、Jensen Alpha、波动率、Sharpe、VaR",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "标的加业务问题的自然语言"
+          },
+          "lang": {
+            "type": "string",
+            "enum": ["English", "中文"],
+            "description": "默认 中文"
+          }
+        },
+        "required": ["question"]
+      }
+    }
+  },
+  "global_stock_data": {
+    "search_global_stocks": {
+      "description": "港美股股票筛选，返回代码列表",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "自然语言港美股筛选问句；调用前移除空白字符"
+          },
+          "lang": {
+            "type": "string",
+            "enum": ["English", "中文"],
+            "description": "默认 中文"
+          },
+          "version": {
+            "type": "string",
+            "description": "后端版本参数；仅当用户或系统明确指定时传入"
+          }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_global_stock_price_indicators": {
+      "description": "港美股行情快照指标",
+      "params": {
+        "type": "object",
+        "properties": {
+          "windcode": {
+            "type": "string",
+            "description": "单个标的名称或代码",
+            "singleValue": true
+          },
+          "indexes": {
+            "type": "string",
+            "description": "逗号分隔的精确指标名",
+            "validateIndicators": true
+          }
+        },
+        "required": ["windcode", "indexes"]
+      }
+    },
+    "get_global_stock_kline": {
+      "description": "港美股K线",
+      "params": {
+        "type": "object",
+        "properties": {
+          "windcode": {
+            "type": "string",
+            "description": "单个标的名称或代码",
+            "singleValue": true
+          },
+          "begin_date": {
+            "type": "string",
+            "description": "yyyyMMdd 格式日期",
+            "format": "yyyyMMdd"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "yyyyMMdd 格式日期",
+            "format": "yyyyMMdd"
+          },
+          "count": {
+            "type": "number",
+            "description": "正/负数"
+          },
+          "period": {
+            "type": "string",
+            "enum": ["1", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"],
+            "description": "默认 10 (日K)"
+          },
+          "aftime": {
+            "type": "string",
+            "enum": ["0", "1"],
+            "description": "默认 0 (前复权)"
+          },
+          "issusp": {
+            "type": "string",
+            "enum": ["0", "1"],
+            "description": "默认 1 (含停牌)"
+          },
+          "afdate": {
+            "type": "string",
+            "description": "复权基准日 yyyyMMdd",
+            "format": "yyyyMMdd"
+          }
+        },
+        "required": ["windcode", "begin_date", "end_date"]
+      }
+    },
+    "get_global_stock_quote": {
+      "description": "港美股分钟行情",
+      "params": {
+        "type": "object",
+        "properties": {
+          "windcode": {
+            "type": "string",
+            "description": "单个标的名称或代码",
+            "singleValue": true
+          },
+          "begin": {
+            "type": "string",
+            "description": "yyyyMMdd 或 LAST",
+            "format": "yyyyMMddOrLAST"
+          },
+          "end": {
+            "type": "string",
+            "description": "yyyyMMdd 或 LAST",
+            "format": "yyyyMMddOrLAST"
+          }
+        },
+        "required": ["windcode"]
+      }
+    },
+    "get_global_stock_basicinfo": {
+      "description": "港美股公司档案",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "标的加业务问题" },
+          "lang": { "type": "string", "enum": ["English", "中文"], "description": "默认 中文" }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_global_stock_fundamentals": {
+      "description": "港美股财务、PE/PB/PS、历史分位",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "标的加业务问题" },
+          "lang": { "type": "string", "enum": ["English", "中文"], "description": "默认 中文" }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_global_stock_equity_holders": {
+      "description": "港美股股本、主要股东、机构持仓",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "标的加业务问题" },
+          "lang": { "type": "string", "enum": ["English", "中文"], "description": "默认 中文" }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_global_stock_events": {
+      "description": "港美股 IPO、增发、并购、监管、分红",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "标的加业务问题" },
+          "lang": { "type": "string", "enum": ["English", "中文"], "description": "默认 中文" }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_global_stock_technicals": {
+      "description": "港美股技术指标",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "标的加业务问题" },
+          "lang": { "type": "string", "enum": ["English", "中文"], "description": "默认 中文" }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_global_stock_risk_metrics": {
+      "description": "港美股风险指标",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "标的加业务问题" },
+          "lang": { "type": "string", "enum": ["English", "中文"], "description": "默认 中文" }
+        },
+        "required": ["question"]
+      }
+    }
+  },
+  "fund_data": {
+    "search_funds": {
+      "description": "基金产品筛选，返回代码列表",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "自然语言基金筛选问句；调用前移除空白字符" },
+          "lang": { "type": "string", "enum": ["English", "中文"], "description": "默认 中文" },
+          "version": { "type": "string", "description": "后端版本参数" }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_fund_price_indicators": {
+      "description": "基金行情快照指标",
+      "params": {
+        "type": "object",
+        "properties": {
+          "windcode": { "type": "string", "description": "单个标的名称或代码", "singleValue": true },
+          "indexes": { "type": "string", "description": "逗号分隔的精确指标名", "validateIndicators": true }
+        },
+        "required": ["windcode", "indexes"]
+      }
+    },
+    "get_fund_kline": {
+      "description": "基金K线",
+      "params": {
+        "type": "object",
+        "properties": {
+          "windcode": { "type": "string", "description": "单个标的名称或代码", "singleValue": true },
+          "begin_date": { "type": "string", "description": "yyyyMMdd", "format": "yyyyMMdd" },
+          "end_date": { "type": "string", "description": "yyyyMMdd", "format": "yyyyMMdd" },
+          "count": { "type": "number", "description": "正/负数" },
+          "period": { "type": "string", "enum": ["1", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"], "description": "默认 10" },
+          "aftime": { "type": "string", "enum": ["0", "1"], "description": "默认 0" },
+          "issusp": { "type": "string", "enum": ["0", "1"], "description": "默认 1" },
+          "afdate": { "type": "string", "description": "复权基准日 yyyyMMdd", "format": "yyyyMMdd" }
+        },
+        "required": ["windcode", "begin_date", "end_date"]
+      }
+    },
+    "get_fund_quote": {
+      "description": "基金分钟行情",
+      "params": {
+        "type": "object",
+        "properties": {
+          "windcode": { "type": "string", "description": "单个标的名称或代码", "singleValue": true },
+          "begin": { "type": "string", "description": "yyyyMMdd 或 LAST", "format": "yyyyMMddOrLAST" },
+          "end": { "type": "string", "description": "yyyyMMdd 或 LAST", "format": "yyyyMMddOrLAST" }
+        },
+        "required": ["windcode"]
+      }
+    },
+    "get_fund_info": {
+      "description": "基金档案、费率、经理、风格、业绩基准",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "标的加业务问题" },
+          "lang": { "type": "string", "enum": ["English", "中文"], "description": "默认 中文" }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_fund_financials": {
+      "description": "基金利润、净值、收入、费用、分红",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "标的加业务问题" },
+          "lang": { "type": "string", "enum": ["English", "中文"], "description": "默认 中文" }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_fund_holdings": {
+      "description": "基金重仓股、资产配置、行业配置",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "标的加业务问题" },
+          "lang": { "type": "string", "enum": ["English", "中文"], "description": "默认 中文" }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_fund_performance": {
+      "description": "基金业绩、排名",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "标的加业务问题" },
+          "lang": { "type": "string", "enum": ["English", "中文"], "description": "默认 中文" }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_fund_holders": {
+      "description": "基金持有人结构、申赎、规模变动",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "标的加业务问题" },
+          "lang": { "type": "string", "enum": ["English", "中文"], "description": "默认 中文" }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_fund_company_info": {
+      "description": "基金管理公司档案、经理团队",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "标的加业务问题" },
+          "lang": { "type": "string", "enum": ["English", "中文"], "description": "默认 中文" }
+        },
+        "required": ["question"]
+      }
+    }
+  },
+  "index_data": {
+    "get_index_price_indicators": {
+      "description": "指数行情快照指标",
+      "params": {
+        "type": "object",
+        "properties": {
+          "windcode": { "type": "string", "description": "单个标的名称或代码", "singleValue": true },
+          "indexes": { "type": "string", "description": "逗号分隔的精确指标名", "validateIndicators": true }
+        },
+        "required": ["windcode", "indexes"]
+      }
+    },
+    "get_index_kline": {
+      "description": "指数K线",
+      "params": {
+        "type": "object",
+        "properties": {
+          "windcode": { "type": "string", "description": "单个标的名称或代码", "singleValue": true },
+          "begin_date": { "type": "string", "description": "yyyyMMdd", "format": "yyyyMMdd" },
+          "end_date": { "type": "string", "description": "yyyyMMdd", "format": "yyyyMMdd" },
+          "count": { "type": "number", "description": "正/负数" },
+          "period": { "type": "string", "enum": ["1", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"], "description": "默认 10" },
+          "aftime": { "type": "string", "enum": ["0", "1"], "description": "默认 0" },
+          "issusp": { "type": "string", "enum": ["0", "1"], "description": "默认 1" },
+          "afdate": { "type": "string", "description": "复权基准日 yyyyMMdd", "format": "yyyyMMdd" }
+        },
+        "required": ["windcode", "begin_date", "end_date"]
+      }
+    },
+    "get_index_quote": {
+      "description": "指数分钟行情",
+      "params": {
+        "type": "object",
+        "properties": {
+          "windcode": { "type": "string", "description": "单个标的名称或代码", "singleValue": true },
+          "begin": { "type": "string", "description": "yyyyMMdd 或 LAST", "format": "yyyyMMddOrLAST" },
+          "end": { "type": "string", "description": "yyyyMMdd 或 LAST", "format": "yyyyMMddOrLAST" }
+        },
+        "required": ["windcode"]
+      }
+    },
+    "get_index_basicinfo": {
+      "description": "指数档案、发布机构、基日、基点",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "标的加业务问题" },
+          "lang": { "type": "string", "enum": ["English", "中文"], "description": "默认 中文" }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_index_fundamentals": {
+      "description": "指数 PE/PB/PS、历史分位",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "标的加业务问题" },
+          "lang": { "type": "string", "enum": ["English", "中文"], "description": "默认 中文" }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_index_technicals": {
+      "description": "指数技术指标",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "标的加业务问题" },
+          "lang": { "type": "string", "enum": ["English", "中文"], "description": "默认 中文" }
+        },
+        "required": ["question"]
+      }
+    }
+  },
+  "bond_data": {
+    "get_bond_basicinfo": {
+      "description": "债券档案、发行、规模、利率、期限、兑付",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "标的加业务问题" },
+          "lang": { "type": "string", "enum": ["English", "中文"], "description": "默认 中文" }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_bond_issuer_info": {
+      "description": "发债主体名称、行业、股权结构",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "标的加业务问题" },
+          "lang": { "type": "string", "enum": ["English", "中文"], "description": "默认 中文" }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_bond_market_data": {
+      "description": "债券报价、估价、久期、凸性、利差",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "标的加业务问题" },
+          "lang": { "type": "string", "enum": ["English", "中文"], "description": "默认 中文" }
+        },
+        "required": ["question"]
+      }
+    },
+    "get_bond_financial_data": {
+      "description": "发债主体营收、利润、资产、负债",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "标的加业务问题" },
+          "lang": { "type": "string", "enum": ["English", "中文"], "description": "默认 中文" }
+        },
+        "required": ["question"]
+      }
+    }
+  },
+  "financial_docs": {
+    "get_company_announcements": {
+      "description": "官方公告、年报、季报、招股书",
+      "params": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "不含空白字符的自然语言查询" },
+          "top_k": { "type": "number", "description": "返回文档数量" }
+        },
+        "required": ["query"]
+      }
+    },
+    "get_financial_news": {
+      "description": "第三方财经新闻、市场报道",
+      "params": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "不含空白字符的自然语言查询" },
+          "top_k": { "type": "number", "description": "返回文档数量" }
+        },
+        "required": ["query"]
+      }
+    }
+  },
+  "economic_data": {
+    "get_economic_data": {
+      "description": "宏观/行业 EDB 经济指标",
+      "params": {
+        "type": "object",
+        "properties": {
+          "metricIdsStr": { "type": "string", "description": "自然语言指标查询（不是指标ID）" },
+          "beginDate": { "type": "string", "description": "yyyyMMdd", "format": "yyyyMMdd" },
+          "endDate": { "type": "string", "description": "yyyyMMdd", "format": "yyyyMMdd" },
+          "freq": {
+            "type": "string",
+            "enum": ["1", "2", "3", "4", "5", "6", "7", "8"],
+            "enumLabels": {
+              "1": "日", "2": "工作日", "3": "周", "4": "月",
+              "5": "季", "6": "半年", "7": "年", "8": "年度"
+            },
+            "description": "频率"
+          },
+          "magnitude": {
+            "type": "string",
+            "enum": ["个", "千", "万", "百万", "千万", "亿", "十亿", "百亿", "千亿", "万亿"],
+            "description": "数量级"
+          },
+          "currency": {
+            "type": "string",
+            "enum": ["USD", "CNY", "EUR", "JPY", "AUD", "GBP", "CHF", "CAD", "SGD", "HKD", "MYR", "BYR"],
+            "description": "货币"
+          },
+          "searchType": {
+            "type": "string",
+            "enum": ["0", "1"],
+            "enumLabels": { "0": "深度", "1": "精确" },
+            "description": "搜索类型"
+          },
+          "ifUnion": {
+            "type": "string",
+            "enum": ["1", "2"],
+            "enumLabels": { "1": "开启", "2": "不开启" },
+            "description": "联合"
+          }
+        },
+        "required": ["metricIdsStr"]
+      }
+    }
+  },
+  "analytics_data": {
+    "get_financial_data": {
+      "description": "通用结构化取数兜底",
+      "params": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string", "description": "简洁的自然语言取数问题" },
+          "lang": { "type": "string", "enum": ["CNS", "ENS"], "description": "CNS=中文默认，ENS=英文" }
+        },
+        "required": ["question"]
+      }
+    }
+  }
+}

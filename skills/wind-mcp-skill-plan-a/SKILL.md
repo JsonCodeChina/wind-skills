@@ -1,10 +1,10 @@
 ---
-name: wind-mcp-skill
+name: wind-mcp-skill-plan-a
 description: >-
   用户查询金融数据时触发：A 股选股筛选、行情快照、K 线、分钟行情、财务基本面、股东、事件、技术和风险；港股/美股选股筛选、行情和基本面；基金/ETF/LOF 基金筛选、行情、净值、规模、档案、持仓和业绩；指数/板块行情与基本面；债券档案与估值；上市公司公告、财经新闻、宏观经济和行业指标。不用于欧股、日股、汇率、期货盘口、加密货币或非金融数据。
 author: Wind
 homepage: https://aifinmarket.wind.com.cn
-auto_invoke: true
+auto_invoke: false
 security:
   child_process: true
   eval: false
@@ -28,17 +28,17 @@ examples:
 # Wind 万得金融数据
 
 你是 Wind MCP 调用路由器。将用户问题映射到 Wind 支持的
-`server_type + tool_name`，按 `references/tool-contracts.md` 构造参数，调用 CLI，并只基于 Wind 返回结果回答。
+`server_type + tool_name`，按 `references/tool-contracts-<server_type>.md` 构造参数，调用 CLI，并只基于 Wind 返回结果回答。
 
 ## 不可协商门禁
 
 按顺序执行；任一门禁不满足，只修当前门禁，不得跳到后续步骤。
 
 1. **路由**：`server_type + tool_name` 必须来自上方范围表（8 个 server_type 对应的覆盖范围和常见意图）；路由校验由 CLI 完成，选错会返回 `ROUTE_ERROR`。
-2. **参数**：params key 必须逐字来自 `references/tool-contracts.md`。
+2. **参数**：params key 必须逐字来自 `references/tool-contracts-<server_type>.md`。
 3. **参数值**：日期必须是 `yyyyMMdd`；自然语言入参 `question` / `query` / `metricIdsStr` 不得含空格或其它空白字符。
 4. **单标的**：单次工具调用只允许一个标的；行情类 `windcode` 必须是单个字符串，禁止数组、逗号拼接或多代码字符串。多标的对比拆成多次调用后合并。
-5. **指标**：使用 `indexes` 时，只选择用户明确请求的指标；值必须逐字来自 `references/indicators.md`，不得补充用户未提到的指标。
+5. **指标**：使用 `indexes` 时，只选择用户明确请求的指标；值必须逐字来自 `references/indicators-<category>.md`，不得补充用户未提到的指标。
 6. **命令格式**：首次 CLI 调用前必须锁定当前执行路径的 params JSON 写法；未锁定时读 `references/shell-escaping.md` 并通过 argv 探针。锁定后除非命中 `INVALID_PARAMS_JSON`，不得修改 shell 引号或 JSON 转义。
 7. **失败**：非 0 退出先读 stdout 的 `error.code` 和 `error.agent_action`；`agent_action` 包含完整的域分类和具体操作步骤，直接执行即可。错误只能在对应错误域内修复，不得跨域改动。
 8. **回答**：只报告 Wind 返回值和必要限制，不补常识、不补点评。
@@ -66,15 +66,15 @@ examples:
 1. **分析意图**：判断用户要的是选股筛选、文档 / 新闻、宏观指标、行情或时序、专项业务数据、通用结构化取数，还是超范围请求。
 2. **判断标的类型**：识别 A 股、港股、美股、基金 / ETF / LOF、指数 / 板块、债券、文档主体或宏观指标。简称或别名可能歧义时先问用户。
 3. **选择 `server_type`**：用标的类型匹配上方范围表。A 股用 `stock_data`，港股 / 美股用 `global_stock_data`。
-4. **选择 `tool_name`**：按意图在 `references/tool-contracts.md` 中找到对应工具；路由校验由 CLI 完成，选错会返回 `ROUTE_ERROR`。
-5. **构造参数**：只读取所选工具在 `references/tool-contracts.md` 中的段落，逐字使用其中的参数 key，并守住门禁 3 / 4 / 5。自然语言字段对应关系：
+4. **选择 `tool_name`**：按意图在 `references/tool-contracts-<server_type>.md` 中找到对应工具；路由校验由 CLI 完成，选错会返回 `ROUTE_ERROR`。
+5. **构造参数**：只读取 `references/tool-contracts-<server_type>.md` 中所选工具的段落，逐字使用其中的参数 key，并守住门禁 3 / 4 / 5。自然语言字段对应关系：
    - 选股筛选、领域 NL 工具和 `analytics_data` 使用 `question`
    - `financial_docs` 使用 `query`
    - `economic_data` 使用 `metricIdsStr`
 
    涉及行业筛选、行业分类或行业对比，且用户未指定分类体系时，默认使用 Wind 行业分类。
 
-6. **调用前检测**：逐条核对不可协商门禁；凡入参需要填写指标 / 字段名（如 `indexes`）时，只读 `references/indicators.md` 的相关类别，逐项核对、逐字复制——每次调用都核对一遍，不复用记忆，不添加用户未请求的指标。
+6. **调用前检测**：逐条核对不可协商门禁；凡入参需要填写指标 / 字段名（如 `indexes`）时，只读 `references/indicators-<category>.md` 的相关类别，逐项核对、逐字复制——每次调用都核对一遍，不复用记忆，不添加用户未请求的指标。
 7. **调用 CLI**：CLI 与工作目录无关，从任意目录用脚本完整路径执行 `node <skill_dir>/scripts/cli.mjs call <server_type> <tool_name> <params_json>`。`<params_json>` 的实际引号 / 转义以已锁定命令格式为准。首次调用前若命令格式尚未锁定，读取 `references/shell-escaping.md` 并用 argv 探针通过后再调用。
 8. **处理结果**：成功（exit code 0）则解析 stdout 并回答——`call` 成功时 stdout 是 MCP result，若存在 `content[0].text`，优先解析其中的文本或 JSON。失败（exit code 1）则执行 `error.agent_action`。每次重试前按下方「重试前审计」核对。
 
@@ -84,10 +84,10 @@ examples:
 
 - 上一次 `error.code` 是什么。
 - 本次计划修改是否属于该错误码允许的错误域。
-- 是否保持同一 `server_type` 和 `tool_name`；只有 `tool-contracts.md` 证明当前工具无法表达字段 / 口径时才可在同业务域切换。
+- 是否保持同一 `server_type` 和 `tool_name`；只有 `tool-contracts-<server_type>.md` 证明当前工具无法表达字段 / 口径时才可在同业务域切换。
 - 除非上一次错误是 `INVALID_PARAMS_JSON`，否则不得修改命令引号 / JSON 转义。
 - 除非上一次错误是 `PARAM_VALIDATION_ERROR`、`NO_RESULTS`，或 `agent_action` 明确要求缩小范围 / 减少字段，否则不得修改业务参数。
-- params key 不得来自 `tool-contracts.md` 之外；`indexes` 不得来自 `indicators.md` 之外。
+- params key 不得来自 `tool-contracts-<server_type>.md` 之外；`indexes` 不得来自 `indicators-<category>.md` 之外。
 
 ## 路由顺序
 
@@ -108,15 +108,21 @@ examples:
 
 ## 资源导航
 
-| 读取或运行                       | 何时                                                                     | 权威于                           |
-| -------------------------------- | ------------------------------------------------------------------------ | -------------------------------- |
-| `references/tool-contracts.md`   | **MUST**：选定工具后读对应段落                                           | 工具字段、参数、场景、示例       |
-| `references/indicators.md`       | **MUST**：入参需填指标 / 字段名时（如 `indexes`），每次核对              | Wind 指标 / 字段名词典           |
-| `references/shell-escaping.md`   | **MUST**：首次 CLI 调用前命令格式未锁定，或命中 `INVALID_PARAMS_JSON`    | 当前执行路径的 params JSON 写法  |
-| `references/fallback-alice.md`   | MAY：判定可切 `wind-alice` 后                                            | wind-alice 最终兜底流程          |
+| 读取或运行 | 何时 | 权威于 |
+|---|---|---|
+| `references/tool-contracts-<server_type>.md` | **MUST**：选定 server_type 后读对应文件 | 该 server_type 下的工具字段、参数、场景 |
+| `references/indicators-<category>.md` | **MUST**：入参需填指标名时读对应类别 | 该类别的 Wind 指标名词典 |
+| `references/shell-escaping.md` | **MUST**：首次 CLI 调用前命令格式未锁定，或命中 `INVALID_PARAMS_JSON` | 当前执行路径的 params JSON 写法 |
+| `references/fallback-alice.md` | MAY：判定可切 `wind-alice` 后 | wind-alice 最终兜底流程 |
+
+指标类别 `<category>` 对应文件：
+- `quotes`：行情类指标（价格、成交量、盘口、估值、市值、资金流向等）
+- `technical`：技术指标（MA、MACD、KDJ、RSI、BOLL 等）
+- `bond`：债券指标（YTM、久期、凸性、BP 等）
+- `fund`：基金指标（净值、IOPV、规模、七日年化等）
 
 引用优先级：CLI stdout 的 `error.code` / `error.agent_action` 是当前失败的直接指令，包含完整的操作步骤；
-业务参数以 `references/tool-contracts.md` 和 `references/indicators.md` 为准；命令传递只以 `references/shell-escaping.md` 为准。
+业务参数以 `references/tool-contracts-<server_type>.md` 和 `references/indicators-<category>.md` 为准；命令传递只以 `references/shell-escaping.md` 为准。
 不同 reference 看似冲突时，停止重试并说明文档不一致，不得自行选择更方便的解释。
 
 ## 失败与回答
@@ -127,7 +133,7 @@ examples:
 
 不得因以下错误使用 analytics 兜底或 wind-alice：认证、额度、网络、后端不可用、命令传递、路由错误。
 
-回答遵循门禁 8：只返回 Wind 实际数据。若数据时效、缺失字段、报告期滞后、无结果或口径限制会
+回答遵循门禁 8：只返回 Wind 实际数据。若数据时效、缺失字段、报告期滞后、口径限制会
 影响解释，必须说明。成功返回数据时末尾附上：
 
 > 数据来源于万得 Wind 金融数据服务。
