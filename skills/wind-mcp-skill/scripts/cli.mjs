@@ -241,6 +241,60 @@ function validateToolSelection(server_type, toolName) {
 const BASIC_TEXT_KEYS = ['question', 'query', 'metricIdsStr', 'windcode', 'indexes'];
 const BASIC_NO_WHITESPACE_KEYS = ['question', 'query', 'metricIdsStr'];
 const BASIC_DATE_KEYS = ['begin_date', 'end_date', 'beginDate', 'endDate', 'date', 'tradeDate'];
+const PRICE_INDICATOR_TOOLS = new Set(['get_stock_price_indicators', 'get_fund_price_indicators', 'get_index_price_indicators']);
+const KLINE_TOOLS = new Set(['get_stock_kline', 'get_fund_kline', 'get_index_kline']);
+const QUOTE_TOOLS = new Set(['get_stock_quote', 'get_fund_quote', 'get_index_quote']);
+const KLINE_PERIODS = new Set(['1', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15']);
+const PERIOD_ALIASES = new Map([
+  ['1m', '1'], ['1min', '1'], ['1分钟', '1'],
+  ['5m', '3'], ['5min', '3'], ['5分钟', '3'],
+  ['10m', '4'], ['10min', '4'], ['10分钟', '4'],
+  ['15m', '5'], ['15min', '5'], ['15分钟', '5'],
+  ['30m', '6'], ['30min', '6'], ['30分钟', '6'],
+  ['60m', '7'], ['60min', '7'], ['1h', '7'], ['60分钟', '7'],
+  ['120m', '8'], ['120min', '8'], ['2h', '8'], ['120分钟', '8'],
+  ['240m', '9'], ['240min', '9'], ['4h', '9'], ['240分钟', '9'],
+  ['d', '10'], ['day', '10'], ['daily', '10'], ['日', '10'], ['日k', '10'], ['日线', '10'],
+  ['w', '11'], ['week', '11'], ['weekly', '11'], ['周', '11'], ['周k', '11'], ['周线', '11'],
+  ['m', '12'], ['month', '12'], ['monthly', '12'], ['月', '12'], ['月k', '12'], ['月线', '12'],
+  ['y', '13'], ['year', '13'], ['yearly', '13'], ['年', '13'], ['年k', '13'], ['年线', '13'],
+  ['q', '14'], ['quarter', '14'], ['quarterly', '14'], ['季', '14'], ['季k', '14'],
+  ['halfyear', '15'], ['half-year', '15'], ['半年', '15'], ['半年k', '15'],
+]);
+const INDICATOR_ALIASES = new Map([
+  ['最新价', '最新成交价'], ['最新价格', '最新成交价'], ['最新收盘价', '最新成交价'],
+  ['收盘价', '最新成交价'], ['close', '最新成交价'], ['last', '最新成交价'], ['price', '最新成交价'],
+  ['昨收', '前收盘价'], ['昨收价', '前收盘价'], ['昨收盘', '前收盘价'], ['昨日收盘价', '前收盘价'],
+  ['preclose', '前收盘价'], ['pre_close', '前收盘价'],
+  ['开盘价', '今日开盘价'], ['今开', '今日开盘价'], ['open', '今日开盘价'],
+  ['最高价', '今日最高价'], ['high', '今日最高价'], ['最低价', '今日最低价'], ['low', '今日最低价'],
+  ['volume', '成交量'], ['vol', '成交量'], ['amount', '成交额'], ['turnover', '成交额'],
+  ['涨幅', '涨跌幅'], ['pct_chg', '涨跌幅'], ['pctchg', '涨跌幅'], ['change_pct', '涨跌幅'],
+  ['涨跌额', '涨跌'], ['change', '涨跌'],
+  ['市盈率', '市盈率(TTM)'], ['市盈率ttm', '市盈率(TTM)'], ['pe', '市盈率(TTM)'], ['pe_ttm', '市盈率(TTM)'],
+  ['市净率lf', '市净率(LF)'], ['pb', '市净率'], ['pb_lf', '市净率(LF)'],
+  ['总市值', '总市值2'], ['总市值含限售', '总市值2'], ['总市值不含限售', '总市值1'],
+  ['股息率ttm', '股息率'], ['dividend_yield', '股息率'],
+  ['近一年收益率', '近一年净值增长率'], ['近1年收益率', '近一年净值增长率'],
+  ['一年收益率', '近一年净值增长率'], ['近一年净值收益率', '近一年净值增长率'],
+]);
+const INDEX_CODE_ALIASES = new Map([
+  ['HSI', 'HSI.HI'], ['HSI.HK', 'HSI.HI'], ['HKHSI', 'HSI.HI'], ['恒生指数', 'HSI.HI'],
+  ['HSTECH', 'HSTECH.HI'], ['HSTECH.HK', 'HSTECH.HI'], ['恒生科技', 'HSTECH.HI'],
+  ['DJI', 'DJI.GI'], ['DJIA', 'DJI.GI'], ['.DJI', 'DJI.GI'],
+  ['SPX', 'SPX.GI'], ['.SPX', 'SPX.GI'], ['IXIC', 'IXIC.GI'], ['.IXIC', 'IXIC.GI'],
+  ['NDX', 'NDX.GI'], ['.NDX', 'NDX.GI'], ['SOX', 'SOX.GI'],
+]);
+const LEGACY_TOOL_ALIASES = new Map([
+  ['get_global_stock_price_indicators', ['stock_data', 'get_stock_price_indicators']],
+  ['get_global_stock_kline', ['stock_data', 'get_stock_kline']],
+  ['get_global_stock_quote', ['stock_data', 'get_stock_quote']],
+]);
+const TOOL_BY_DOMAIN = {
+  price: { stock_data: 'get_stock_price_indicators', fund_data: 'get_fund_price_indicators', index_data: 'get_index_price_indicators' },
+  kline: { stock_data: 'get_stock_kline', fund_data: 'get_fund_kline', index_data: 'get_index_kline' },
+  quote: { stock_data: 'get_stock_quote', fund_data: 'get_fund_quote', index_data: 'get_index_quote' },
+};
 
 function isValidBasicDate(value) {
   if (!/^\d{8}$/.test(value)) return false;
@@ -249,6 +303,84 @@ function isValidBasicDate(value) {
   const d = Number(value.slice(6, 8));
   const dt = new Date(Date.UTC(y, m - 1, d));
   return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+
+function normalizeIndicatorKey(value) {
+  return String(value || '').trim().replace(/\s+/g, '').replace(/[（]/g, '(').replace(/[）]/g, ')').toLowerCase();
+}
+
+function normalizeIndexes(indexes) {
+  if (typeof indexes !== 'string') return indexes;
+  return indexes.split(',').map((item) => INDICATOR_ALIASES.get(normalizeIndicatorKey(item)) || item.trim()).filter(Boolean).join(',');
+}
+
+function looksLikeFundCode(code) {
+  return /^5\d{5}\.SH$/.test(code) || /^1[56]\d{4}\.SZ$/.test(code) || /^\d{6}\.OF$/.test(code);
+}
+
+function looksLikeIndexCode(code) {
+  return /^(\d{6})\.(CSI|WI|MI|HI|GI)$/.test(code) ||
+    /^(000300|000905|000852|000016|000001|399001|399006|399300)\.(SH|SZ)$/.test(code) ||
+    /^[A-Z]{2,10}\.(HI|GI)$/.test(code);
+}
+
+function normalizeWindcode(windcode) {
+  if (typeof windcode !== 'string') return windcode;
+  const raw = windcode.trim();
+  const alias = INDEX_CODE_ALIASES.get(raw.toUpperCase());
+  if (alias) return alias;
+  const upper = raw.toUpperCase();
+  if (/^\d{4}\.HK$/.test(upper)) return `0${upper}`;
+  if (/^\d{6}$/.test(upper)) {
+    if (/^9\d{5}$/.test(upper)) return `${upper}.BJ`;
+    if (/^5\d{5}$/.test(upper)) return `${upper}.SH`;
+    if (/^1[56]\d{4}$/.test(upper)) return `${upper}.SZ`;
+    if (/^(000300|000905|000852|000016|000001)$/.test(upper)) return `${upper}.SH`;
+    if (/^399\d{3}$/.test(upper)) return `${upper}.SZ`;
+    if (/^[036]\d{5}$/.test(upper)) return `${upper}.${upper.startsWith('6') ? 'SH' : 'SZ'}`;
+  }
+  if (/^5\d{5}\.SZ$/.test(upper)) return upper.replace(/\.SZ$/, '.SH');
+  if (/^1[56]\d{4}\.SH$/.test(upper)) return upper.replace(/\.SH$/, '.SZ');
+  if (/^[03]\d{5}\.SH$/.test(upper)) return upper.replace(/\.SH$/, '.SZ');
+  if (/^6\d{5}\.SZ$/.test(upper)) return upper.replace(/\.SZ$/, '.SH');
+  if (/^9\d{5}\.(SH|SZ)$/.test(upper)) return upper.replace(/\.(SH|SZ)$/, '.BJ');
+  if (/^[A-Z]{1,5}$/.test(upper)) return `${upper}.O`;
+  return upper;
+}
+
+function toolFamily(toolName) {
+  if (PRICE_INDICATOR_TOOLS.has(toolName)) return 'price';
+  if (KLINE_TOOLS.has(toolName)) return 'kline';
+  if (QUOTE_TOOLS.has(toolName)) return 'quote';
+  return null;
+}
+
+function inferServerTypeFromWindcode(currentServerType, windcode) {
+  if (typeof windcode !== 'string') return currentServerType;
+  if (looksLikeFundCode(windcode)) return 'fund_data';
+  if (looksLikeIndexCode(windcode)) return 'index_data';
+  if (/^\d{4,5}\.HK$/.test(windcode) || /^[A-Z]{1,5}\.(O|N|A|HK|SH|SZ|BJ)$/.test(windcode) || /^\d{6}\.(SH|SZ|BJ)$/.test(windcode)) {
+    return 'stock_data';
+  }
+  return currentServerType;
+}
+
+function normalizeCall(server_type, toolName, args) {
+  const legacyTool = LEGACY_TOOL_ALIASES.get(toolName);
+  if (legacyTool) [server_type, toolName] = legacyTool;
+  const normalizedArgs = { ...args };
+  if (typeof normalizedArgs.indexes === 'string') normalizedArgs.indexes = normalizeIndexes(normalizedArgs.indexes);
+  if (typeof normalizedArgs.windcode === 'string') normalizedArgs.windcode = normalizeWindcode(normalizedArgs.windcode);
+  if (typeof normalizedArgs.period === 'string') {
+    const key = normalizedArgs.period.trim().toLowerCase();
+    normalizedArgs.period = PERIOD_ALIASES.get(key) || normalizedArgs.period.trim();
+  }
+  const family = toolFamily(toolName);
+  if (family && typeof normalizedArgs.windcode === 'string') {
+    server_type = inferServerTypeFromWindcode(server_type, normalizedArgs.windcode);
+    toolName = TOOL_BY_DOMAIN[family]?.[server_type] || toolName;
+  }
+  return { server_type, toolName, args: normalizedArgs };
 }
 
 function validateBasicParams(params) {
@@ -283,6 +415,24 @@ function validateBasicParams(params) {
     }
   }
 
+  return errors;
+}
+
+function validateToolParams(toolName, params) {
+  const errors = [];
+  if (KLINE_TOOLS.has(toolName)) {
+    for (const key of ['windcode', 'begin_date', 'end_date']) {
+      if (!(key in params)) errors.push(`K 线工具缺少必填字段 '${key}'`);
+    }
+    if ('period' in params && !KLINE_PERIODS.has(String(params.period))) {
+      errors.push(`字段 'period' 只能是 ${Array.from(KLINE_PERIODS).join('/')}，日 K 请传 '10'`);
+    }
+    for (const key of ['aftime', 'issusp']) {
+      if (key in params && !new Set(['0', '1']).has(String(params[key]))) {
+        errors.push(`字段 '${key}' 只能是 '0' 或 '1'`);
+      }
+    }
+  }
   return errors;
 }
 
@@ -508,8 +658,6 @@ async function cmdCall(server_type, toolName, paramsJson) {
     );
   }
 
-  validateToolSelection(server_type, toolName);
-
   let args;
   try {
     args = JSON.parse(paramsJson);
@@ -517,7 +665,11 @@ async function cmdCall(server_type, toolName, paramsJson) {
     die('INVALID_PARAMS_JSON', `params JSON 解析失败：${e.message} | 原文：${paramsJson.slice(0, 200)}`);
   }
 
+  ({ server_type, toolName, args } = normalizeCall(server_type, toolName, args));
+  validateToolSelection(server_type, toolName);
+
   const validationErrors = validateBasicParams(args);
+  validationErrors.push(...validateToolParams(toolName, args));
   if (validationErrors.length > 0) {
     die('PARAM_VALIDATION_ERROR', validationErrors.join('；'));
   }
