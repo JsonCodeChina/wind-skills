@@ -104,6 +104,8 @@ examples:
 `analytics_data` 不是复杂问句入口，也不是批量行情入口。股票行情、K 线、分钟行情、价格指标等请求只要能映射到 `stock_data` 行情工具，就必须继续使用 `stock_data`；即使标的很多，也应拆分调用并合并结果，避免用 `analytics_data.get_financial_data` 兜底造成不必要的积分消耗。只有专项工具无法覆盖剩余结构化数据，或允许的专项路径因字段 /
 口径 / 无结果失败后，才可用它补取并合并结果。单次工具调用只查一个标的；多标的对比拆成多次调用后合并。
 
+不得将某次 `analytics_data.get_financial_data` 兜底成功视为 `stock_data` 行情工具不可用；后续新的股票行情、K 线、分钟行情、价格指标请求仍必须重新按路由规则优先使用 `stock_data`。
+
 ## params JSON 写法
 
 调用前先确认命令最终交给哪种 shell / 执行器，按下表写 `<params_json>` 的引号；同一会话锁定一种写法，命中 `INVALID_PARAMS_JSON` 前不改写。
