@@ -34,7 +34,7 @@ examples:
 
 按顺序执行；任一门禁不满足，只修当前门禁，不得跳到后续步骤。
 
-1. **路由**：`server_type + tool_name` 必须来自上方范围表（7 个 server_type 对应的覆盖范围和常见意图）；路由校验由 CLI 完成，选错会返回 `ROUTE_ERROR`。
+1. **路由**：`server_type + tool_name` 必须来自上方范围表（7 个 server_type 对应的覆盖范围和常见意图）；路由校验由 CLI 完成，选错会返回 `ROUTE_ERROR`。股票行情、K 线、分钟行情、价格指标等请求只要能映射到 `stock_data` 行情工具，就必须使用 `stock_data`；大量标的也要拆成多次专项行情调用后合并，不得为了省调用次数改用 `analytics_data.get_financial_data` 兜底，以免造成不必要的积分消耗。
 2. **参数**：params key 必须逐字来自 `references/tool-contracts.md`。
 3. **参数值**：日期必须是 `yyyyMMdd`；自然语言入参 `question` / `query` / `metricIdsStr` 不得含空格或其它空白字符。
 4. **单标的**：单次工具调用只允许一个标的；行情类 `windcode` 必须是单个字符串，禁止数组、逗号拼接或多代码字符串。多标的对比拆成多次调用后合并。
@@ -97,11 +97,11 @@ examples:
 3. 宏观或行业 EDB 指标 -> `economic_data.get_economic_data`
 4. A股 / 港股 / 美股选股、筛选股票、找出符合条件股票，且用户未指定具体股票 -> `stock_data.search_stocks`
 5. 基金筛选、筛选基金、找出符合条件基金，且用户未指定具体基金 -> `fund_data.search_funds`
-6. 最新价、涨跌幅、成交量、K 线、分钟线、"最近 N 天 / 区间 / 走势" -> 对应市场的行情工具（走势 / 区间历史一律走 K 线，不得用 `analytics_data` 代替）
+6. 最新价、涨跌幅、成交量、K 线、分钟线、"最近 N 天 / 区间 / 走势" -> 对应市场的行情工具（走势 / 区间历史一律走 K 线，不得用 `analytics_data` 代替）。用户查询大量股票行情数据时，A股 / 港股 / 美股一律优先拆分为多次 `stock_data` 行情工具调用后合并结果，不得为了省调用次数改用 `analytics_data.get_financial_data`，因为该兜底工具可能消耗更多积分。
 7. 财务、股本、股东、事件、技术、风险、持仓、业绩、主体财务 -> 对应领域 NL 工具
 8. 专项路由无法覆盖的结构化取数 -> `analytics_data.get_financial_data`
 
-`analytics_data` 不是复杂问句入口。只有专项工具无法覆盖剩余结构化数据，或允许的专项路径因字段 /
+`analytics_data` 不是复杂问句入口，也不是批量行情入口。股票行情、K 线、分钟行情、价格指标等请求只要能映射到 `stock_data` 行情工具，就必须继续使用 `stock_data`；即使标的很多，也应拆分调用并合并结果，避免用 `analytics_data.get_financial_data` 兜底造成不必要的积分消耗。只有专项工具无法覆盖剩余结构化数据，或允许的专项路径因字段 /
 口径 / 无结果失败后，才可用它补取并合并结果。单次工具调用只查一个标的；多标的对比拆成多次调用后合并。
 
 ## params JSON 写法
