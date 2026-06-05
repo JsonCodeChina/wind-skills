@@ -61,7 +61,7 @@ const CALL_EXAMPLES = [
   `cli.mjs call stock_data get_stock_quote '{"windcode":"AAPL.O"}'`,
   `cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","begin_date":"20260401","end_date":"20260430"}'`,
   `cli.mjs call financial_docs get_financial_news '{"query":"美联储利率政策","top_k":3}'`,
-  `cli.mjs call economic_data get_economic_data '{"metricIdsStr":"中国GDP"}'`,
+  `cli.mjs call economic_data natural_language_get_edb_data '{"executionMode":"搜索并提数","dataRetrievalType":"时间序列","question":"中国GDP","endDate":"20261231"}'`,
   `cli.mjs call analytics_data get_financial_data '{"question":"查询中国A股市场过去一年的平均成交量"}'`,
 ];
 
@@ -239,39 +239,20 @@ function validateToolSelection(server_type, toolName) {
   }
 }
 
-const BASIC_TEXT_KEYS = ['question', 'query', 'metricIdsStr', 'windcode', 'indexes'];
-const BASIC_NO_WHITESPACE_KEYS = ['question', 'query', 'metricIdsStr'];
+const BASIC_TEXT_KEYS = ['question', 'query', 'metricIdsStr', 'windcode', 'indexes', 'indicatorIds', 'executionMode', 'dataRetrievalType', 'requireDataAlignment', 'ifUnion', 'freq', 'magnitude', 'currency', 'searchType'];
+const BASIC_NO_WHITESPACE_KEYS = ['query', 'metricIdsStr', 'indicatorIds'];
 const BASIC_DATE_KEYS = ['begin_date', 'end_date', 'beginDate', 'endDate', 'date', 'tradeDate'];
 const PRICE_INDICATOR_TOOLS = new Set(['get_stock_price_indicators', 'get_fund_price_indicators', 'get_index_price_indicators']);
 const KLINE_TOOLS = new Set(['get_stock_kline', 'get_fund_kline', 'get_index_kline']);
 const QUOTE_TOOLS = new Set(['get_stock_quote', 'get_fund_quote', 'get_index_quote']);
-const SEARCH_TOOLS = new Set(['search_stocks', 'search_funds']);
-const QUESTION_TOOLS = new Set([
-  'search_stocks',
-  'search_funds',
-  'get_stock_basicinfo',
-  'get_stock_fundamentals',
-  'get_stock_equity_holders',
-  'get_stock_events',
-  'get_stock_technicals',
-  'get_risk_metrics',
-  'get_fund_info',
-  'get_fund_financials',
-  'get_fund_holdings',
-  'get_fund_performance',
-  'get_fund_holders',
-  'get_fund_company_info',
-  'get_index_basicinfo',
-  'get_index_fundamentals',
-  'get_index_technicals',
-  'get_bond_basicinfo',
-  'get_bond_issuer_info',
-  'get_bond_market_data',
-  'get_bond_financial_data',
-  'get_financial_data',
-]);
-const FINANCIAL_DOC_TOOLS = new Set(['get_company_announcements', 'get_financial_news']);
-const ECONOMIC_TOOLS = new Set(['get_economic_data']);
+const EDB_TOOLS = new Set(['natural_language_get_edb_data']);
+const EDB_EXECUTION_MODES = new Set(['仅提数', '仅搜索指标', '搜索并提数']);
+const EDB_DATA_RETRIEVAL_TYPES = new Set(['时间序列', '截面数据']);
+const EDB_SWITCH_VALUES = new Set(['开启', '不开启']);
+const EDB_SEARCH_TYPES = new Set(['精确', '深度']);
+const EDB_FREQ_VALUES = new Set(['日', '工作日', '周', '月', '季', '半年', '年', '年度']);
+const EDB_MAGNITUDE_VALUES = new Set(['个', '千', '万', '百万', '千万', '亿', '十亿', '百亿', '千亿', '万亿']);
+const EDB_CURRENCY_VALUES = new Set(['USD', 'CNY', 'EUR', 'JPY', 'AUD', 'GBP', 'CHF', 'CAD', 'SGD', 'BYR', 'HKD', 'MYR']);
 
 function readNormalizationRules() {
   const rules = JSON.parse(readFileSync(NORMALIZATION_RULES_PATH, 'utf8'));
@@ -280,7 +261,6 @@ function readNormalizationRules() {
     periodAliases: new Map(Object.entries(rules.period_aliases || {})),
     indicatorAliases: new Map(Object.entries(rules.indicator_aliases || {})),
     indexCodeAliases: new Map(Object.entries(rules.index_code_aliases || {})),
-    unsupportedMarketSuffixes: new Set(rules.unsupported_market_suffixes || []),
     legacyToolAliases: new Map(Object.entries(rules.legacy_tool_aliases || {})),
     toolByDomain: rules.tool_by_domain || {},
   };
@@ -291,7 +271,6 @@ const KLINE_PERIODS = NORMALIZATION_RULES.klinePeriods;
 const PERIOD_ALIASES = NORMALIZATION_RULES.periodAliases;
 const INDICATOR_ALIASES = NORMALIZATION_RULES.indicatorAliases;
 const INDEX_CODE_ALIASES = NORMALIZATION_RULES.indexCodeAliases;
-const UNSUPPORTED_MARKET_SUFFIXES = NORMALIZATION_RULES.unsupportedMarketSuffixes;
 const LEGACY_TOOL_ALIASES = NORMALIZATION_RULES.legacyToolAliases;
 const TOOL_BY_DOMAIN = NORMALIZATION_RULES.toolByDomain;
 
@@ -343,18 +322,8 @@ function normalizeWindcode(windcode) {
   if (/^[03]\d{5}\.SH$/.test(upper)) return upper.replace(/\.SH$/, '.SZ');
   if (/^6\d{5}\.SZ$/.test(upper)) return upper.replace(/\.SZ$/, '.SH');
   if (/^9\d{5}\.(SH|SZ)$/.test(upper)) return upper.replace(/\.(SH|SZ)$/, '.BJ');
-  if (/^(\d{6})\.CSI$/.test(upper)) return upper.replace(/\.CSI$/, '.SH');
   if (/^[A-Z]{1,5}$/.test(upper)) return `${upper}.O`;
   return upper;
-}
-
-function hasUnsupportedMarketSuffix(windcode) {
-  if (typeof windcode !== 'string') return false;
-  const upper = windcode.trim().toUpperCase();
-  for (const suffix of UNSUPPORTED_MARKET_SUFFIXES) {
-    if (upper.endsWith(String(suffix).toUpperCase())) return true;
-  }
-  return false;
 }
 
 function toolFamily(toolName) {
@@ -374,6 +343,24 @@ function inferServerTypeFromWindcode(currentServerType, windcode) {
   return currentServerType;
 }
 
+function normalizeEdbArgs(args) {
+  const normalized = { ...args };
+  if (typeof normalized.metricIdsStr === 'string' && !normalized.question && !normalized.indicatorIds) {
+    normalized.question = normalized.metricIdsStr;
+    delete normalized.metricIdsStr;
+  }
+  if (!normalized.executionMode) {
+    normalized.executionMode = normalized.indicatorIds ? '仅提数' : '搜索并提数';
+  }
+  if (normalized.executionMode !== '仅搜索指标' && !normalized.dataRetrievalType) {
+    normalized.dataRetrievalType = '时间序列';
+  }
+  if (normalized.dataRetrievalType === '截面数据' && !normalized.endDate) {
+    normalized.endDate = normalized.beginDate;
+  }
+  return normalized;
+}
+
 function normalizeCall(server_type, toolName, args) {
   const legacyTool = LEGACY_TOOL_ALIASES.get(toolName);
   if (legacyTool) [server_type, toolName] = legacyTool;
@@ -383,6 +370,10 @@ function normalizeCall(server_type, toolName, args) {
   if (typeof normalizedArgs.period === 'string') {
     const key = normalizedArgs.period.trim().toLowerCase();
     normalizedArgs.period = PERIOD_ALIASES.get(key) || normalizedArgs.period.trim();
+  }
+  if (EDB_TOOLS.has(toolName)) {
+    Object.assign(normalizedArgs, normalizeEdbArgs(normalizedArgs));
+    if ('metricIdsStr' in normalizedArgs) delete normalizedArgs.metricIdsStr;
   }
   const family = toolFamily(toolName);
   if (family && typeof normalizedArgs.windcode === 'string') {
@@ -429,14 +420,6 @@ function validateBasicParams(params) {
 
 function validateToolParams(toolName, params) {
   const errors = [];
-  if (PRICE_INDICATOR_TOOLS.has(toolName)) {
-    for (const key of ['windcode', 'indexes']) {
-      if (!(key in params)) errors.push(`行情快照工具缺少必填字段 '${key}'`);
-    }
-  }
-  if (QUOTE_TOOLS.has(toolName) && !('windcode' in params)) {
-    errors.push("分钟行情工具缺少必填字段 'windcode'");
-  }
   if (KLINE_TOOLS.has(toolName)) {
     for (const key of ['windcode', 'begin_date', 'end_date']) {
       if (!(key in params)) errors.push(`K 线工具缺少必填字段 '${key}'`);
@@ -450,17 +433,66 @@ function validateToolParams(toolName, params) {
       }
     }
   }
-  if (QUESTION_TOOLS.has(toolName) || SEARCH_TOOLS.has(toolName)) {
-    if (!('question' in params)) errors.push(`NL 工具 '${toolName}' 缺少必填字段 'question'`);
-  }
-  if (FINANCIAL_DOC_TOOLS.has(toolName) && !('query' in params)) {
-    errors.push(`文档工具 '${toolName}' 缺少必填字段 'query'`);
-  }
-  if (ECONOMIC_TOOLS.has(toolName) && !('metricIdsStr' in params)) {
-    errors.push(`宏观工具 '${toolName}' 缺少必填字段 'metricIdsStr'`);
-  }
-  if (hasUnsupportedMarketSuffix(params.windcode)) {
-    errors.push(`字段 'windcode' 的市场后缀不在 Wind MCP 支持范围内: ${params.windcode}`);
+  if (EDB_TOOLS.has(toolName)) {
+    const allowedKeys = new Set([
+      'executionMode',
+      'dataRetrievalType',
+      'question',
+      'indicatorIds',
+      'beginDate',
+      'endDate',
+      'requireDataAlignment',
+      'ifUnion',
+      'freq',
+      'magnitude',
+      'currency',
+      'searchType',
+    ]);
+    for (const key of Object.keys(params)) {
+      if (!allowedKeys.has(key)) errors.push(`宏观 EDB 工具不支持字段 '${key}'`);
+    }
+    if (!('executionMode' in params)) {
+      errors.push("宏观 EDB 工具缺少必填字段 'executionMode'");
+    } else if (!EDB_EXECUTION_MODES.has(params.executionMode)) {
+      errors.push("字段 'executionMode' 只能是 '仅提数' / '仅搜索指标' / '搜索并提数'");
+    }
+    if (params.executionMode === '仅提数' && !params.indicatorIds) {
+      errors.push("executionMode 为 '仅提数' 时必须提供 'indicatorIds'");
+    }
+    if (params.executionMode !== '仅提数' && !params.question) {
+      errors.push("executionMode 非 '仅提数' 时必须提供 'question'");
+    }
+    if (params.executionMode !== '仅搜索指标') {
+      if (!params.dataRetrievalType) {
+        errors.push("executionMode 非 '仅搜索指标' 时必须提供 'dataRetrievalType'");
+      } else if (!EDB_DATA_RETRIEVAL_TYPES.has(params.dataRetrievalType)) {
+        errors.push("字段 'dataRetrievalType' 只能是 '时间序列' 或 '截面数据'");
+      }
+    }
+    if (params.dataRetrievalType === '截面数据' && !params.endDate) {
+      errors.push("dataRetrievalType 为 '截面数据' 时必须提供 'endDate'");
+    }
+    if (params.requireDataAlignment && !EDB_SWITCH_VALUES.has(params.requireDataAlignment)) {
+      errors.push("字段 'requireDataAlignment' 只能是 '开启' 或 '不开启'");
+    }
+    if (params.ifUnion && !EDB_SWITCH_VALUES.has(params.ifUnion)) {
+      errors.push("字段 'ifUnion' 只能是 '开启' 或 '不开启'");
+    }
+    if (params.searchType && !EDB_SEARCH_TYPES.has(params.searchType)) {
+      errors.push("字段 'searchType' 只能是 '精确' 或 '深度'");
+    }
+    if (params.freq && !EDB_FREQ_VALUES.has(params.freq)) {
+      errors.push("字段 'freq' 只能是 日/工作日/周/月/季/半年/年/年度");
+    }
+    if (params.magnitude && !EDB_MAGNITUDE_VALUES.has(params.magnitude)) {
+      errors.push("字段 'magnitude' 取值不在宏观 EDB 工具枚举内");
+    }
+    if (params.currency && !EDB_CURRENCY_VALUES.has(params.currency)) {
+      errors.push("字段 'currency' 取值不在宏观 EDB 工具枚举内");
+    }
+    if (params.beginDate && params.endDate && params.beginDate > params.endDate) {
+      errors.push("字段 'beginDate' 不能晚于 'endDate'");
+    }
   }
   return errors;
 }
@@ -495,9 +527,6 @@ const ERROR_PATTERNS = [
   ['TEMPORARILY_UNAVAILABLE', /temporarily_unavailable/i, '后端偶发不可用。'],
   ['INVALID_PARAM_VALUE', /invalid_param_value/i, '后端参数值错误。'],
   ['INVALID_PARAM_NAME', /invalid_param_name/i, '后端参数名错误。'],
-  ['NO_RESULTS', /无法找到实体信息|未识别实体|实体内容不能为空|未找到匹配的指标/i, '后端未匹配到实体或指标。'],
-  ['INVALID_PARAM_VALUE', /Invalid value .* for field '(indexes|name|lang)'|For input string: "(daily|day|D|W|M|日)"/i, '后端参数值错误。'],
-  ['INVALID_PARAM_NAME', /^(question|windcode|begin_date|metricIdsStr|query)$/i, '后端参数名或必填字段错误。'],
   ['QUOTA_ERROR', /单日请求次数超限|daily.*limit|余额不足|请先充值|insufficient.*balance|请求过于频繁|qps.*limit|too.*frequent/i, '额度/限流错误。等待额度刷新、换备用 Key 或充值后原样重试。'],
   ['AUTH_ERROR', /密钥无效|key.*invalid|unauthorized|认证失败|auth.*fail/i, '认证/权限错误。按 Key 机制修复后原样重试。'],
   ['NO_RESULTS', /未获取到数据|"NO_RESULTS"|no\s*results?|not\s*found|empty\s*result/i, '未获取到匹配数据。先在不改变用户意图的前提下调整关键词或参数。'],

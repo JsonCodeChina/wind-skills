@@ -36,7 +36,7 @@ examples:
 
 1. **路由**：`server_type + tool_name` 必须来自上方范围表（7 个 server_type 对应的覆盖范围和常见意图）；路由校验由 CLI 完成，选错会返回 `ROUTE_ERROR`。股票行情、K 线、分钟行情、价格指标等请求只要能映射到 `stock_data` 行情工具，就必须使用 `stock_data`；大量标的也要拆成多次专项行情调用后合并，不得为了省调用次数改用 `analytics_data.get_financial_data` 兜底，以免造成不必要的积分消耗。
 2. **参数**：params key 必须逐字来自 `references/tool-contracts.md`。
-3. **参数值**：日期必须是 `yyyyMMdd`；自然语言入参 `question` / `query` / `metricIdsStr` 不得含空格或其它空白字符。
+3. **参数值**：日期必须是 `yyyyMMdd`；自然语言入参按工具合约原样传递，不得为空或全空白；宏观 EDB 新工具的 `question` 允许自然语言短语。
 4. **单标的**：单次工具调用只允许一个标的；行情类 `windcode` 必须是单个字符串，禁止数组、逗号拼接或多代码字符串。多标的对比拆成多次调用后合并。
 5. **指标**：使用 `indexes` 时，只选择用户明确请求的指标；值必须逐字来自 `references/indicators.md`，不得补充用户未提到的指标。
 6. **命令格式**：首次 CLI 调用前先确认 shell / 执行器类型，按下方「params JSON 写法」表锁定 `<params_json>` 引号。锁定后除非命中 `INVALID_PARAMS_JSON`，不得修改 shell 引号或 JSON 转义。
@@ -69,7 +69,7 @@ examples:
 5. **构造参数**：只读取所选工具在 `references/tool-contracts.md` 中的段落，逐字使用其中的参数 key，并守住门禁 3 / 4 / 5。自然语言字段对应关系：
    - 选股筛选、领域 NL 工具和 `analytics_data` 使用 `question`
    - `financial_docs` 使用 `query`
-   - `economic_data` 使用 `metricIdsStr`
+   - `economic_data.natural_language_get_edb_data` 使用 `executionMode` 决定入参：非 `仅提数` 用 `question`，`仅提数` 用 `indicatorIds`；除 `仅搜索指标` 外填写 `dataRetrievalType`
 
    涉及行业筛选、行业分类或行业对比，且用户未指定分类体系时，默认使用 Wind 行业分类。
 
@@ -94,7 +94,7 @@ examples:
 
 1. 公告、年报、季报、招股书、监管披露 -> `financial_docs.get_company_announcements`
 2. 新闻、媒体、快讯、报道、评论、消息 -> `financial_docs.get_financial_news`
-3. 宏观或行业 EDB 指标 -> `economic_data.get_economic_data`
+3. 宏观或行业 EDB 指标 -> `economic_data.natural_language_get_edb_data`
 4. A股 / 港股 / 美股选股、筛选股票、找出符合条件股票，且用户未指定具体股票 -> `stock_data.search_stocks`
 5. 基金筛选、筛选基金、找出符合条件基金，且用户未指定具体基金 -> `fund_data.search_funds`
 6. 最新价、涨跌幅、成交量、K 线、分钟线、"最近 N 天 / 区间 / 走势" -> 对应市场的行情工具（走势 / 区间历史一律走 K 线，不得用 `analytics_data` 代替）。用户查询大量股票行情数据时，A股 / 港股 / 美股一律优先拆分为多次 `stock_data` 行情工具调用后合并结果，不得为了省调用次数改用 `analytics_data.get_financial_data`，因为该兜底工具可能消耗更多积分。
