@@ -245,6 +245,33 @@ const BASIC_DATE_KEYS = ['begin_date', 'end_date', 'beginDate', 'endDate', 'date
 const PRICE_INDICATOR_TOOLS = new Set(['get_stock_price_indicators', 'get_fund_price_indicators', 'get_index_price_indicators']);
 const KLINE_TOOLS = new Set(['get_stock_kline', 'get_fund_kline', 'get_index_kline']);
 const QUOTE_TOOLS = new Set(['get_stock_quote', 'get_fund_quote', 'get_index_quote']);
+const SEARCH_TOOLS = new Set(['search_stocks', 'search_funds']);
+const QUESTION_TOOLS = new Set([
+  'search_stocks',
+  'search_funds',
+  'get_stock_basicinfo',
+  'get_stock_fundamentals',
+  'get_stock_equity_holders',
+  'get_stock_events',
+  'get_stock_technicals',
+  'get_risk_metrics',
+  'get_fund_info',
+  'get_fund_financials',
+  'get_fund_holdings',
+  'get_fund_performance',
+  'get_fund_holders',
+  'get_fund_company_info',
+  'get_index_basicinfo',
+  'get_index_fundamentals',
+  'get_index_technicals',
+  'get_bond_basicinfo',
+  'get_bond_issuer_info',
+  'get_bond_market_data',
+  'get_bond_financial_data',
+  'get_financial_data',
+]);
+const FINANCIAL_DOC_TOOLS = new Set(['get_company_announcements', 'get_financial_news']);
+const ECONOMIC_TOOLS = new Set(['get_economic_data']);
 
 function readNormalizationRules() {
   const rules = JSON.parse(readFileSync(NORMALIZATION_RULES_PATH, 'utf8'));
@@ -253,6 +280,7 @@ function readNormalizationRules() {
     periodAliases: new Map(Object.entries(rules.period_aliases || {})),
     indicatorAliases: new Map(Object.entries(rules.indicator_aliases || {})),
     indexCodeAliases: new Map(Object.entries(rules.index_code_aliases || {})),
+    unsupportedMarketSuffixes: new Set(rules.unsupported_market_suffixes || []),
     legacyToolAliases: new Map(Object.entries(rules.legacy_tool_aliases || {})),
     toolByDomain: rules.tool_by_domain || {},
   };
@@ -263,6 +291,7 @@ const KLINE_PERIODS = NORMALIZATION_RULES.klinePeriods;
 const PERIOD_ALIASES = NORMALIZATION_RULES.periodAliases;
 const INDICATOR_ALIASES = NORMALIZATION_RULES.indicatorAliases;
 const INDEX_CODE_ALIASES = NORMALIZATION_RULES.indexCodeAliases;
+const UNSUPPORTED_MARKET_SUFFIXES = NORMALIZATION_RULES.unsupportedMarketSuffixes;
 const LEGACY_TOOL_ALIASES = NORMALIZATION_RULES.legacyToolAliases;
 const TOOL_BY_DOMAIN = NORMALIZATION_RULES.toolByDomain;
 
@@ -314,8 +343,18 @@ function normalizeWindcode(windcode) {
   if (/^[03]\d{5}\.SH$/.test(upper)) return upper.replace(/\.SH$/, '.SZ');
   if (/^6\d{5}\.SZ$/.test(upper)) return upper.replace(/\.SZ$/, '.SH');
   if (/^9\d{5}\.(SH|SZ)$/.test(upper)) return upper.replace(/\.(SH|SZ)$/, '.BJ');
+  if (/^(\d{6})\.CSI$/.test(upper)) return upper.replace(/\.CSI$/, '.SH');
   if (/^[A-Z]{1,5}$/.test(upper)) return `${upper}.O`;
   return upper;
+}
+
+function hasUnsupportedMarketSuffix(windcode) {
+  if (typeof windcode !== 'string') return false;
+  const upper = windcode.trim().toUpperCase();
+  for (const suffix of UNSUPPORTED_MARKET_SUFFIXES) {
+    if (upper.endsWith(String(suffix).toUpperCase())) return true;
+  }
+  return false;
 }
 
 function toolFamily(toolName) {
@@ -390,6 +429,14 @@ function validateBasicParams(params) {
 
 function validateToolParams(toolName, params) {
   const errors = [];
+  if (PRICE_INDICATOR_TOOLS.has(toolName)) {
+    for (const key of ['windcode', 'indexes']) {
+      if (!(key in params)) errors.push(`行情快照工具缺少必填字段 '${key}'`);
+    }
+  }
+  if (QUOTE_TOOLS.has(toolName) && !('windcode' in params)) {
+    errors.push("分钟行情工具缺少必填字段 'windcode'");
+  }
   if (KLINE_TOOLS.has(toolName)) {
     for (const key of ['windcode', 'begin_date', 'end_date']) {
       if (!(key in params)) errors.push(`K 线工具缺少必填字段 '${key}'`);
@@ -402,6 +449,18 @@ function validateToolParams(toolName, params) {
         errors.push(`字段 '${key}' 只能是 '0' 或 '1'`);
       }
     }
+  }
+  if (QUESTION_TOOLS.has(toolName) || SEARCH_TOOLS.has(toolName)) {
+    if (!('question' in params)) errors.push(`NL 工具 '${toolName}' 缺少必填字段 'question'`);
+  }
+  if (FINANCIAL_DOC_TOOLS.has(toolName) && !('query' in params)) {
+    errors.push(`文档工具 '${toolName}' 缺少必填字段 'query'`);
+  }
+  if (ECONOMIC_TOOLS.has(toolName) && !('metricIdsStr' in params)) {
+    errors.push(`宏观工具 '${toolName}' 缺少必填字段 'metricIdsStr'`);
+  }
+  if (hasUnsupportedMarketSuffix(params.windcode)) {
+    errors.push(`字段 'windcode' 的市场后缀不在 Wind MCP 支持范围内: ${params.windcode}`);
   }
   return errors;
 }
@@ -436,6 +495,9 @@ const ERROR_PATTERNS = [
   ['TEMPORARILY_UNAVAILABLE', /temporarily_unavailable/i, '后端偶发不可用。'],
   ['INVALID_PARAM_VALUE', /invalid_param_value/i, '后端参数值错误。'],
   ['INVALID_PARAM_NAME', /invalid_param_name/i, '后端参数名错误。'],
+  ['NO_RESULTS', /无法找到实体信息|未识别实体|实体内容不能为空|未找到匹配的指标/i, '后端未匹配到实体或指标。'],
+  ['INVALID_PARAM_VALUE', /Invalid value .* for field '(indexes|name|lang)'|For input string: "(daily|day|D|W|M|日)"/i, '后端参数值错误。'],
+  ['INVALID_PARAM_NAME', /^(question|windcode|begin_date|metricIdsStr|query)$/i, '后端参数名或必填字段错误。'],
   ['QUOTA_ERROR', /单日请求次数超限|daily.*limit|余额不足|请先充值|insufficient.*balance|请求过于频繁|qps.*limit|too.*frequent/i, '额度/限流错误。等待额度刷新、换备用 Key 或充值后原样重试。'],
   ['AUTH_ERROR', /密钥无效|key.*invalid|unauthorized|认证失败|auth.*fail/i, '认证/权限错误。按 Key 机制修复后原样重试。'],
   ['NO_RESULTS', /未获取到数据|"NO_RESULTS"|no\s*results?|not\s*found|empty\s*result/i, '未获取到匹配数据。先在不改变用户意图的前提下调整关键词或参数。'],
