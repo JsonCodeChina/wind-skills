@@ -6,7 +6,7 @@ import { join, dirname, basename, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 
-const SKILL_VERSION = '1.8.0';
+const SKILL_VERSION = '1.9.0';
 
 // 本地 registry: 工具选择可在任何网络调用前失败
 const SERVERS = {
