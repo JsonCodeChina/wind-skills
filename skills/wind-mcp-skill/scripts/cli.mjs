@@ -6,7 +6,7 @@ import { join, dirname, basename, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 
-const SKILL_VERSION = '1.8.0';
+const SKILL_VERSION = '1.8.1';
 
 // 本地 registry: 工具选择可在任何网络调用前失败
 const SERVERS = {
@@ -294,7 +294,8 @@ function looksLikeFundCode(code) {
 
 function looksLikeIndexCode(code) {
   return /^(\d{6})\.(CSI|WI|MI|HI|GI)$/.test(code) ||
-    /^(000300|000905|000852|000016|000001|399001|399006|399300)\.(SH|SZ)$/.test(code) ||
+    /^(000300|000905|000852|000016|000001)\.SH$/.test(code) ||
+    /^(399001|399006|399300)\.SZ$/.test(code) ||
     /^[A-Z]{2,10}\.(HI|GI)$/.test(code);
 }
 
@@ -305,6 +306,7 @@ function normalizeWindcode(windcode) {
   if (alias) return alias;
   const upper = raw.toUpperCase();
   if (/^\d{4}\.HK$/.test(upper)) return `0${upper}`;
+  if (looksLikeIndexCode(upper)) return upper;
   if (/^\d{6}$/.test(upper)) {
     if (/^9\d{5}$/.test(upper)) return `${upper}.BJ`;
     if (/^5\d{5}$/.test(upper)) return `${upper}.SH`;
