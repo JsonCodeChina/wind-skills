@@ -3,85 +3,85 @@ const path = require('path');
 const https = require('https');
 const http = require('http');
 
-const CONFIG = JSON.parse(fs.readFileSync(path.join(__dirname, 'mcp_config.json'), 'utf-8'));
-const AUTH_TOKEN = CONFIG.auth_token;
+const runtimeConfig = JSON.parse(fs.readFileSync(path.join(__dirname, 'mcp_config.json'), 'utf-8'));
+const accessToken = runtimeConfig.auth_token;
 
-const BASE = "https://api-mcp.51ifind.com:8643/ds-mcp-servers";
-const SERVERS = {
-    stock: `${BASE}/hexin-ifind-ds-stock-mcp`,
-    fund: `${BASE}/hexin-ifind-ds-fund-mcp`,
-    edb: `${BASE}/hexin-ifind-ds-edb-mcp`,
-    news: `${BASE}/hexin-ifind-ds-news-mcp`,
+const MCP_ROOT_URL = "https://api-mcp.51ifind.com:8643/ds-mcp-servers";
+const SERVER_ENDPOINTS = {
+    stock: `${MCP_ROOT_URL}/hexin-ifind-ds-stock-mcp`,
+    fund: `${MCP_ROOT_URL}/hexin-ifind-ds-fund-mcp`,
+    edb: `${MCP_ROOT_URL}/hexin-ifind-ds-edb-mcp`,
+    news: `${MCP_ROOT_URL}/hexin-ifind-ds-news-mcp`,
 };
 
-const _sessions = {};
-const _req_ids = {};
+const sessionIds = {};
+const requestCounters = {};
 
-function nextId(t) {
-    _req_ids[t] = (_req_ids[t] || 0) + 1;
-    return _req_ids[t];
+function nextRequestId(serverType) {
+    requestCounters[serverType] = (requestCounters[serverType] || 0) + 1;
+    return requestCounters[serverType];
 }
 
-function headers(t = null) {
-    const h = {
+function buildHeaders(serverType = null) {
+    const requestHeaders = {
         'Content-Type': 'application/json',
         'Accept': 'application/json, text/event-stream',
-        'Authorization': AUTH_TOKEN,
+        'Authorization': accessToken,
     };
-    if (t && _sessions[t]) {
-        h['Mcp-Session-Id'] = _sessions[t];
+    if (serverType && sessionIds[serverType]) {
+        requestHeaders['Mcp-Session-Id'] = sessionIds[serverType];
     }
-    return h;
+    return requestHeaders;
 }
 
-function post(t, payload, timeout = 60) {
+function postJson(serverType, rpcMessage, timeoutSeconds = 60) {
     return new Promise((resolve, reject) => {
-        const url = new URL(SERVERS[t]);
-        const options = {
-            hostname: url.hostname,
-            port: url.port,
-            path: url.pathname,
+        const endpoint = new URL(SERVER_ENDPOINTS[serverType]);
+        const requestOptions = {
+            hostname: endpoint.hostname,
+            port: endpoint.port,
+            path: endpoint.pathname,
             method: 'POST',
-            headers: headers(t),
-            timeout: timeout * 1000,
+            headers: buildHeaders(serverType),
+            timeout: timeoutSeconds * 1000,
             rejectUnauthorized: false,
         };
 
-        const req = (url.protocol === 'https:' ? https : http).request(options, (res) => {
-            let data = '';
-            res.on('data', chunk => data += chunk);
-            res.on('end', () => {
-                let parsed = null;
-                if (data.trim()) {
+        const request = (endpoint.protocol === 'https:' ? https : http).request(requestOptions, (response) => {
+            let responseText = '';
+            response.on('data', chunk => responseText += chunk);
+            response.on('end', () => {
+                let responseData = null;
+                if (responseText.trim()) {
                     try {
-                        parsed = JSON.parse(data);
-                    } catch (e) {
-                        parsed = data;
+                        responseData = JSON.parse(responseText);
+                    } catch {
+                        responseData = responseText;
                     }
                 }
-                resolve({ response: res, data: parsed });
+                resolve({ response, data: responseData });
             });
         });
 
-        req.on('error', reject);
-        req.on('timeout', () => {
-            req.destroy();
-            reject(new Error(`Request timeout after ${timeout}s`));
+        request.on('error', reject);
+        request.on('timeout', () => {
+            request.destroy();
+            reject(new Error(`Request timeout after ${timeoutSeconds}s`));
         });
 
-        req.write(JSON.stringify(payload));
-        req.end();
+        request.write(JSON.stringify(rpcMessage));
+        request.end();
     });
 }
 
-async function init(t) {
-    if (_sessions[t]) {
+async function ensureSession(serverType) {
+    if (sessionIds[serverType]) {
         return;
     }
 
-    const payload = {
+    const initializeMessage = {
         jsonrpc: "2.0",
-        id: nextId(t),
+        id: nextRequestId(serverType),
         method: "initialize",
         params: {
             protocolVersion: "2025-03-26",
@@ -90,29 +90,29 @@ async function init(t) {
         },
     };
 
-    const { response } = await post(t, payload, 30);
+    const { response } = await postJson(serverType, initializeMessage, 30);
 
     const sessionId = response.headers['mcp-session-id'] || response.headers.get?.('mcp-session-id');
     if (!sessionId) {
-        throw new Error(`initialize 成功但未返回 Mcp-Session-Id`);
+        throw new Error('MCP 初始化完成，但响应中缺少 Mcp-Session-Id');
     }
 
-    _sessions[t] = sessionId;
+    sessionIds[serverType] = sessionId;
 
-    const notify = { jsonrpc: "2.0", method: "notifications/initialized" };
-    await post(t, notify, 10);
+    const initializedNotice = { jsonrpc: "2.0", method: "notifications/initialized" };
+    await postJson(serverType, initializedNotice, 10);
 }
 
 async function call(serverType, toolName, params) {
-    if (!SERVERS[serverType]) {
+    if (!SERVER_ENDPOINTS[serverType]) {
         throw new Error(`unknown server_type: ${serverType}`);
     }
 
-    await init(serverType);
+    await ensureSession(serverType);
 
-    const payload = {
+    const callMessage = {
         jsonrpc: "2.0",
-        id: nextId(serverType),
+        id: nextRequestId(serverType),
         method: "tools/call",
         params: {
             name: toolName,
@@ -120,7 +120,7 @@ async function call(serverType, toolName, params) {
         },
     };
 
-    const { response, data } = await post(serverType, payload);
+    const { response, data } = await postJson(serverType, callMessage);
 
     if (data && typeof data === 'object' && 'error' in data) {
         return {
@@ -143,20 +143,20 @@ async function call(serverType, toolName, params) {
 }
 
 async function listTools(serverType) {
-    if (!SERVERS[serverType]) {
+    if (!SERVER_ENDPOINTS[serverType]) {
         throw new Error(`unknown server_type: ${serverType}`);
     }
 
-    await init(serverType);
+    await ensureSession(serverType);
 
-    const payload = {
+    const listMessage = {
         jsonrpc: "2.0",
-        id: nextId(serverType),
+        id: nextRequestId(serverType),
         method: "tools/list",
         params: {},
     };
 
-    const { response, data } = await post(serverType, payload);
+    const { response, data } = await postJson(serverType, listMessage);
 
     if (data && typeof data === 'object' && 'error' in data) {
         return {
@@ -181,7 +181,7 @@ async function listTools(serverType) {
 }
 
 async function main() {
-    console.log("请按skill说明书发起明确的工具调用与参数请求，不要直接执行请求脚本");
+    console.log("该文件提供调用函数，请根据 SKILL.md 选择服务、工具及参数后再执行。");
 }
 
 module.exports = { call, listTools };

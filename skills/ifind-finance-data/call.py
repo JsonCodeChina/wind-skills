@@ -2,61 +2,61 @@ import json
 from pathlib import Path
 import requests
 
-CONFIG = json.loads(Path("mcp_config.json").read_text(encoding="utf-8"))
-AUTH_TOKEN = CONFIG["auth_token"]
+runtime_config = json.loads(Path("mcp_config.json").read_text(encoding="utf-8"))
+access_token = runtime_config["auth_token"]
 
-BASE = "https://api-mcp.51ifind.com:8643/ds-mcp-servers"
-SERVERS = {
-    "stock": f"{BASE}/hexin-ifind-ds-stock-mcp",
-    "fund": f"{BASE}/hexin-ifind-ds-fund-mcp",
-    "edb": f"{BASE}/hexin-ifind-ds-edb-mcp",
-    "news": f"{BASE}/hexin-ifind-ds-news-mcp",
+MCP_ROOT_URL = "https://api-mcp.51ifind.com:8643/ds-mcp-servers"
+SERVER_ENDPOINTS = {
+    "stock": f"{MCP_ROOT_URL}/hexin-ifind-ds-stock-mcp",
+    "fund": f"{MCP_ROOT_URL}/hexin-ifind-ds-fund-mcp",
+    "edb": f"{MCP_ROOT_URL}/hexin-ifind-ds-edb-mcp",
+    "news": f"{MCP_ROOT_URL}/hexin-ifind-ds-news-mcp",
 }
 
-_sessions = {}
-_req_ids = {}
+_session_ids = {}
+_request_counters = {}
 
 
-def _next_id(t):
-    _req_ids[t] = _req_ids.get(t, 0) + 1
-    return _req_ids[t]
+def _next_request_id(server_type):
+    _request_counters[server_type] = _request_counters.get(server_type, 0) + 1
+    return _request_counters[server_type]
 
 
-def _headers(t=None):
-    h = {
+def _build_headers(server_type=None):
+    request_headers = {
         "Content-Type": "application/json",
         "Accept": "application/json, text/event-stream",
-        "Authorization": AUTH_TOKEN,
+        "Authorization": access_token,
     }
-    if t in _sessions:
-        h["Mcp-Session-Id"] = _sessions[t]
-    return h
+    if server_type in _session_ids:
+        request_headers["Mcp-Session-Id"] = _session_ids[server_type]
+    return request_headers
 
 
-def _post(t, payload, timeout=60):
-    resp = requests.post(
-        SERVERS[t],
-        json=payload,
-        headers=_headers(t),
+def _post_json(server_type, rpc_message, timeout=60):
+    response = requests.post(
+        SERVER_ENDPOINTS[server_type],
+        json=rpc_message,
+        headers=_build_headers(server_type),
         verify=False,
         timeout=timeout,
     )
-    data = None
-    if resp.text.strip():
+    response_data = None
+    if response.text.strip():
         try:
-            data = resp.json()
+            response_data = response.json()
         except Exception:
-            data = resp.text
-    return resp, data
+            response_data = response.text
+    return response, response_data
 
 
-def _init(t):
-    if t in _sessions:
+def _ensure_session(server_type):
+    if server_type in _session_ids:
         return
 
-    payload = {
+    initialize_message = {
         "jsonrpc": "2.0",
-        "id": _next_id(t),
+        "id": _next_request_id(server_type),
         "method": "initialize",
         "params": {
             "protocolVersion": "2025-03-26",
@@ -65,34 +65,34 @@ def _init(t):
         },
     }
 
-    resp, data = _post(t, payload, timeout=30)
-    resp.raise_for_status()
+    response, response_data = _post_json(server_type, initialize_message, timeout=30)
+    response.raise_for_status()
 
-    session_id = resp.headers.get("Mcp-Session-Id")
+    session_id = response.headers.get("Mcp-Session-Id")
     if not session_id:
-        raise RuntimeError(f"initialize 成功但未返回 Mcp-Session-Id: {data}")
+        raise RuntimeError(f"MCP 初始化响应缺少 Mcp-Session-Id: {response_data}")
 
-    _sessions[t] = session_id
+    _session_ids[server_type] = session_id
 
-    notify = {"jsonrpc": "2.0", "method": "notifications/initialized"}
+    initialized_notice = {"jsonrpc": "2.0", "method": "notifications/initialized"}
     requests.post(
-        SERVERS[t],
-        json=notify,
-        headers=_headers(t),
+        SERVER_ENDPOINTS[server_type],
+        json=initialized_notice,
+        headers=_build_headers(server_type),
         verify=False,
         timeout=10,
     )
 
 
 def call(server_type, tool_name, params):
-    if server_type not in SERVERS:
+    if server_type not in SERVER_ENDPOINTS:
         raise ValueError(f"unknown server_type: {server_type}")
 
-    _init(server_type)
+    _ensure_session(server_type)
 
-    payload = {
+    call_message = {
         "jsonrpc": "2.0",
-        "id": _next_id(server_type),
+        "id": _next_request_id(server_type),
         "method": "tools/call",
         "params": {
             "name": tool_name,
@@ -100,57 +100,57 @@ def call(server_type, tool_name, params):
         },
     }
 
-    resp, data = _post(server_type, payload)
+    response, response_data = _post_json(server_type, call_message)
 
-    if isinstance(data, dict) and "error" in data:
+    if isinstance(response_data, dict) and "error" in response_data:
         return {
             "ok": False,
-            "status_code": resp.status_code,
-            "error": data["error"],
-            "raw": data,
+            "status_code": response.status_code,
+            "error": response_data["error"],
+            "raw": response_data,
         }
 
-    resp.raise_for_status()
+    response.raise_for_status()
     return {
         "ok": True,
-        "status_code": resp.status_code,
-        "data": data,
+        "status_code": response.status_code,
+        "data": response_data,
     }
 
 
 def list_tools(server_type):
-    if server_type not in SERVERS:
+    if server_type not in SERVER_ENDPOINTS:
         raise ValueError(f"unknown server_type: {server_type}")
 
-    _init(server_type)
+    _ensure_session(server_type)
 
-    payload = {
+    list_message = {
         "jsonrpc": "2.0",
-        "id": _next_id(server_type),
+        "id": _next_request_id(server_type),
         "method": "tools/list",
         "params": {},
     }
 
-    resp, data = _post(server_type)
+    response, response_data = _post_json(server_type, list_message)
 
-    if isinstance(data, dict) and "error" in data:
+    if isinstance(response_data, dict) and "error" in response_data:
         return {
             "ok": False,
-            "status_code": resp.status_code,
-            "error": data["error"],
-            "raw": data,
+            "status_code": response.status_code,
+            "error": response_data["error"],
+            "raw": response_data,
         }
 
-    resp.raise_for_status()
+    response.raise_for_status()
     
-    print(json.dumps(r, indent=2, ensure_ascii=False))
+    print(json.dumps(response_data, indent=2, ensure_ascii=False))
     
     return {
         "ok": True,
-        "status_code": resp.status_code,
-        "data": data,
+        "status_code": response.status_code,
+        "data": response_data,
     }
 
 
 if __name__ == "__main__":
-    print("未调用工具函数及输入查询参数，请按照说明文档发起请求")    
+    print("本模块仅提供调用入口，请按照 SKILL.md 传入服务、工具和查询参数。")
