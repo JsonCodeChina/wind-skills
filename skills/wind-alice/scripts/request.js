@@ -281,22 +281,23 @@ function die(code, message, { extraHint } = {}) {
 }
 
 function getApiKey() {
-  if (process.env.WIND_API_KEY) return process.env.WIND_API_KEY;
-
-  const localConfig = join(SKILL_DIR, "config.json");
-  if (existsSync(localConfig)) {
-    try {
-      const cfg = JSON.parse(readFileSync(localConfig, "utf8"));
-      if (cfg.wind_api_key) return cfg.wind_api_key;
-    } catch {}
-  }
-
   // 全局 Key 存储位置（与其它 wind 技能可共用）
   const globalConfig = join(homedir(), ".wind-aifinmarket", "config");
   if (existsSync(globalConfig)) {
     try {
       const env = parseDotenv(readFileSync(globalConfig, "utf8"));
-      if (env.WIND_API_KEY) return env.WIND_API_KEY;
+      const key = env.WIND_API_KEY?.trim();
+      if (key) return key;
+    } catch {}
+  }
+
+  const localConfig = join(SKILL_DIR, "config.json");
+  if (existsSync(localConfig)) {
+    try {
+      const cfg = JSON.parse(readFileSync(localConfig, "utf8"));
+      const key =
+        typeof cfg.wind_api_key === "string" ? cfg.wind_api_key.trim() : "";
+      if (key) return key;
     } catch {}
   }
 
@@ -308,7 +309,6 @@ function getApiKey() {
       `      内容：WIND_API_KEY=<KEY>\n` +
       `   B. 仅当前 skill：${join(SKILL_DIR, "config.json")}\n` +
       `      内容：{"wind_api_key":"<KEY>"}\n` +
-      `   C. 临时会话：在终端 set / $env:WIND_API_KEY=<KEY>\n` +
       `③ 重试原命令`,
   });
 }
@@ -466,12 +466,11 @@ function usage() {
     "  --help,   -h                查看帮助",
     "",
     "Env:",
-    "  WIND_API_KEY                必填；优先级最高",
     "  WIND_ALICE_API_URL          可选；默认 " + DEFAULT_API_URL,
     "",
-    "Config:",
-    `  ${join(SKILL_DIR, "config.json")}   (JSON: {"wind_api_key":"..."})`,
+    "Config (按优先级):",
     `  ${join(homedir(), ".wind-aifinmarket", "config")}  (dotenv: WIND_API_KEY=...)`,
+    `  ${join(SKILL_DIR, "config.json")}   (JSON: {"wind_api_key":"..."})`,
   ].join("\n");
 }
 
@@ -935,7 +934,6 @@ function dieKeyMissing() {
       `      内容：WIND_API_KEY=<KEY>\n` +
       `   B. 仅当前 skill：${join(SKILL_DIR, "config.json")}\n` +
       `      内容：{"wind_api_key":"<KEY>"}\n` +
-      `   C. 临时会话：在终端 set / $env:WIND_API_KEY=<KEY>\n` +
       `③ 重试原命令`,
   });
 }
