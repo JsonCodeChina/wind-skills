@@ -452,7 +452,10 @@ function getApiKey() {
     } catch {}
   }
 
-  die('AUTH_ERROR', 'WIND_API_KEY 未配置');
+  const envKey = process.env.WIND_API_KEY?.trim();
+  if (envKey) return envKey;
+
+  die('AUTH_ERROR', 'WIND_API_KEY 未配置（CLI 已完整检查：用户全局配置 > Skill 本地配置 > 环境变量）');
 }
 
 // section: 错误码 — message 来自 HTTP / JSON-RPC / 工具内嵌 JSON, 统一映射成稳定 code
