@@ -6,7 +6,7 @@ import { join, dirname, basename, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 
-const SKILL_VERSION = '1.9.1';
+const SKILL_VERSION = '1.9.2';
 
 // 本地 registry: 工具选择可在任何网络调用前失败
 const SERVERS = {
@@ -434,21 +434,21 @@ function validateToolParams(toolName, params) {
 // ───── 认证 ─────
 
 function getApiKey() {
-  if (process.env.WIND_API_KEY) return process.env.WIND_API_KEY;
+  const globalConfig = join(homedir(), '.wind-aifinmarket', 'config');
+  if (existsSync(globalConfig)) {
+    try {
+      const env = parseDotenv(readFileSync(globalConfig, 'utf8'));
+      const key = env.WIND_API_KEY?.trim();
+      if (key) return key;
+    } catch {}
+  }
 
   const localConfig = join(SKILL_DIR, 'config.json');
   if (existsSync(localConfig)) {
     try {
       const cfg = JSON.parse(readFileSync(localConfig, 'utf8'));
-      if (cfg.wind_api_key) return cfg.wind_api_key;
-    } catch {}
-  }
-
-  const globalConfig = join(homedir(), '.wind-aifinmarket', 'config');
-  if (existsSync(globalConfig)) {
-    try {
-      const env = parseDotenv(readFileSync(globalConfig, 'utf8'));
-      if (env.WIND_API_KEY) return env.WIND_API_KEY;
+      const key = typeof cfg.wind_api_key === 'string' ? cfg.wind_api_key.trim() : '';
+      if (key) return key;
     } catch {}
   }
 

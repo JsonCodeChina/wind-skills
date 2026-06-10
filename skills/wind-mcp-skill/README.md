@@ -46,7 +46,7 @@ npx skills add https://gitee.com/wind_info/wind-skills.git --skill wind-mcp-skil
 node scripts/cli.mjs open-portal
 ```
 
-如果 CLI 报 `KEY_MISSING`，按 stdout JSON 里的 `error.agent_action` / `error.hint` 配置即可；程序会自动查找环境变量 `WIND_API_KEY` 和常见本地配置文件。
+如果 CLI 报 `KEY_MISSING`，按 stdout JSON 里的 `error.agent_action` / `error.hint` 配置即可；程序会优先读取用户全局配置，再读取当前 Skill 的本地配置。
 
 ---
 

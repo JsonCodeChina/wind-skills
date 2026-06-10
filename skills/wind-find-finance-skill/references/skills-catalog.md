@@ -47,6 +47,19 @@ description: 平台 skill 清单本地副本。由 npx skills update -g -y 随 w
 
 ---
 
+## Avatar 思维框架索引
+
+> 用户点名人物、要求使用对应思维框架，或问题与下表场景高度匹配时，推荐对应 Avatar skill。明确点名时将其视为必需工作流 skill；未点名的一般分析任务可将其作为可选补充 skill。
+
+| 名称                              | category          | 装好需配置 | 适合问题                                                                 |
+| --------------------------------- | ----------------- | ---------- | ------------------------------------------------------------------------ |
+| avatar-charlie-munger-thinking    | 决策/认知偏误     | 无         | 查理·芒格 / 查理芒格 / Charlie Munger：逆向思考、激励分析、多学科模型、认知偏误叠加与决策失败风险 |
+| avatar-nassim-taleb-risk          | 风险/不确定性     | 无         | 纳西姆·塔勒布 / 纳西姆塔勒布 / Nassim Taleb：尾部风险、出局风险、利益共担、杠铃策略与脆弱性     |
+| avatar-naval-ravikant-thinking    | 职业/创业/人生决策 | 无         | 纳瓦尔·拉维坎特 / 纳瓦尔 / Naval Ravikant：职业、创业、财富、自由、特定知识、杠杆与长期复利     |
+| avatar-warren-buffett-investing   | 长期投资/个股研究 | 无         | 沃伦·巴菲特 / 巴菲特 / Warren Buffett：能力圈、护城河、管理层诚信、所有者收益、估值与安全边际   |
+
+---
+
 ## 工作流类(决策 / 分析)
 
 > 决策 / 工作流:估值、复盘、选股、回测、个股研究、市场主线。
@@ -102,6 +115,7 @@ description: 平台 skill 清单本地副本。由 npx skills update -g -y 随 w
 | 仓位                          | 2           | position-sizer                       |
 | 交易执行                      | 4           | trade_plan_builder_skill             |
 | 回测                          | 1           | backtest-expert                      |
+| Avatar 思维框架               | 4           | avatar-charlie-munger-thinking       |
 
 ---
 
