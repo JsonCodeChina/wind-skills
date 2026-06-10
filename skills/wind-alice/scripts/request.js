@@ -301,14 +301,19 @@ function getApiKey() {
     } catch {}
   }
 
+  const envKey = process.env.WIND_API_KEY?.trim();
+  if (envKey) return envKey;
+
   die("KEY_MISSING", "WIND_API_KEY 未配置", {
     extraHint:
+      `CLI 已完整检查：用户全局配置 > Skill 本地配置 > WIND_API_KEY 环境变量；不要再手动检查部分来源。\n` +
       `① 获取 Key：访问 ${WIND_AIFINMARKET_PORTAL}（未登录通常会跳转登录页）。\n` +
       `② 选择 Key 存放位置：\n` +
       `   A. 全局共享【推荐 — 所有 wind skill 共用】：%USERPROFILE%\\.wind-aifinmarket\\config\n` +
       `      内容：WIND_API_KEY=<KEY>\n` +
       `   B. 仅当前 skill：${join(SKILL_DIR, "config.json")}\n` +
       `      内容：{"wind_api_key":"<KEY>"}\n` +
+      `   C. 临时会话：在终端 set / $env:WIND_API_KEY=<KEY>\n` +
       `③ 重试原命令`,
   });
 }
@@ -467,10 +472,12 @@ function usage() {
     "",
     "Env:",
     "  WIND_ALICE_API_URL          可选；默认 " + DEFAULT_API_URL,
+    "  WIND_API_KEY                可选；配置文件均未提供时读取",
     "",
     "Config (按优先级):",
     `  ${join(homedir(), ".wind-aifinmarket", "config")}  (dotenv: WIND_API_KEY=...)`,
     `  ${join(SKILL_DIR, "config.json")}   (JSON: {"wind_api_key":"..."})`,
+    "  WIND_API_KEY 环境变量",
   ].join("\n");
 }
 
@@ -928,12 +935,14 @@ const KEY_MISSING_CODE = -32603;
 function dieKeyMissing() {
   die("KEY_MISSING", "WIND_API_KEY 未配置或已失效", {
     extraHint:
+      `CLI 已完整检查：用户全局配置 > Skill 本地配置 > WIND_API_KEY 环境变量；不要再手动检查部分来源。\n` +
       `① 获取 Key：访问 ${WIND_AIFINMARKET_PORTAL}（未登录通常会跳转登录页）。\n` +
       `② 选择 Key 存放位置：\n` +
       `   A. 全局共享【推荐 — 所有 wind skill 共用】：%USERPROFILE%\\.wind-aifinmarket\\config\n` +
       `      内容：WIND_API_KEY=<KEY>\n` +
       `   B. 仅当前 skill：${join(SKILL_DIR, "config.json")}\n` +
       `      内容：{"wind_api_key":"<KEY>"}\n` +
+      `   C. 临时会话：在终端 set / $env:WIND_API_KEY=<KEY>\n` +
       `③ 重试原命令`,
   });
 }

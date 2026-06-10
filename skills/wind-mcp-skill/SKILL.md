@@ -43,6 +43,8 @@ examples:
 7. **失败**：非 0 退出先读 stdout 的 `error.code` 和 `error.agent_action`；`agent_action` 包含完整的域分类和具体操作步骤，直接执行即可。错误只能在对应错误域内修复，不得跨域改动。
 8. **回答**：只报告 Wind 返回值和必要限制，不补常识、不补点评。
 
+**Key 判定规则**：不得手动检查部分配置来源后声称没有 API Key。必须直接执行 CLI；CLI 会一次性按“用户全局配置 > Skill 本地配置 > `WIND_API_KEY` 环境变量”检查全部来源。只有 CLI 返回 `AUTH_ERROR` 且 detail 明确为“未配置”，才能判定 Key 缺失。
+
 ## 范围
 
 | server_type         | 覆盖范围         | 常见意图                                                       |

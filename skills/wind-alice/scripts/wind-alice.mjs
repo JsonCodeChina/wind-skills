@@ -39,7 +39,8 @@ if (isHelp) {
       "",
       "Config:",
       "  优先读取 %USERPROFILE%\\.wind-aifinmarket\\config (dotenv: WIND_API_KEY=...),",
-      "  再读取 skill 目录 config.json (wind_api_key)",
+      "  再读取 skill 目录 config.json (wind_api_key),",
+      "  最后读取 WIND_API_KEY 环境变量",
     ].join("\n"),
   );
   process.exitCode = args.length === 0 ? 2 : 0;
