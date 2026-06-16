@@ -302,25 +302,14 @@ function looksLikeIndexCode(code) {
 function normalizeWindcode(windcode) {
   if (typeof windcode !== 'string') return windcode;
   const raw = windcode.trim();
-  const alias = INDEX_CODE_ALIASES.get(raw.toUpperCase());
-  if (alias) return alias;
   const upper = raw.toUpperCase();
-  if (/^\d{4}\.HK$/.test(upper)) return `0${upper}`;
+  const alias = INDEX_CODE_ALIASES.get(upper);
+  if (alias) return alias;
+  if (/^\d{4}\.HK$/.test(upper)) return upper;
   if (looksLikeIndexCode(upper)) return upper;
-  if (/^\d{6}$/.test(upper)) {
-    if (/^9\d{5}$/.test(upper)) return `${upper}.BJ`;
-    if (/^5\d{5}$/.test(upper)) return `${upper}.SH`;
-    if (/^1[56]\d{4}$/.test(upper)) return `${upper}.SZ`;
-    if (/^(000300|000905|000852|000016|000001)$/.test(upper)) return `${upper}.SH`;
-    if (/^399\d{3}$/.test(upper)) return `${upper}.SZ`;
-    if (/^[036]\d{5}$/.test(upper)) return `${upper}.${upper.startsWith('6') ? 'SH' : 'SZ'}`;
-  }
-  if (/^5\d{5}\.SZ$/.test(upper)) return upper.replace(/\.SZ$/, '.SH');
-  if (/^1[56]\d{4}\.SH$/.test(upper)) return upper.replace(/\.SH$/, '.SZ');
-  if (/^[03]\d{5}\.SH$/.test(upper)) return upper.replace(/\.SH$/, '.SZ');
-  if (/^6\d{5}\.SZ$/.test(upper)) return upper.replace(/\.SZ$/, '.SH');
-  if (/^9\d{5}\.(SH|SZ)$/.test(upper)) return upper.replace(/\.(SH|SZ)$/, '.BJ');
-  if (/^[A-Z]{1,5}$/.test(upper)) return `${upper}.O`;
+  if (/^\d{5}\.HK$/.test(upper)) return upper;
+  if (/^\d{6}\.(SH|SZ|BJ|OF)$/.test(upper)) return upper;
+  if (/^[A-Z]{1,5}\.(O|N|A|HK|SH|SZ|BJ)$/.test(upper)) return upper;
   return upper;
 }
 
@@ -462,6 +451,10 @@ function getApiKey() {
 
 const ERROR_PATTERNS = [
   ['TEMPORARILY_UNAVAILABLE', /temporarily_unavailable/i, '后端偶发不可用。'],
+  ['EDB_INDICATOR_NOT_FOUND', /未找到匹配的指标|indicator_not_found/i, 'EDB 未找到用户想查询的指标。'],
+  ['MARKET_TARGET_NOT_FOUND', /NER-API error.*(?:识别合并后无结果|请确认输入内容是否包含实体)|comm_exception.*NER-API|未识别实体|ner_error/i, '行情类查询对象未识别。'],
+  ['PARAM_TYPE_ERROR', /attribute_error|(?:'list' object has no attribute '(?:split|strip)')|(?:list object has no attribute (?:split|strip))/i, '参数类型错误：列表传给了只接受字符串的字段。'],
+  ['PERIOD_PARSE_ERROR', /srv_internal_error|For input string:\s*\\?["\x27]?(?:day|daily|monthly|week|weekly|month|D|M|W)\\?["\x27]?/i, 'K 线周期值无法解析。'],
   ['INVALID_PARAM_VALUE', /invalid_param_value/i, '后端参数值错误。'],
   ['INVALID_PARAM_NAME', /invalid_param_name/i, '后端参数名错误。'],
   ['QUOTA_ERROR', /单日请求次数超限|daily.*limit|余额不足|请先充值|insufficient.*balance|请求过于频繁|qps.*limit|too.*frequent/i, '额度/限流错误。等待额度刷新、换备用 Key 或充值后原样重试。'],
@@ -669,7 +662,8 @@ async function cmdCall(server_type, toolName, paramsJson) {
   const validationErrors = validateBasicParams(args);
   validationErrors.push(...validateToolParams(toolName, args));
   if (validationErrors.length > 0) {
-    die('PARAM_VALIDATION_ERROR', validationErrors.join('；'));
+    const hasTypeError = validationErrors.some((message) => message.includes('必须是字符串'));
+    die(hasTypeError ? 'PARAM_TYPE_ERROR' : 'PARAM_VALIDATION_ERROR', validationErrors.join('；'));
   }
 
   const result = await mcpInitializeAndCall(server_type, 'tools/call', {
