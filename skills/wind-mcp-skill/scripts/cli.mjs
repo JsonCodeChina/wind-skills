@@ -288,17 +288,6 @@ function normalizeIndexes(indexes) {
   return indexes.split(',').map((item) => INDICATOR_ALIASES.get(normalizeIndicatorKey(item)) || item.trim()).filter(Boolean).join(',');
 }
 
-function looksLikeFundCode(code) {
-  return /^5\d{5}\.SH$/.test(code) || /^1[56]\d{4}\.SZ$/.test(code) || /^\d{6}\.OF$/.test(code);
-}
-
-function looksLikeIndexCode(code) {
-  return /^(\d{6})\.(CSI|WI|MI|HI|GI)$/.test(code) ||
-    /^(000300|000905|000852|000016|000001)\.SH$/.test(code) ||
-    /^(399001|399006|399300)\.SZ$/.test(code) ||
-    /^[A-Z]{2,10}\.(HI|GI)$/.test(code);
-}
-
 function normalizeWindcode(windcode) {
   if (typeof windcode !== 'string') return windcode;
   const raw = windcode.trim();
@@ -306,7 +295,6 @@ function normalizeWindcode(windcode) {
   const alias = INDEX_CODE_ALIASES.get(upper);
   if (alias) return alias;
   if (/^\d{4}\.HK$/.test(upper)) return upper;
-  if (looksLikeIndexCode(upper)) return upper;
   if (/^\d{5}\.HK$/.test(upper)) return upper;
   if (/^\d{6}\.(SH|SZ|BJ|OF)$/.test(upper)) return upper;
   if (/^[A-Z]{1,5}\.(O|N|A|HK|SH|SZ|BJ)$/.test(upper)) return upper;
@@ -320,16 +308,6 @@ function toolFamily(toolName) {
   return null;
 }
 
-function inferServerTypeFromWindcode(currentServerType, windcode) {
-  if (typeof windcode !== 'string') return currentServerType;
-  if (looksLikeFundCode(windcode)) return 'fund_data';
-  if (looksLikeIndexCode(windcode)) return 'index_data';
-  if (/^\d{4,5}\.HK$/.test(windcode) || /^[A-Z]{1,5}\.(O|N|A|HK|SH|SZ|BJ)$/.test(windcode) || /^\d{6}\.(SH|SZ|BJ)$/.test(windcode)) {
-    return 'stock_data';
-  }
-  return currentServerType;
-}
-
 function normalizeCall(server_type, toolName, args) {
   const legacyTool = LEGACY_TOOL_ALIASES.get(toolName);
   if (legacyTool) [server_type, toolName] = legacyTool;
@@ -341,8 +319,7 @@ function normalizeCall(server_type, toolName, args) {
     normalizedArgs.period = PERIOD_ALIASES.get(key) || normalizedArgs.period.trim();
   }
   const family = toolFamily(toolName);
-  if (family && typeof normalizedArgs.windcode === 'string') {
-    server_type = inferServerTypeFromWindcode(server_type, normalizedArgs.windcode);
+  if (family) {
     toolName = TOOL_BY_DOMAIN[family]?.[server_type] || toolName;
   }
   return { server_type, toolName, args: normalizedArgs };
