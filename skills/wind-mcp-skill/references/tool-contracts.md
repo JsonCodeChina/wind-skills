@@ -39,10 +39,10 @@
 | `index_data` | `get_index_basicinfo` / `get_index_fundamentals` / `get_index_technicals` | `question`（+`lang`） |
 | `bond_data` | `get_bond_basicinfo` / `get_bond_issuer_info` / `get_bond_market_data` / `get_bond_financial_data` | `question`（+`lang`）；无行情快照工具 |
 | `financial_docs` | `get_company_announcements` / `get_financial_news` | `query`（+`top_k`） |
-| `economic_data` | `get_economic_data` | `metricIdsStr`（+`beginDate` / `endDate` / `freq`…） |
+| `economic_data` | `natural_language_get_edb_data` | `executionMode` + `question`（+`beginDate` / `endDate` 或 `observation`） |
 | `analytics_data` | `get_financial_data` | `question`（+`lang`） |
 
-字段级细节（`indexes` 取值、`period` / `freq` 枚举、日期格式）见下方各工具段落与 `references/indicators.md`。
+字段级细节（`indexes` 取值、`period` 枚举、日期格式）见下方各工具段落与 `references/indicators.md`。
 
 ## 参数签名
 
@@ -53,7 +53,7 @@
 | 基金筛选 | `{question, lang?, version?}` | `fund_data.search_funds` |
 | 专项 NL | `{question, lang?}` | `stock_data`、`fund_data`、`index_data`、`bond_data` NL 工具 |
 | 文档 RAG | `{query, top_k?}` | `financial_docs` 工具 |
-| 宏观 EDB | `{metricIdsStr, ...}` | `economic_data.get_economic_data` |
+| 宏观 EDB | `{executionMode, question, ...}` | `economic_data.natural_language_get_edb_data` |
 | 通用结构化取数 | `{question, lang?}` | `analytics_data.get_financial_data` |
 
 params JSON 的 key 必须逐字复制本文件的字段名。不得把用户口语、其它 API 习惯或通用证券字段名
@@ -281,15 +281,16 @@ CLI 会把 `day` / `D` / `daily` / `日线` 归一为 `period:"10"`，把 `week`
 
 ## 宏观工具
 
-宏观和行业 EDB 指标使用 `economic_data.get_economic_data`。
+宏观和行业 EDB 指标使用 `economic_data.natural_language_get_edb_data`。
 
 | 字段 | 必填 | 说明 |
 | --- | --- | --- |
-| `metricIdsStr` | 是 | 自然语言指标查询，不是指标 ID |
-| `beginDate` / `endDate` | | `yyyyMMdd` |
-| `freq` | | `日`=`1`, `工作日`=`2`, `周`=`3`, `月`=`4`, `季`=`5`, `半年`=`6`, `年`=`7`, `年度`=`8` |
-| `magnitude` | | `个`, `千`, `万`, `百万`, `千万`, `亿`, `十亿`, `百亿`, `千亿`, `万亿` |
-| `currency` | | `USD`, `CNY`, `EUR`, `JPY`, `AUD`, `GBP`, `CHF`, `CAD`, `SGD`, `HKD`, `MYR`, `BYR` |
+| `executionMode` | 是 | 执行模式：`search`/`fetch`/`searchFetch`；也可用中文枚举 `仅搜索`/`仅提数`/`搜索并提数` |
+| `question` | 是 | `search` / `searchFetch` 时填自然语言指标描述，如 `中国GDP`；`fetch` 时填一个或多个 EDB 指标代码，多个代码用英文逗号分隔 |
+| `beginDate` / `endDate` | | 数据提取时间范围，`yyyyMMdd`；与 `observation` 互斥 |
+| `observation` | | 近 N 期数据填数字字符串，如 `10`；全量数据填 `all`；与 `beginDate` / `endDate` 互斥 |
+
+调用约束：`fetch` 或 `searchFetch` 需要返回具体数值数据时，必须显式提供 `beginDate` / `endDate` 或 `observation`。不要只把时间范围写入 `question`。
 
 ## 通用取数兜底
 
@@ -320,5 +321,5 @@ node scripts/cli.mjs call stock_data get_stock_kline '{"windcode":"600519.SH","b
 node scripts/cli.mjs call stock_data get_stock_kline '{"windcode":"00700.HK","begin_date":"20260401","end_date":"20260430"}'
 node scripts/cli.mjs call fund_data get_fund_price_indicators '{"windcode":"588200.SH","indexes":"中文简称,最新成交价,IOPV,贴水率"}'
 node scripts/cli.mjs call financial_docs get_financial_news '{"query":"美联储利率政策","top_k":5}'   # query 无空格
-node scripts/cli.mjs call economic_data get_economic_data '{"metricIdsStr":"中国CPI同比","freq":"月","beginDate":"20240101","endDate":"20261231"}'   # 宏观用 beginDate/endDate
+node scripts/cli.mjs call economic_data natural_language_get_edb_data '{"executionMode":"searchFetch","question":"中国CPI同比","beginDate":"20240101","endDate":"20261231"}'   # 宏观提数显式传时间范围
 ```
