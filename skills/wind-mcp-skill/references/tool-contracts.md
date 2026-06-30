@@ -68,7 +68,7 @@ params JSON 的 key 必须逐字复制本文件的字段名。不得把用户口
 `windcode` 优先传用户给出的单个标的名称、简称或代码。Wind 后端会做标的 NER，可解析中文名、简称、裸 6 位代码、裸美股 ticker 和标准代码；没有确定映射时，不得自行给名称、裸 6 位代码或裸 ticker 补交易所后缀，也不得把自然语言标的猜成代码。只有用户明确给出标准代码和市场时，才使用带后缀的 Wind 标准代码，例如：
 
 - A股：`600519.SH`、`8XXXXX.BJ`
-- 港股：`00700.HK`
+- 港股：`0700.HK`、`9988.HK`
 - 美股：`AAPL.O`、`MSFT.O`
 - 场外基金：`005827.OF`
 - ETF / LOF：`588200.SH`、`159915.SZ`
@@ -77,6 +77,8 @@ params JSON 的 key 必须逐字复制本文件的字段名。不得把用户口
 简称或别名可能映射多个标的时先问用户，不要让后端静默选错。行情类 NER 失败后，保持同一工具，只把 `windcode` 改成更明确的单个名称或用户确认的标准代码；若原始 `windcode` 是 1-5 位纯大写英文字母，且用户问题明确是美股 / 美国上市公司语境，允许仅在 `MARKET_TARGET_NOT_FOUND` 后改为 `<ticker>.O` 重试一次；台股、日股、韩股、欧股等超出本 skill 覆盖范围的请求不得套用 `.O` 重试；除此之外禁止通过猜测 `.O`、`.N`、`.HK`、`.SH`、`.SZ` 等后缀来重试。
 
 裸 6 位数字代码（如 `000001`）允许原样传给 Wind NER。不得在本地自动补 `.SH`、`.SZ`、`.BJ`、`.OF` 等后缀；返回结果必须以 Wind 返回的 `Wind代码` 为准。若用户要求精确市场/品类或对 Wind 返回标的有疑义，再请用户提供标的全称、市场/品类，或明确 Wind 标准代码。
+
+带 `.HK` 的 5 位港股代码若以 0 开头，CLI 会做安全归一化：只去掉最前面的一个 0，例如 `00700.HK` -> `0700.HK`、`01211.HK` -> `1211.HK`、`03311.HK` -> `3311.HK`。裸数字不做这种处理，仍交给 Wind NER。
 
 ## 股票筛选
 
@@ -320,7 +322,7 @@ node scripts/cli.mjs call stock_data search_stocks '{"question":"筛选港股中
 node scripts/cli.mjs call fund_data search_funds '{"question":"筛选股票型基金中近一年收益率超20%的产品"}'
 node scripts/cli.mjs call stock_data get_stock_price_indicators '{"windcode":"600519.SH","indexes":"中文简称,最新成交价,涨跌幅,成交量"}'   # indexes 逐字抄 indicators.md
 node scripts/cli.mjs call stock_data get_stock_kline '{"windcode":"600519.SH","begin_date":"20260401","end_date":"20260430"}'   # 日期 yyyyMMdd，不带 -
-node scripts/cli.mjs call stock_data get_stock_kline '{"windcode":"00700.HK","begin_date":"20260401","end_date":"20260430"}'
+node scripts/cli.mjs call stock_data get_stock_kline '{"windcode":"0700.HK","begin_date":"20260401","end_date":"20260430"}'
 node scripts/cli.mjs call fund_data get_fund_price_indicators '{"windcode":"588200.SH","indexes":"中文简称,最新成交价,IOPV,贴水率"}'
 node scripts/cli.mjs call financial_docs get_financial_news '{"query":"美联储利率政策","top_k":5}'   # query 无空格
 node scripts/cli.mjs call economic_data natural_language_get_edb_data '{"executionMode":"searchFetch","question":"中国CPI同比","beginDate":"20240101","endDate":"20261231"}'   # 宏观提数显式传时间范围
