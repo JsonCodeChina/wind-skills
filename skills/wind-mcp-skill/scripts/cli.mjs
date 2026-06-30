@@ -329,16 +329,6 @@ function normalizeCall(server_type, toolName, args) {
   const legacyTool = LEGACY_TOOL_ALIASES.get(toolName);
   if (legacyTool) [server_type, toolName] = legacyTool;
   const normalizedArgs = { ...args };
-  if (originalToolName === 'get_economic_data' && toolName === 'natural_language_get_edb_data' && typeof normalizedArgs.metricIdsStr === 'string') {
-    normalizedArgs.question = normalizedArgs.metricIdsStr;
-    delete normalizedArgs.metricIdsStr;
-    delete normalizedArgs.freq;
-    delete normalizedArgs.magnitude;
-    delete normalizedArgs.currency;
-    if (!normalizedArgs.executionMode) {
-      normalizedArgs.executionMode = normalizedArgs.beginDate || normalizedArgs.endDate ? 'searchFetch' : 'search';
-    }
-  }
   if (toolName === 'natural_language_get_edb_data' && typeof normalizedArgs.executionMode === 'string') {
     normalizedArgs.executionMode = EDB_EXECUTION_MODE_ALIASES.get(normalizedArgs.executionMode) || normalizedArgs.executionMode;
   }

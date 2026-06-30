@@ -17,7 +17,7 @@
   - K 线：`windcode` / `begin_date` / `end_date`
   - NL 工具：`question`
   - 文档工具：`query`
-  - EDB：`metricIdsStr`
+  - EDB：`question`
 - 日期字段校验：
   - 格式为 `yyyyMMdd`
   - 建议校验真实日历日期，例如拒绝 `20261399`
