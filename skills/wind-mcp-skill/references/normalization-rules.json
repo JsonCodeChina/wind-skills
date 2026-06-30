@@ -134,8 +134,7 @@
   "legacy_tool_aliases": {
     "get_global_stock_price_indicators": ["stock_data", "get_stock_price_indicators"],
     "get_global_stock_kline": ["stock_data", "get_stock_kline"],
-    "get_global_stock_quote": ["stock_data", "get_stock_quote"],
-    "get_economic_data": ["economic_data", "natural_language_get_edb_data"]
+    "get_global_stock_quote": ["stock_data", "get_stock_quote"]
   },
   "tool_by_domain": {
     "price": {
