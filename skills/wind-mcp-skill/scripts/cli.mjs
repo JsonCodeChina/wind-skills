@@ -6,7 +6,7 @@ import { join, dirname, basename, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 
-const SKILL_VERSION = '1.9.5';
+const SKILL_VERSION = '1.9.6';
 
 // 本地 registry: 工具选择可在任何网络调用前失败
 const SERVERS = {
@@ -310,8 +310,8 @@ function normalizeWindcode(windcode) {
   // Keep natural-language names untouched. Wind's backend NER is responsible
   // for resolving names/aliases; the CLI must not guess exchange suffixes.
   if (/[\u4e00-\u9fff]/.test(raw)) return raw;
+  if (/^0\d{4}\.HK$/.test(upper)) return upper.slice(1);
   if (/^\d{4}\.HK$/.test(upper)) return upper;
-  if (/^\d{5}\.HK$/.test(upper)) return upper;
   if (/^\d{6}\.(SH|SZ|BJ|OF)$/.test(upper)) return upper;
   if (/^[A-Z]{1,5}\.(O|N|A|HK|SH|SZ|BJ)$/.test(upper)) return upper;
   return raw;
