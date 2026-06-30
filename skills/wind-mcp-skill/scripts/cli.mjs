@@ -307,11 +307,14 @@ function normalizeWindcode(windcode) {
   const upper = raw.toUpperCase();
   const alias = INDEX_CODE_ALIASES.get(upper);
   if (alias) return alias;
+  // Keep natural-language names untouched. Wind's backend NER is responsible
+  // for resolving names/aliases; the CLI must not guess exchange suffixes.
+  if (/[\u4e00-\u9fff]/.test(raw)) return raw;
   if (/^\d{4}\.HK$/.test(upper)) return upper;
   if (/^\d{5}\.HK$/.test(upper)) return upper;
   if (/^\d{6}\.(SH|SZ|BJ|OF)$/.test(upper)) return upper;
   if (/^[A-Z]{1,5}\.(O|N|A|HK|SH|SZ|BJ)$/.test(upper)) return upper;
-  return upper;
+  return raw;
 }
 
 function toolFamily(toolName) {
@@ -387,6 +390,16 @@ function validateBasicParams(params) {
     }
   }
 
+  for (const rule of basic.ambiguous_market_target_patterns || []) {
+    const value = params[rule.field];
+    if (typeof value !== 'string') continue;
+    if (!new RegExp(rule.pattern).test(value)) continue;
+    errors.push({
+      code: rule.code || 'AMBIGUOUS_MARKET_TARGET',
+      message: renderValidationTemplate(rule.message, { ...params, value }),
+    });
+  }
+
   return errors;
 }
 
@@ -402,6 +415,21 @@ function resolveValidationValues(fieldRule) {
 
 function renderValidationMessage(template, values) {
   return String(template || '').replace('${values}', values.join('/'));
+}
+
+function renderValidationTemplate(template, params) {
+  return String(template || '').replace(/\$\{([^}]+)\}/g, (_, key) => {
+    const value = params[key];
+    return value === undefined || value === null ? '' : String(value);
+  });
+}
+
+function validationErrorMessage(error) {
+  return typeof error === 'string' ? error : error.message;
+}
+
+function validationErrorCode(error) {
+  return typeof error === 'object' && error?.code ? error.code : null;
 }
 
 function validateToolParams(toolName, params) {
@@ -722,8 +750,10 @@ async function cmdCall(server_type, toolName, paramsJson) {
   const validationErrors = validateBasicParams(args);
   validationErrors.push(...validateToolParams(toolName, args));
   if (validationErrors.length > 0) {
-    const hasTypeError = validationErrors.some((message) => message.includes('必须是字符串'));
-    die(hasTypeError ? 'PARAM_TYPE_ERROR' : 'PARAM_VALIDATION_ERROR', validationErrors.join('；'));
+    const explicitCode = validationErrors.map(validationErrorCode).find(Boolean);
+    const messages = validationErrors.map(validationErrorMessage);
+    const hasTypeError = messages.some((message) => message.includes('必须是字符串'));
+    die(explicitCode || (hasTypeError ? 'PARAM_TYPE_ERROR' : 'PARAM_VALIDATION_ERROR'), messages.join('；'));
   }
 
   const result = await mcpInitializeAndCall(server_type, 'tools/call', {

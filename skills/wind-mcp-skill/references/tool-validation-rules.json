@@ -23,6 +23,14 @@
     ],
     "single_target_keys": [
       "windcode"
+    ],
+    "ambiguous_market_target_patterns": [
+      {
+        "field": "windcode",
+        "pattern": "^\\d{6}$",
+        "code": "AMBIGUOUS_MARKET_TARGET",
+        "message": "裸数字 windcode '${value}' 存在多市场/多品类歧义，禁止自动补后缀或交给 NER 静默选择。请提供标的全称，或明确 Wind 标准代码，如 000001.SH / 000001.SZ / 000001.OF。"
+      }
     ]
   },
   "tool_rules": [
