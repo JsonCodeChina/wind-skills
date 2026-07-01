@@ -4,6 +4,7 @@
 > 测试对象: `skills/wind-mcp-skill` 的 `economic_data.natural_language_get_edb_data`  
 > 测试环境: Windows PowerShell + `rtk`, Node `v22.22.1`  
 > 测试结论: 通过，发现并修复 2 个本地处理问题
+测试工具 codex
 
 ## 1. 测试范围
 
