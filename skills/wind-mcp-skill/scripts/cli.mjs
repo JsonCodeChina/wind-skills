@@ -6,13 +6,13 @@ import { join, dirname, basename, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 
-const SKILL_VERSION = '1.9.6';
+const SKILL_VERSION = '1.9.8';
 
 // 本地 registry: 工具选择可在任何网络调用前失败
 const SERVERS = {
   stock_data: {
     endpoint: 'https://mcp.wind.com.cn/vserver_stock_data/mcp/',
-    label: 'Wind A股/港股/美股 股票（选股筛选 + 档案/财务/股本/事件/技术/风险 + 行情/K线/分钟）',
+    label: 'Wind 股票（选股筛选 + 档案/财务/股本/事件/技术/风险 + 行情/K线/分钟）',
   },
   fund_data: {
     endpoint: 'https://mcp.wind.com.cn/vserver_fund_data/mcp/',
@@ -149,20 +149,39 @@ function writePlainSuccess(data) {
   process.stdout.write(JSON.stringify(data, null, 2) + '\n');
 }
 
-// 失败 envelope { ok:false, error:{code, agent_action} }; update 信号走 stderr 不进 stdout
-function writeErrorEnvelope(code, detail) {
+function defaultRetryPolicy(code) {
+  if (code === 'RATE_LIMIT_ERROR') return { allowed: true, mode: 'same_request_after_wait', max_attempts: 1, after_ms: 5000 };
+  if (code === 'TEMPORARILY_UNAVAILABLE' || code === 'NETWORK_ERROR') return { allowed: true, mode: 'same_request', max_attempts: 1 };
+  return { allowed: false, mode: 'after_correction', max_attempts: 0 };
+}
+
+function defaultCircuitBreaker(code) {
+  const trips = new Set(['MARKET_TARGET_NOT_FOUND', 'PARAM_TYPE_ERROR', 'PARAM_VALIDATION_ERROR', 'INVALID_PARAM_NAME', 'INVALID_PARAM_VALUE']);
+  return {
+    tripped: trips.has(code),
+    scope: trips.has(code) ? 'remaining_batch' : 'current_call',
+    action: trips.has(code) ? 'abort_remaining_calls' : 'none',
+  };
+}
+
+// 失败 envelope 保留 agent_action 向后兼容，同时提供机器可读的诊断与重试策略。
+function writeErrorEnvelope(code, detail, metadata = {}) {
   const envelope = {
     ok: false,
     error: {
       code,
+      details: metadata.details || (detail ? { message: String(detail).slice(0, 500) } : {}),
+      retry: metadata.retry || defaultRetryPolicy(code),
+      circuit_breaker: metadata.circuit_breaker || defaultCircuitBreaker(code),
+      correction: metadata.correction || {},
       agent_action: buildAgentAction(code, detail),
     },
   };
   process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
 }
 
-function die(code, detail = null, exitCode = 1) {
-  writeErrorEnvelope(code, detail);
+function die(code, detail = null, exitCode = 1, metadata = {}) {
+  writeErrorEnvelope(code, detail, metadata);
   process.exit(exitCode);
 }
 
@@ -200,7 +219,11 @@ function parseDotenv(content) {
 function getServer(server_type) {
   const server = SERVERS[server_type];
   if (!server) {
-    die('ROUTE_ERROR', `未知 server_type: ${server_type}. 可用: ${Object.keys(SERVERS).join(' / ')}`);
+    die('ROUTE_ERROR', `未知 server_type: ${server_type}. 可用: ${Object.keys(SERVERS).join(' / ')}`, 1, {
+      details: { field: 'server_type', issue: 'invalid_enum', actual: server_type, allowed_values: Object.keys(SERVERS) },
+      retry: { allowed: true, mode: 'after_correction', max_attempts: 1 },
+      correction: { change_only: ['server_type'] },
+    });
   }
   return server;
 }
@@ -236,7 +259,11 @@ function validateToolSelection(server_type, toolName) {
   const manifest = loadToolManifest();
   const tools = manifest[server_type];
   if (!tools.includes(toolName)) {
-    die('ROUTE_ERROR', `工具名 "${toolName}" 不属于 server_type "${server_type}"。`);
+    die('ROUTE_ERROR', `工具名 "${toolName}" 不属于 server_type "${server_type}"。`, 1, {
+      details: { field: 'tool_name', issue: 'invalid_enum', actual: toolName, server_type, allowed_values: tools },
+      retry: { allowed: true, mode: 'after_correction', max_attempts: 1 },
+      correction: { change_only: ['tool_name'], preserve_server_type: true },
+    });
   }
 }
 
@@ -348,35 +375,36 @@ function normalizeCall(server_type, toolName, args) {
 function validateBasicParams(params) {
   const errors = [];
   if (!params || typeof params !== 'object' || Array.isArray(params)) {
-    return ['params 必须是 JSON object'];
+    return [{
+      code: 'PARAM_TYPE_ERROR',
+      message: 'params 必须是 JSON object',
+      field: 'params',
+      issue: 'invalid_type',
+      expected_type: 'object',
+      actual_type: Array.isArray(params) ? 'array' : typeof params,
+    }];
   }
 
   const basic = TOOL_VALIDATION_RULES.basic;
   for (const key of basic.string_keys || []) {
     if (!(key in params)) continue;
     if (typeof params[key] !== 'string') {
-      errors.push(`字段 '${key}' 必须是字符串`);
+      errors.push({ message: `字段 '${key}' 必须是字符串`, field: key, issue: 'invalid_type', expected_type: 'string', actual_type: Array.isArray(params[key]) ? 'array' : typeof params[key] });
     } else if (params[key].trim().length === 0) {
-      errors.push(`字段 '${key}' 不能为空或全空白`);
+      errors.push({ message: `字段 '${key}' 不能为空或全空白`, field: key, issue: 'empty_value', expected: 'non-empty string' });
     }
   }
 
   for (const key of basic.no_whitespace_keys || []) {
     if (typeof params[key] === 'string' && /\s/.test(params[key])) {
-      errors.push(`字段 '${key}' 不得含空格或其它空白字符`);
-    }
-  }
-
-  for (const key of basic.single_target_keys || []) {
-    if (typeof params[key] === 'string' && params[key].includes(',')) {
-      errors.push(`字段 '${key}' 只允许单个标的，禁止逗号拼接多代码`);
+      errors.push({ message: `字段 '${key}' 不得含空格或其它空白字符`, field: key, issue: 'invalid_format', expected_format: 'no whitespace' });
     }
   }
 
   for (const key of basic.date_keys || []) {
     if (!(key in params)) continue;
     if (typeof params[key] === 'string' && !isValidBasicDate(params[key])) {
-      errors.push(`字段 '${key}' 日期格式错误，要求 yyyyMMdd`);
+      errors.push({ message: `字段 '${key}' 日期格式错误，要求 yyyyMMdd`, field: key, issue: 'invalid_format', actual: params[key], expected_format: 'yyyyMMdd', example: '20260708' });
     }
   }
 
@@ -431,39 +459,39 @@ function validateToolParams(toolName, params) {
     if (Array.isArray(rule.allowed)) {
       const allowedKeys = new Set(rule.allowed);
       for (const key of Object.keys(params)) {
-        if (!allowedKeys.has(key)) errors.push(`${ruleLabel} 工具不支持字段 '${key}'`);
+        if (!allowedKeys.has(key)) errors.push({ message: `${ruleLabel} 工具不支持字段 '${key}'`, field: key, issue: 'unknown_field', allowed_fields: [...allowedKeys] });
       }
     }
 
     for (const key of rule.required || []) {
-      if (!hasParamValue(params, key)) errors.push(`${ruleLabel} 工具缺少必填字段 '${key}'`);
+      if (!hasParamValue(params, key)) errors.push({ message: `${ruleLabel} 工具缺少必填字段 '${key}'`, field: key, issue: 'missing_required', required_fields: rule.required || [] });
     }
 
     for (const [field, fieldRule] of Object.entries(rule.enum_fields || {})) {
       if (!(field in params)) continue;
       const values = resolveValidationValues(fieldRule);
       if (!values.includes(String(params[field]))) {
-        errors.push(renderValidationMessage(fieldRule.message, values));
+        errors.push({ message: renderValidationMessage(fieldRule.message, values), field, issue: 'invalid_enum', actual: params[field], allowed_values: values });
       }
     }
 
     for (const fields of rule.paired || []) {
       const present = fields.filter(key => hasParamValue(params, key));
       if (present.length > 0 && present.length < fields.length) {
-        errors.push(`字段 '${fields.join("' 和 '")}' 应成对填写`);
+        errors.push({ message: `字段 '${fields.join("' 和 '")}' 应成对填写`, fields, issue: 'incomplete_pair', expected_fields: fields });
       }
     }
 
     for (const fields of rule.mutually_exclusive || []) {
       const present = fields.filter(key => hasParamValue(params, key));
       if (present.length > 1) {
-        errors.push(`字段 '${fields.join('/')}' 互斥，不应同时填写`);
+        errors.push({ message: `字段 '${fields.join('/')}' 互斥，不应同时填写`, fields, issue: 'mutually_exclusive' });
       }
     }
 
     for (const [startKey, endKey] of rule.ordered_dates || []) {
       if (params[startKey] && params[endKey] && params[startKey] > params[endKey]) {
-        errors.push(`字段 '${startKey}' 不能晚于 '${endKey}'`);
+        errors.push({ message: `字段 '${startKey}' 不能晚于 '${endKey}'`, fields: [startKey, endKey], issue: 'invalid_order', expected: `${startKey} <= ${endKey}` });
       }
     }
 
@@ -471,14 +499,14 @@ function validateToolParams(toolName, params) {
       if (!(field in params)) continue;
       const pattern = new RegExp(patternRule.pattern);
       if (!pattern.test(String(params[field]))) {
-        errors.push(patternRule.message || `字段 '${field}' 格式不合法`);
+        errors.push({ message: patternRule.message || `字段 '${field}' 格式不合法`, field, issue: 'invalid_format', actual: params[field], expected_pattern: patternRule.pattern });
       }
     }
 
     for (const conditional of rule.required_one_of_when || []) {
       if (!conditional.values?.map(String).includes(String(params[conditional.field]))) continue;
       const satisfied = conditional.one_of?.some(group => group.every(key => hasParamValue(params, key)));
-      if (!satisfied) errors.push(conditional.message || `字段 '${conditional.field}' 当前取值缺少配套参数`);
+      if (!satisfied) errors.push({ message: conditional.message || `字段 '${conditional.field}' 当前取值缺少配套参数`, field: conditional.field, issue: 'missing_conditional_fields', one_of: conditional.one_of });
     }
   }
   return errors;
@@ -521,7 +549,9 @@ const ERROR_PATTERNS = [
   ['PERIOD_PARSE_ERROR', /srv_internal_error|For input string:\s*\\?["\x27]?(?:day|daily|monthly|week|weekly|month|D|M|W)\\?["\x27]?/i, 'K 线周期值无法解析。'],
   ['INVALID_PARAM_VALUE', /invalid_param_value|Invalid value .* for field|参数值.*不合法|参数值错误/i, '后端参数值错误。'],
   ['INVALID_PARAM_NAME', /invalid_param_name|缺少必填参数|missing required/i, '后端参数名错误。'],
-  ['QUOTA_ERROR', /单日请求次数超限|daily.*limit|余额不足|请先充值|insufficient.*balance|请求过于频繁|qps.*limit|too.*frequent/i, '额度/限流错误。等待额度刷新、换备用 Key 或充值后原样重试。'],
+  ['DAILY_LIMIT_ERROR', /单日请求次数超限|daily.*(?:request|quota)?.*limit|daily.*limit.*exceed/i, '单日请求次数已超限。'],
+  ['BALANCE_ERROR', /余额不足|请先充值|insufficient.*balance/i, '账户余额不足。'],
+  ['RATE_LIMIT_ERROR', /请求过于频繁|qps.*limit|too.*frequent|rate.*limit/i, 'QPS 限流。'],
   ['AUTH_ERROR', /密钥无效|key.*invalid|unauthorized|认证失败|auth.*fail/i, '认证/权限错误。按 Key 机制修复后原样重试。'],
   ['NO_RESULTS', /未获取到数据|"NO_RESULTS"|no\s*results?|not\s*found|empty\s*result/i, '未获取到匹配数据。先在不改变用户意图的前提下调整关键词或参数。'],
   ['PARAM_VALIDATION_ERROR', /参数验证失败|参数.*(错误|非法|无效)|字段.*(不存在|不识别|不支持|非法)|invalid\s*(param|argument|field)|missing\s*(param|argument|field|required)/i, '后端参数验证失败。先按 SKILL.md 工具表核对字段名、必填项、日期格式和枚举值后重试。'],
@@ -606,7 +636,7 @@ function parseSSE(text) {
 
 const HTTP_ERROR_MAP = {
   401: ['AUTH_ERROR', 'API Key 无效或过期'],
-  429: ['QUOTA_ERROR', '请求过于频繁'],
+  429: ['RATE_LIMIT_ERROR', '请求过于频繁'],
   500: ['NETWORK_ERROR', '服务端异常'],
   502: ['NETWORK_ERROR', '网关异常'],
   503: ['NETWORK_ERROR', '服务暂不可用'],
@@ -614,7 +644,8 @@ const HTTP_ERROR_MAP = {
 };
 
 async function mcpRequest(server_type, method, params, {
-  timeoutMs = 60_000
+  timeoutMs = 60_000,
+  diagnosticContext = null,
 } = {}) {
   const server = getServer(server_type);
   const apiKey = getApiKey();
@@ -630,6 +661,31 @@ async function mcpRequest(server_type, method, params, {
     method,
     params
   });
+  const dieMcp = (code, detail) => {
+    if (code !== 'MARKET_TARGET_NOT_FOUND') die(code, detail);
+    const originalInput = diagnosticContext?.original_input ?? params?.arguments?.windcode ?? null;
+    const attemptedInput = diagnosticContext?.normalized_input ?? params?.arguments?.windcode ?? null;
+    die(code, detail, 1, {
+      details: {
+        message: String(detail || '').slice(0, 500),
+        field: 'windcode',
+        issue: 'instrument_not_resolved',
+        original_input: originalInput,
+        normalized_input: attemptedInput,
+        attempted_inputs: attemptedInput == null ? [] : [attemptedInput],
+        candidates: [],
+      },
+      retry: { allowed: false, mode: 'after_user_correction', max_attempts: 0 },
+      circuit_breaker: { tripped: true, scope: 'remaining_batch', action: 'abort_remaining_calls' },
+      correction: {
+        required: ['instrument_full_name_or_windcode'],
+        requires_user_input: true,
+        user_prompt: '请提供该标的的准确全称或 Wind 标准代码。',
+        preserve_server_type: true,
+        preserve_tool_name: true,
+      },
+    });
+  };
   let resp;
   try {
     resp = await fetch(server.endpoint, {
@@ -659,12 +715,12 @@ async function mcpRequest(server_type, method, params, {
 
   if (payload.error) {
     const msg = payload.error.message || JSON.stringify(payload.error);
-    die(inferErrorCode(msg), `${msg} (server=${server_type})`);
+    dieMcp(inferErrorCode(msg), `${msg} (server=${server_type})`);
   }
 
   if (payload.result?.isError) {
     const msg = payload.result.content?.[0]?.text || JSON.stringify(payload.result);
-    die(inferErrorCode(msg), `${msg} (server=${server_type})`);
+    dieMcp(inferErrorCode(msg), `${msg} (server=${server_type})`);
   }
 
   // 部分工具把业务错误包在 content[0].text 的 JSON 字符串里, 必须二次解析
@@ -679,18 +735,18 @@ async function mcpRequest(server_type, method, params, {
     if (inner) {
       if (typeof inner.mcp_tool_error_code === 'number' && inner.mcp_tool_error_code !== 0) {
         const msg = inner.mcp_tool_error_msg || JSON.stringify(inner);
-        die(inferErrorCode(msg), `${msg} (server=${server_type})`);
+        dieMcp(inferErrorCode(msg), `${msg} (server=${server_type})`);
       }
       if (inner.error && (inner.error.code || inner.error.message)) {
         const errCode = inner.error.code || '';
         const errMsg = inner.error.message || '';
         const combined = errCode ? `${errCode}: ${errMsg}` : errMsg;
-        die(inferErrorCode(combined), `${combined} (server=${server_type})`);
+        dieMcp(inferErrorCode(combined), `${combined} (server=${server_type})`);
       }
       const businessError = inferBusinessErrorCode(inner, server_type);
       if (businessError) {
         const [code, msg] = businessError;
-        die(code, `${msg} (server=${server_type})`);
+        dieMcp(code, `${msg} (server=${server_type})`);
       }
     }
   }
@@ -698,7 +754,7 @@ async function mcpRequest(server_type, method, params, {
   return payload.result;
 }
 
-async function mcpInitializeAndCall(server_type, method, params) {
+async function mcpInitializeAndCall(server_type, method, params, diagnosticContext = null) {
   await mcpRequest(server_type, 'initialize', {
     protocolVersion: '2025-03-26',
     capabilities: {},
@@ -711,7 +767,8 @@ async function mcpInitializeAndCall(server_type, method, params) {
   });
 
   return mcpRequest(server_type, method, params, {
-    timeoutMs: 600_000
+    timeoutMs: 600_000,
+    diagnosticContext,
   });
 }
 
@@ -734,22 +791,48 @@ async function cmdCall(server_type, toolName, paramsJson) {
     die('INVALID_PARAMS_JSON', `params JSON 解析失败：${e.message} | 原文：${paramsJson.slice(0, 200)}`);
   }
 
+  if (!args || typeof args !== 'object' || Array.isArray(args)) {
+    const actualType = Array.isArray(args) ? 'array' : typeof args;
+    die('PARAM_TYPE_ERROR', 'params 必须是 JSON object', 1, {
+      details: [{ field: 'params', issue: 'invalid_type', expected_type: 'object', actual_type: actualType }],
+      retry: { allowed: true, mode: 'after_correction', max_attempts: 1 },
+      circuit_breaker: { tripped: true, scope: 'remaining_batch', action: 'abort_remaining_calls' },
+      correction: { change_only: ['params'], strategy: 'fix_from_error_details', requires_user_input: false, preserve_server_type: true, preserve_tool_name: true },
+    });
+  }
+
+  const originalArgs = args && typeof args === 'object' && !Array.isArray(args) ? { ...args } : args;
   ({ server_type, toolName, args } = normalizeCall(server_type, toolName, args));
   validateToolSelection(server_type, toolName);
 
   const validationErrors = validateBasicParams(args);
-  validationErrors.push(...validateToolParams(toolName, args));
+  const paramsShapeInvalid = validationErrors.some(error => validationErrorCode(error) === 'PARAM_TYPE_ERROR' && error.field === 'params');
+  if (!paramsShapeInvalid) validationErrors.push(...validateToolParams(toolName, args));
   if (validationErrors.length > 0) {
     const explicitCode = validationErrors.map(validationErrorCode).find(Boolean);
     const messages = validationErrors.map(validationErrorMessage);
-    const hasTypeError = messages.some((message) => message.includes('必须是字符串'));
-    die(explicitCode || (hasTypeError ? 'PARAM_TYPE_ERROR' : 'PARAM_VALIDATION_ERROR'), messages.join('；'));
+    const hasTypeError = validationErrors.some(error => typeof error === 'object' && error?.issue === 'invalid_type');
+    die(explicitCode || (hasTypeError ? 'PARAM_TYPE_ERROR' : 'PARAM_VALIDATION_ERROR'), messages.join('；'), 1, {
+      details: validationErrors.map(error => typeof error === 'string' ? { message: error } : { ...error, code: undefined, message: undefined }),
+      retry: { allowed: true, mode: 'after_correction', max_attempts: 1 },
+      circuit_breaker: { tripped: true, scope: 'remaining_batch', action: 'abort_remaining_calls' },
+      correction: {
+        change_only: [...new Set(validationErrors.flatMap(error => error?.field ? [error.field] : error?.fields || []))],
+        strategy: 'fix_from_error_details',
+        requires_user_input: validationErrors.some(error => error?.issue === 'ambiguous_value'),
+        preserve_server_type: true,
+        preserve_tool_name: true,
+      },
+    });
   }
 
   const result = await mcpInitializeAndCall(server_type, 'tools/call', {
     name: toolName,
     arguments: args,
     _meta: { clientVersion: SKILL_VERSION },
+  }, {
+    original_input: originalArgs && typeof originalArgs === 'object' ? originalArgs.windcode : null,
+    normalized_input: args && typeof args === 'object' ? args.windcode : null,
   });
   return {
     server_type,

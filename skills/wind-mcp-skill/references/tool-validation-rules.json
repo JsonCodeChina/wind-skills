@@ -20,9 +20,6 @@
       "endDate",
       "date",
       "tradeDate"
-    ],
-    "single_target_keys": [
-      "windcode"
     ]
   },
   "tool_rules": [
