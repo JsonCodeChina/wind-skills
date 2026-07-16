@@ -1,0 +1,115 @@
+{
+  "test_name": "natural_language_get_edb_data 日期字段真实后端对照测试",
+  "executed_at": "2026-07-16T06:04:50.288Z",
+  "execution_mode": "serial",
+  "results": [
+    {
+      "name": "canonical_date_fields",
+      "params": {
+        "executionMode": "searchFetch",
+        "question": "中国GDP",
+        "begin_date": "2025-01-01",
+        "end_date": "2026/07/15"
+      },
+      "duration_ms": 10700,
+      "exit_code": 1,
+      "signal": null,
+      "stdout": "{\n  \"ok\": false,\n  \"error\": {\n    \"code\": \"NETWORK_ERROR\",\n    \"details\": {\n      \"message\": \"fetch failed (server=economic_data)\"\n    },\n    \"retry\": {\n      \"allowed\": true,\n      \"mode\": \"same_request\",\n      \"max_attempts\": 1\n    },\n    \"circuit_breaker\": {\n      \"tripped\": false,\n      \"scope\": \"current_call\",\n      \"action\": \"none\"\n    },\n    \"correction\": {},\n    \"agent_action\": \"[fetch failed (server=economic_data)] 原因：网络连接或后端 HTTP 5xx 异常。处理：若 detail 暴露参数问题，先修参数；否则稍后再试。重试：仅允许原样重试一次，仍失败则停止并告知用户。\"\n  }\n}\n",
+      "stderr": "",
+      "output": {
+        "ok": false,
+        "error": {
+          "code": "NETWORK_ERROR",
+          "details": {
+            "message": "fetch failed (server=economic_data)"
+          },
+          "retry": {
+            "allowed": true,
+            "mode": "same_request",
+            "max_attempts": 1
+          },
+          "circuit_breaker": {
+            "tripped": false,
+            "scope": "current_call",
+            "action": "none"
+          },
+          "correction": {},
+          "agent_action": "[fetch failed (server=economic_data)] 原因：网络连接或后端 HTTP 5xx 异常。处理：若 detail 暴露参数问题，先修参数；否则稍后再试。重试：仅允许原样重试一次，仍失败则停止并告知用户。"
+        }
+      },
+      "parse_error": null,
+      "passed": false,
+      "error_code": "NETWORK_ERROR",
+      "error_message": "fetch failed (server=economic_data)"
+    },
+    {
+      "name": "backend_native_date_fields",
+      "params": {
+        "executionMode": "searchFetch",
+        "question": "中国GDP",
+        "beginDate": "20250101",
+        "endDate": "20260715"
+      },
+      "duration_ms": 1795,
+      "exit_code": 0,
+      "signal": null,
+      "stdout": "{\n  \"content\": [\n    {\n      \"type\": \"text\",\n      \"text\": \"{\\\"data\\\":{\\\"code\\\":0,\\\"message\\\":\\\"OK\\\",\\\"data\\\":[{\\\"meta\\\":{\\\"code\\\":\\\"M5567876\\\",\\\"enName\\\":\\\"China: GDP: Current Prices\\\",\\\"name\\\":\\\"中国:GDP:现价:当季值\\\",\\\"enSource\\\":\\\"National Bureau of Statistics of China\\\",\\\"source\\\":\\\"国家统计局\\\",\\\"enUnit\\\":\\\"CNY 100mn\\\",\\\"unit\\\":\\\"亿元\\\",\\\"enFreq\\\":\\\"quarterly\\\",\\\"freq\\\":\\\"季\\\",\\\"enMagnitude\\\":\\\"100mn \\\",\\\"magnitude\\\":\\\"亿\\\",\\\"enCurrency\\\":\\\"人民币\\\",\\\"currency\\\":\\\"人民币\\\",\\\"updateDate\\\":\\\"20260715\\\"},\\\"date\\\":[\\\"20250331\\\",\\\"20250630\\\",\\\"20250930\\\",\\\"20251231\\\",\\\"20260331\\\",\\\"20260630\\\"],\\\"value\\\":[318466.4,341395.3,354106.2,387911.3,334192.9,361511]},{\\\"meta\\\":{\\\"code\\\":\\\"M0001395\\\",\\\"enName\\\":\\\"China: GDP: Current Prices\\\",\\\"name\\\":\\\"中国:GDP:现价\\\",\\\"enSource\\\":\\\"National Bureau of Statistics of China\\\",\\\"source\\\":\\\"国家统计局\\\",\\\"enUnit\\\":\\\"CNY 100mn\\\",\\\"unit\\\":\\\"亿元\\\",\\\"enFreq\\\":\\\"yearly\\\",\\\"freq\\\":\\\"年\\\",\\\"enMagnitude\\\":\\\"100mn \\\",\\\"magnitude\\\":\\\"亿\\\",\\\"enCurrency\\\":\\\"人民币\\\",\\\"currency\\\":\\\"人民币\\\",\\\"updateDate\\\":\\\"20260602\\\"},\\\"date\\\":[\\\"20251231\\\"],\\\"value\\\":[1401879.2]},{\\\"meta\\\":{\\\"code\\\":\\\"M5567889\\\",\\\"enName\\\":\\\"China: GDP: Constant Prices\\\",\\\"name\\\":\\\"中国:GDP:不变价:当季值\\\",\\\"enSource\\\":\\\"National Bureau of Statistics of China\\\",\\\"source\\\":\\\"国家统计局\\\",\\\"enUnit\\\":\\\"CNY 100mn\\\",\\\"unit\\\":\\\"亿元\\\",\\\"enFreq\\\":\\\"quarterly\\\",\\\"freq\\\":\\\"季\\\",\\\"enMagnitude\\\":\\\"100mn \\\",\\\"magnitude\\\":\\\"亿\\\",\\\"enCurrency\\\":\\\"人民币\\\",\\\"currency\\\":\\\"人民币\\\",\\\"updateDate\\\":\\\"20260421\\\"},\\\"date\\\":[\\\"20250331\\\",\\\"20250630\\\",\\\"20250930\\\",\\\"20251231\\\",\\\"20260331\\\"],\\\"value\\\":[306571,323458.2,341216.5,374444.5,335748.7]},{\\\"meta\\\":{\\\"code\\\":\\\"M5785610\\\",\\\"enName\\\":\\\"China: GDP: Constant Prices\\\",\\\"name\\\":\\\"中国:GDP:不变价\\\",\\\"enSource\\\":\\\"National Bureau of Statistics of China\\\",\\\"source\\\":\\\"国家统计局\\\",\\\"enUnit\\\":\\\"CNY 100mn\\\",\\\"unit\\\":\\\"亿元\\\",\\\"enFreq\\\":\\\"yearly\\\",\\\"freq\\\":\\\"年\\\",\\\"enMagnitude\\\":\\\"100mn \\\",\\\"magnitude\\\":\\\"亿\\\",\\\"enCurrency\\\":\\\"人民币\\\",\\\"currency\\\":\\\"人民币\\\",\\\"updateDate\\\":\\\"20260122\\\"},\\\"date\\\":[\\\"20251231\\\"],\\\"value\\\":[1345690.2]}]},\\\"error\\\":null}\"\n    }\n  ],\n  \"isError\": false,\n  \"cli_meta\": {\n    \"schema_version\": \"1.0\",\n    \"server_type\": \"economic_data\",\n    \"tool_name\": \"natural_language_get_edb_data\",\n    \"completeness\": \"not_asserted\",\n    \"tables\": [],\n    \"warnings\": []\n  }\n}\n",
+      "stderr": "",
+      "output": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"data\":{\"code\":0,\"message\":\"OK\",\"data\":[{\"meta\":{\"code\":\"M5567876\",\"enName\":\"China: GDP: Current Prices\",\"name\":\"中国:GDP:现价:当季值\",\"enSource\":\"National Bureau of Statistics of China\",\"source\":\"国家统计局\",\"enUnit\":\"CNY 100mn\",\"unit\":\"亿元\",\"enFreq\":\"quarterly\",\"freq\":\"季\",\"enMagnitude\":\"100mn \",\"magnitude\":\"亿\",\"enCurrency\":\"人民币\",\"currency\":\"人民币\",\"updateDate\":\"20260715\"},\"date\":[\"20250331\",\"20250630\",\"20250930\",\"20251231\",\"20260331\",\"20260630\"],\"value\":[318466.4,341395.3,354106.2,387911.3,334192.9,361511]},{\"meta\":{\"code\":\"M0001395\",\"enName\":\"China: GDP: Current Prices\",\"name\":\"中国:GDP:现价\",\"enSource\":\"National Bureau of Statistics of China\",\"source\":\"国家统计局\",\"enUnit\":\"CNY 100mn\",\"unit\":\"亿元\",\"enFreq\":\"yearly\",\"freq\":\"年\",\"enMagnitude\":\"100mn \",\"magnitude\":\"亿\",\"enCurrency\":\"人民币\",\"currency\":\"人民币\",\"updateDate\":\"20260602\"},\"date\":[\"20251231\"],\"value\":[1401879.2]},{\"meta\":{\"code\":\"M5567889\",\"enName\":\"China: GDP: Constant Prices\",\"name\":\"中国:GDP:不变价:当季值\",\"enSource\":\"National Bureau of Statistics of China\",\"source\":\"国家统计局\",\"enUnit\":\"CNY 100mn\",\"unit\":\"亿元\",\"enFreq\":\"quarterly\",\"freq\":\"季\",\"enMagnitude\":\"100mn \",\"magnitude\":\"亿\",\"enCurrency\":\"人民币\",\"currency\":\"人民币\",\"updateDate\":\"20260421\"},\"date\":[\"20250331\",\"20250630\",\"20250930\",\"20251231\",\"20260331\"],\"value\":[306571,323458.2,341216.5,374444.5,335748.7]},{\"meta\":{\"code\":\"M5785610\",\"enName\":\"China: GDP: Constant Prices\",\"name\":\"中国:GDP:不变价\",\"enSource\":\"National Bureau of Statistics of China\",\"source\":\"国家统计局\",\"enUnit\":\"CNY 100mn\",\"unit\":\"亿元\",\"enFreq\":\"yearly\",\"freq\":\"年\",\"enMagnitude\":\"100mn \",\"magnitude\":\"亿\",\"enCurrency\":\"人民币\",\"currency\":\"人民币\",\"updateDate\":\"20260122\"},\"date\":[\"20251231\"],\"value\":[1345690.2]}]},\"error\":null}"
+          }
+        ],
+        "isError": false,
+        "cli_meta": {
+          "schema_version": "1.0",
+          "server_type": "economic_data",
+          "tool_name": "natural_language_get_edb_data",
+          "completeness": "not_asserted",
+          "tables": [],
+          "warnings": []
+        }
+      },
+      "parse_error": null,
+      "passed": true,
+      "error_code": null,
+      "error_message": null
+    },
+    {
+      "name": "observation_control",
+      "params": {
+        "executionMode": "searchFetch",
+        "question": "中国GDP",
+        "observation": "10"
+      },
+      "duration_ms": 2998,
+      "exit_code": 0,
+      "signal": null,
+      "stdout": "{\n  \"content\": [\n    {\n      \"type\": \"text\",\n      \"text\": \"{\\\"data\\\":{\\\"code\\\":0,\\\"message\\\":\\\"OK\\\",\\\"data\\\":[{\\\"meta\\\":{\\\"code\\\":\\\"M5567876\\\",\\\"enName\\\":\\\"China: GDP: Current Prices\\\",\\\"name\\\":\\\"中国:GDP:现价:当季值\\\",\\\"enSource\\\":\\\"National Bureau of Statistics of China\\\",\\\"source\\\":\\\"国家统计局\\\",\\\"enUnit\\\":\\\"CNY 100mn\\\",\\\"unit\\\":\\\"亿元\\\",\\\"enFreq\\\":\\\"quarterly\\\",\\\"freq\\\":\\\"季\\\",\\\"enMagnitude\\\":\\\"100mn \\\",\\\"magnitude\\\":\\\"亿\\\",\\\"enCurrency\\\":\\\"人民币\\\",\\\"currency\\\":\\\"人民币\\\",\\\"updateDate\\\":\\\"20260715\\\"},\\\"date\\\":[\\\"20240331\\\",\\\"20240630\\\",\\\"20240930\\\",\\\"20241231\\\",\\\"20250331\\\",\\\"20250630\\\",\\\"20250930\\\",\\\"20251231\\\",\\\"20260331\\\",\\\"20260630\\\"],\\\"value\\\":[304525.2,328585.4,341443.2,373512.4,318466.4,341395.3,354106.2,387911.3,334192.9,361511]},{\\\"meta\\\":{\\\"code\\\":\\\"M0001395\\\",\\\"enName\\\":\\\"China: GDP: Current Prices\\\",\\\"name\\\":\\\"中国:GDP:现价\\\",\\\"enSource\\\":\\\"National Bureau of Statistics of China\\\",\\\"source\\\":\\\"国家统计局\\\",\\\"enUnit\\\":\\\"CNY 100mn\\\",\\\"unit\\\":\\\"亿元\\\",\\\"enFreq\\\":\\\"yearly\\\",\\\"freq\\\":\\\"年\\\",\\\"enMagnitude\\\":\\\"100mn \\\",\\\"magnitude\\\":\\\"亿\\\",\\\"enCurrency\\\":\\\"人民币\\\",\\\"currency\\\":\\\"人民币\\\",\\\"updateDate\\\":\\\"20260602\\\"},\\\"date\\\":[\\\"20161231\\\",\\\"20171231\\\",\\\"20181231\\\",\\\"20191231\\\",\\\"20201231\\\",\\\"20211231\\\",\\\"20221231\\\",\\\"20231231\\\",\\\"20241231\\\",\\\"20251231\\\"],\\\"value\\\":[761192.99,847382.91,936010.14,1005872.43,1034867.55,1173822.96,1234029.36,1294271.74,1348066.2,1401879.2]},{\\\"meta\\\":{\\\"code\\\":\\\"M5567889\\\",\\\"enName\\\":\\\"China: GDP: Constant Prices\\\",\\\"name\\\":\\\"中国:GDP:不变价:当季值\\\",\\\"enSource\\\":\\\"National Bureau of Statistics of China\\\",\\\"source\\\":\\\"国家统计局\\\",\\\"enUnit\\\":\\\"CNY 100mn\\\",\\\"unit\\\":\\\"亿元\\\",\\\"enFreq\\\":\\\"quarterly\\\",\\\"freq\\\":\\\"季\\\",\\\"enMagnitude\\\":\\\"100mn \\\",\\\"magnitude\\\":\\\"亿\\\",\\\"enCurrency\\\":\\\"人民币\\\",\\\"currency\\\":\\\"人民币\\\",\\\"updateDate\\\":\\\"20260421\\\"},\\\"date\\\":[\\\"20231231\\\",\\\"20240331\\\",\\\"20240630\\\",\\\"20240930\\\",\\\"20241231\\\",\\\"20250331\\\",\\\"20250630\\\",\\\"20250930\\\",\\\"20251231\\\",\\\"20260331\\\"],\\\"value\\\":[340242.9,290792,307369,325479.2,358465.4,306571,323458.2,341216.5,374444.5,335748.7]},{\\\"meta\\\":{\\\"code\\\":\\\"M5785610\\\",\\\"enName\\\":\\\"China: GDP: Constant Prices\\\",\\\"name\\\":\\\"中国:GDP:不变价\\\",\\\"enSource\\\":\\\"National Bureau of Statistics of China\\\",\\\"source\\\":\\\"国家统计局\\\",\\\"enUnit\\\":\\\"CNY 100mn\\\",\\\"unit\\\":\\\"亿元\\\",\\\"enFreq\\\":\\\"yearly\\\",\\\"freq\\\":\\\"年\\\",\\\"enMagnitude\\\":\\\"100mn \\\",\\\"magnitude\\\":\\\"亿\\\",\\\"enCurrency\\\":\\\"人民币\\\",\\\"currency\\\":\\\"人民币\\\",\\\"updateDate\\\":\\\"20260122\\\"},\\\"date\\\":[\\\"20161231\\\",\\\"20171231\\\",\\\"20181231\\\",\\\"20191231\\\",\\\"20201231\\\",\\\"20211231\\\",\\\"20221231\\\",\\\"20231231\\\",\\\"20241231\\\",\\\"20251231\\\"],\\\"value\\\":[750097.4,801788.41,855971.71,907906.75,929147.27,1123559.68,1158770.4,1221529.45,1282105.5,1345690.2]}]},\\\"error\\\":null}\"\n    }\n  ],\n  \"isError\": false,\n  \"cli_meta\": {\n    \"schema_version\": \"1.0\",\n    \"server_type\": \"economic_data\",\n    \"tool_name\": \"natural_language_get_edb_data\",\n    \"completeness\": \"not_asserted\",\n    \"tables\": [],\n    \"warnings\": []\n  }\n}\n",
+      "stderr": "",
+      "output": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"data\":{\"code\":0,\"message\":\"OK\",\"data\":[{\"meta\":{\"code\":\"M5567876\",\"enName\":\"China: GDP: Current Prices\",\"name\":\"中国:GDP:现价:当季值\",\"enSource\":\"National Bureau of Statistics of China\",\"source\":\"国家统计局\",\"enUnit\":\"CNY 100mn\",\"unit\":\"亿元\",\"enFreq\":\"quarterly\",\"freq\":\"季\",\"enMagnitude\":\"100mn \",\"magnitude\":\"亿\",\"enCurrency\":\"人民币\",\"currency\":\"人民币\",\"updateDate\":\"20260715\"},\"date\":[\"20240331\",\"20240630\",\"20240930\",\"20241231\",\"20250331\",\"20250630\",\"20250930\",\"20251231\",\"20260331\",\"20260630\"],\"value\":[304525.2,328585.4,341443.2,373512.4,318466.4,341395.3,354106.2,387911.3,334192.9,361511]},{\"meta\":{\"code\":\"M0001395\",\"enName\":\"China: GDP: Current Prices\",\"name\":\"中国:GDP:现价\",\"enSource\":\"National Bureau of Statistics of China\",\"source\":\"国家统计局\",\"enUnit\":\"CNY 100mn\",\"unit\":\"亿元\",\"enFreq\":\"yearly\",\"freq\":\"年\",\"enMagnitude\":\"100mn \",\"magnitude\":\"亿\",\"enCurrency\":\"人民币\",\"currency\":\"人民币\",\"updateDate\":\"20260602\"},\"date\":[\"20161231\",\"20171231\",\"20181231\",\"20191231\",\"20201231\",\"20211231\",\"20221231\",\"20231231\",\"20241231\",\"20251231\"],\"value\":[761192.99,847382.91,936010.14,1005872.43,1034867.55,1173822.96,1234029.36,1294271.74,1348066.2,1401879.2]},{\"meta\":{\"code\":\"M5567889\",\"enName\":\"China: GDP: Constant Prices\",\"name\":\"中国:GDP:不变价:当季值\",\"enSource\":\"National Bureau of Statistics of China\",\"source\":\"国家统计局\",\"enUnit\":\"CNY 100mn\",\"unit\":\"亿元\",\"enFreq\":\"quarterly\",\"freq\":\"季\",\"enMagnitude\":\"100mn \",\"magnitude\":\"亿\",\"enCurrency\":\"人民币\",\"currency\":\"人民币\",\"updateDate\":\"20260421\"},\"date\":[\"20231231\",\"20240331\",\"20240630\",\"20240930\",\"20241231\",\"20250331\",\"20250630\",\"20250930\",\"20251231\",\"20260331\"],\"value\":[340242.9,290792,307369,325479.2,358465.4,306571,323458.2,341216.5,374444.5,335748.7]},{\"meta\":{\"code\":\"M5785610\",\"enName\":\"China: GDP: Constant Prices\",\"name\":\"中国:GDP:不变价\",\"enSource\":\"National Bureau of Statistics of China\",\"source\":\"国家统计局\",\"enUnit\":\"CNY 100mn\",\"unit\":\"亿元\",\"enFreq\":\"yearly\",\"freq\":\"年\",\"enMagnitude\":\"100mn \",\"magnitude\":\"亿\",\"enCurrency\":\"人民币\",\"currency\":\"人民币\",\"updateDate\":\"20260122\"},\"date\":[\"20161231\",\"20171231\",\"20181231\",\"20191231\",\"20201231\",\"20211231\",\"20221231\",\"20231231\",\"20241231\",\"20251231\"],\"value\":[750097.4,801788.41,855971.71,907906.75,929147.27,1123559.68,1158770.4,1221529.45,1282105.5,1345690.2]}]},\"error\":null}"
+          }
+        ],
+        "isError": false,
+        "cli_meta": {
+          "schema_version": "1.0",
+          "server_type": "economic_data",
+          "tool_name": "natural_language_get_edb_data",
+          "completeness": "not_asserted",
+          "tables": [],
+          "warnings": []
+        }
+      },
+      "parse_error": null,
+      "passed": true,
+      "error_code": null,
+      "error_message": null
+    }
+  ]
+}

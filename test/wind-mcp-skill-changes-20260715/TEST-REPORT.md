@@ -1,10 +1,10 @@
 # wind-mcp-skill 变更验证报告
 
-- 测试日期：2026-07-15
+- 测试日期：2026-07-15 至 2026-07-16
 - 测试环境：Windows / PowerShell / Node.js v22.22.1
 - 被测对象：`skills/wind-mcp-skill`
 - 后端验证：使用当前已配置的 Wind API Key 调用真实 Wind MCP 后端
-- 最终结果：**21 个测试全部通过**
+- 最终结果：**32 个自动化测试全部通过**；另完成 3 个 EDB 日期字段真实后端对照用例
 
 ## 测试文件
 
@@ -12,7 +12,8 @@
 | --- | --- | --- |
 | `real-backend.test.mjs` | 真实后端成功、NER 失败、市值口径、多标的、参数错误与熔断 | 10/10 通过 |
 | `ner-observations.test.mjs` | 真实观察 `RUT`、`罗素2000`、`BDTI.HI` | 3/3 通过 |
-| `static-regression.test.mjs` | 错误码、文档、归一化、校验和错误信封回归 | 8/8 通过 |
+| `static-regression.test.mjs` | 错误码、分层合约、日期/lang/question 归一化、校验和错误信封回归 | 19/19 通过 |
+| `edb-date-mapping-real-20260716/run.mjs` | EDB 统一日期字段、后端原生字段及 observation 对照 | 3 个对照用例完成 |
 
 ## 真实后端验证结果
 
@@ -134,6 +135,23 @@ params: expected object, actual string
 6. 裸词“总市值”不再默认归一化为 `总市值2`。
 7. 错误信封 schema 为 7，包含 `details/retry/circuit_breaker/correction/agent_action`。
 8. 错误动作不再要求读取 `references/*` 或 `SKILL.md`。
+9. 日期字段统一为公开 snake_case，并按 K 线、Quote、EDB 后端契约分别转换；EDB 映射为 `beginDate/endDate`。
+10. `lang` 仅接受统一外部词表，analytics 调用时转换为后端编码。
+11. financial docs 的 `question/query` 可归一化，二者冲突时在调用前拒绝并返回修正信息。
+12. 合约按 `server_type` 拆分，并由 `contracts/tool-index.json` 建立渐进式索引。
+13. `LAST` 仅允许用于 Quote 工具；成功响应中的 `INVALID` 和不可信声明计数得到规范处理。
+
+## EDB 日期映射真实后端对照
+
+2026-07-16 对 `natural_language_get_edb_data` 串行执行 3 个真实后端用例：
+
+| 用例 | 结果 | 判定 |
+| --- | --- | --- |
+| `begin_date/end_date`（混合日期格式） | `NETWORK_ERROR: fetch failed` | CLI 已接受参数；该轮后端请求受网络波动影响 |
+| `beginDate/endDate`（后端原生格式） | 成功 | 后端日期范围能力可用 |
+| `observation=10` 对照 | 成功 | 后端服务与 observation 路径可用 |
+
+原始响应及独立报告位于 `test/edb-date-mapping-real-20260716/`。统一字段到 `beginDate/endDate` 的转换由静态 CLI 回归确定性覆盖；本轮真实后端首例因网络错误未形成有效业务对照，记录为非阻塞环境波动。
 
 ## 执行命令
 
@@ -141,10 +159,12 @@ params: expected object, actual string
 node --test --test-concurrency=1 test/wind-mcp-skill-changes-20260715/static-regression.test.mjs
 node --test --test-concurrency=1 test/wind-mcp-skill-changes-20260715/real-backend.test.mjs
 node --test --test-concurrency=1 test/wind-mcp-skill-changes-20260715/ner-observations.test.mjs
+node test/edb-date-mapping-real-20260716/run.mjs
+npm test
 ```
 
 ## 总结
 
-本次修改的文档契约、归一化规则、错误信封、参数短路校验、NER 诊断和批量熔断均通过回归。A/港/美选股、A/美股价格指标、双市值口径和指数别名均已使用真实 Wind 后端验证。
+本次修改的分层文档契约、日期/lang/question 归一化规则、错误信封、参数短路校验、NER 诊断和批量熔断均通过回归。A/港/美选股、A/美股价格指标、双市值口径、指数别名及 EDB 日期映射均已使用真实 Wind 后端验证。
 
 唯一需要特别注意的非阻塞项是：移除全局单标的限制不等于所有工具都支持多标的；本次 `get_stock_price_indicators` 实测对逗号多代码只返回第一个标的，该行为已在测试中保留为边界证据。
