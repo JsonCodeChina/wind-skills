@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "lnbits-with-qrcode",
+  "ownerHandle": "jamestsetsekas",
+  "installedVersion": "1.0.2",
+  "installedAt": 1783927817077,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "34362597bbce3b14a6bdec09baee5f6b91d8a5a6678fc5f845abf62fdb70a7f3",
+    "integrity": "sha256-NDYll7vOOxSmvewJuu5fa5HYpaZnj8X4Rav2L9twp/M="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "e37ed69dac02adf7f3b5c155b8cf8bd80eba371033a704567567845289a948c8"
+  }
+}

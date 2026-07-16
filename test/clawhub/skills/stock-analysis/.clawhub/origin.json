@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "stock-analysis",
+  "ownerHandle": "udiedrichsen",
+  "installedVersion": "6.2.0",
+  "installedAt": 1783920737951,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "0a967cef6bca56306ba2d6b8e74d927ae188dc2f9d9ec5c25d245ed73c137eea",
+    "integrity": "sha256-CpZ872vKVjBrota4502SeuGI3C+dnsXCXSRe1zwTfuo="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "6ae566bdf7f099f0926c58966a5d9d11531c366264217237de281387bf47964d"
+  }
+}

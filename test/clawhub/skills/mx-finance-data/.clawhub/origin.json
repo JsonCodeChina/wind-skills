@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "mx-finance-data",
+  "ownerHandle": "financial-ai-analyst",
+  "installedVersion": "1.0.12",
+  "installedAt": 1783923623256,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "0ffb8845a665a436cd34cb00b26190889687f3fedff2810a1c019d749c4d433a",
+    "integrity": "sha256-D/uIRaZlpDbNNMsAsmGQiJaH8/7f8oEKHAGddJxNQzo="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "17fbaa5eb5539680c597ef8ec6f2777a99d8e7a0d1e3a2ce4c660c2d671a6410"
+  }
+}

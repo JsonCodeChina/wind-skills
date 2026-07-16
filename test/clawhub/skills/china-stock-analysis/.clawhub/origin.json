@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "china-stock-analysis",
+  "ownerHandle": "paulshe",
+  "installedVersion": "1.0.0",
+  "installedAt": 1783922064932,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "d2eaaa5f81e0a6465120a848afc0ac5b8bb849804219f831a75e72ca37482b34",
+    "integrity": "sha256-0uqqX4HgpkZRIKhIr8CsW4u4SYBCGfgxp15yyjdIKzQ="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "274b88c93b57f711d17e0123007d5aac7a8c00caf11e71ef350f99b350c882a1"
+  }
+}

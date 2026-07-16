@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "tushare-data",
+  "ownerHandle": "lidayan",
+  "installedVersion": "1.1.19",
+  "installedAt": 1783927724759,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "96f057d6432eacbe499dc36b2118fc7741184ba54f6998feba0521bb169bd855",
+    "integrity": "sha256-lvBX1kMurL5JncNrIRj8d0EYS6VPaZj+ugUhuxab2FU="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "6f9ac8a66c89d96bc2bd2baaad4600c2e7942a662f0665a6b81631bdc65a4aed"
+  }
+}

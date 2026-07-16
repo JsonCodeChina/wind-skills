@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "stock-watcher",
+  "ownerHandle": "robin797860",
+  "installedVersion": "1.0.0",
+  "installedAt": 1783920785729,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "c12fc179f8b9c991938bbfa82b55ff0a1cfa5527e2cb51228fab5fb203de8a74",
+    "integrity": "sha256-wS/Befi5yZGTi7+oK1X/Chz6VSfiy1Eij6tfsgPeinQ="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "4d7b3616d674e7f11a79b6f491a06108f2ffcc0d7f107c4d6107f056eac494a6"
+  }
+}

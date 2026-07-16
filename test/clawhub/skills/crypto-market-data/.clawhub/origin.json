@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "crypto-market-data",
+  "ownerHandle": "liam8",
+  "installedVersion": "1.0.2",
+  "installedAt": 1783927704019,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "390d658532e27c272f7ef75e8e657bcf9fd805bf3069d4503893f648c085b799",
+    "integrity": "sha256-OQ1lhTLifCcvfvdejmV7z5/YBb8wadRQOJP2SMCFt5k="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "fe224c4454d054d2b36cd87f816b18815240a74cba1b0456c632fea0b5ec36e3"
+  }
+}

@@ -1,0 +1,15 @@
+[22:25:44] START   task=任务 | repo=/private/var/folders/mg/5lq_1b_j0xzg27tm0q6str_80000gn/T/pytest-of-lufeng/pytest-104/test_success_on_green_verify0 | verify=test -f fixed | budget=500000
+[22:25:44] VERIFY  round=0 exit=0
+
+[22:25:44] DONE    round=0 tokens=0
+[22:25:44] START   task=任务 | repo=/private/var/folders/mg/5lq_1b_j0xzg27tm0q6str_80000gn/T/pytest-of-lufeng/pytest-104/test_max_rounds_exhausted_exit0 | verify=false | budget=500000
+[22:25:44] VERIFY  round=0 exit=1
+
+[22:25:44] VERIFY  round=1 exit=1
+
+[22:25:44] VERIFY  round=2 exit=1
+
+[22:25:44] START   task=任务 | repo=/private/var/folders/mg/5lq_1b_j0xzg27tm0q6str_80000gn/T/pytest-of-lufeng/pytest-104/test_new_task_resets_stale_sta0 | verify=true | budget=500000
+[22:25:44] VERIFY  round=0 exit=0
+
+[22:25:44] DONE    round=0 tokens=0

@@ -1,0 +1,87 @@
+[23:30:11] START   task=请研究一下VLCC产业链的投资逻辑，以及判断一下当前是否还有投资机会。如果有适合图表展示的地方，你也可以生成合适的图表展示分析。输入到哪去了呢？ | repo=/Users/lufeng/Projects/fin-agent/runs/20260708-233011 | verify=python3 "/Users/lufeng/Projects/fin-agent/checks/generic_report.py" | budget=1000000
+[23:30:14] API     step=1 in=1648 out=171 stop=tool_use
+[23:30:14] MODEL   我先读取一下当前的工作目录结构和已有文件，了解项目上下文。
+[23:30:14] TOOL    bash {"command": "ls -la /Users/lufeng/Projects/fin-agent/"}
+[23:30:14] RESULT  exit=0
+total 504
+drwxr-xr-x  21 lufeng  staff     672 Jul  8 23:04 .
+drwxr-xr-x@ 50 lufeng  staff    1600 Jul  8 02:58 ..
+-rw-r--r--@  1 lufeng  staff   12292 Jul  8 22:43 .DS_Store
+-rw-r--r--@  1 lufeng  staff     303 Jul  8 23:04 .env
+drwxr-xr-x  12 lufeng  staff     384 Jul  8 23:27 .git
+-rw-r--r--   1 lufeng  staff     133 Jul  8 22:25 .gitignore
+drwxr-xr-x@  6 lufeng  staff     192 Jul  8 03:00 .pytest_cache
+drwxr-xr-x@  9 lufeng  staff     288 Jul  8 22:49 .venv
+-rw-r--r--   1 lufeng  staff    3279 Jul  8 03:19 DESIGN.md
+-rw-r--r--   1 lufeng  staff    4178 Jul  8 21:51 PLAN.md
+-rw-r--r--   1 lufeng  staff    1288 Jul  8 22:54 README.md
+drwxr-xr-x@  3 lufeng  staff      96 Jul  8 23:00 __pycache__
+-rw-r--r--   1 lufeng  staff   25800 Jul  8 22:59 agent.py
+drwxr-xr-x   3 lufeng  staff      96 Jul  8 22:48 checks
+drwxr-xr-x@ 15 lufeng  staff     480 Jul  8 23:30 logs
+-rw-r--r--   1 lufeng  staff     342 Jul  8 22:47 pyproject.toml
+drwxr-xr-x@ 11 lufeng  staff     352 Jul  8 23:30 runs
+drwxr-xr-x   5 lufeng  staff     160 Jul  8 22:42 tests
+-rw-r--r--@  1 lufeng  staff  176550 Jul  8 22:48 uv.lock
+-rw-r--r--@  1 lufeng  staff      86 Jul  8 02:58 wind.env
+drwxr-xr-x   5 lufeng  staff     160 Jul  8 21:59 workflows
+[23:30:14] TOOL    bash {"command": "cat /Users/lufeng/Projects/fin-agent/checks/generic_report.py"}
+[23:30:14] RESULT  exit=0
+"""通用核查器(任务无关,蓝图漏斗第 1 层):对任何临时问题的产出做底线检查。
+
+它不懂任务内容,只管底线:有交付物、有实质内容、数字有来源标注、不复读凑字、不泄密。
+内容真伪与研究成色由人评——本核查器只证伪,不证实。
+"""
+import re
+import sys
+from pathlib import Path
+
+problems = []
+
+
+def check(ok, msg):
+    if not ok:
+        problems.append(msg)
+
+
+report = Path("report.md")
+if not report.exists():
+    print("不合格: 交付物 report.md 还不存在(产出型任务的最终交付物约定写到 report.md)")
+    sys.exit(1)
+
+text = report.read_text(encoding="utf-8")
+body = re.sub(r"^#.*$", "", text, flags=re.M).strip()
+
+check(len(body) >= 300, f"正文仅 {len(body)} 字,交付物近乎空白")
+check(len(re.findall(r"\d", body)) >= 10, "正文几乎没有数字——金融问题的回答没有数据支撑")
+check(("来源" in text) or ("Wind" in text) or ("wind" in text), "未标注任何数据来源")
+lines = [ln.strip() for ln in body.splitlines() if ln.strip()]
+for ln, cnt in {ln: lines.count(ln) for ln in set(lines)}.items():
+    check(cnt <= 2, f"复读机凑字数被抓:「{ln[:20]}…」重复了 {cnt} 次")
+check("字数" not in body, "正文出现『字数』字样——疑似凑长度,重写真实内容")
+check("ak_" not in text and "WIND_MCP_KEY" not in text, "交付物疑似泄漏 key,禁止")
+for png in re.findall(r"[\w./-]+\.png", text):  # 报告引用的图必须真实存在且非空壳
+    p = Path(png)
+    check(p.exists() and p.stat().st_size > 10_000, f"报告引用的图 {png} 不存在或过小(疑似空图)")
+check("[" not in body[:200] or "|" in body, "报告开头疑似直接粘贴原始数组,须写成文字+表格")
+
+if problems:
+    print(f"不合格,共 {len(problems)} 项:")
+    for p in problems:
+        print(f"  - {p}")
+    sys.exit(1)
+print("通用核查通过:交付物存在、有实质内容、有数据与来源、无凑字无泄密(内容真伪请人工复核)")
+[23:30:14] TOOL    bash {"command": "cat /Users/lufeng/Projects/fin-agent/.agent/task.md 2>/dev/null || echo \"无 task.md\""}
+[23:30:14] RESULT  exit=0
+无 task.md
+[23:30:16] API     step=2 in=2978 out=127 stop=tool_use
+[23:30:16] TOOL    bash {"command": "cat /Users/lufeng/Projects/fin-agent/.agent/state.json 2>/dev/null || echo \"无 state.json\""}
+[23:30:16] RESULT  exit=0
+无 state.json
+[23:30:16] TOOL    bash {"command": "ls -la /Users/lufeng/Projects/fin-agent/.agent/ 2>/dev/null || echo \"无 .agent 目录\""}
+[23:30:16] RESULT  exit=0
+无 .agent 目录
+[23:30:17] API     step=3 in=3141 out=56 stop=tool_use
+[23:30:17] TOOL    bash {"command": "mkdir -p /Users/lufeng/Projects/fin-agent/.agent"}
+[23:30:17] RESULT  exit=0
+(无输出)

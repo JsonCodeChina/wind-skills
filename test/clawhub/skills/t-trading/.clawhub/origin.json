@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "t-trading",
+  "ownerHandle": "wscats",
+  "installedVersion": "1.0.0",
+  "installedAt": 1783927837298,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "4a2dc41fe274ebf8d2bda8dc9b9477e85bc739a1b92ff0ffd8a64e6ef9138467",
+    "integrity": "sha256-Si3EH+J06/jSvajcm5R36FvHOaG5L/D/2KZObvkThGc="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "27eb59814e8c806954933cf6a2a156ecabd761a860e148536f2b21725da32d63"
+  }
+}

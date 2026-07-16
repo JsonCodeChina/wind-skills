@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "mx-stocks-screener",
+  "ownerHandle": "financial-ai-analyst",
+  "installedVersion": "1.0.15",
+  "installedAt": 1783921324081,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "61afe253dbeca69b62da2097abfb13e1deda41e3eae33d107cfc9bc360139595",
+    "integrity": "sha256-Ya/iU9vsppti2iCXq/sT4d7aQePq4z0QfPybw2ATlZU="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "e138343f46be0d253a5d289548354207f87c50d765ce3955743cabb7bc05ad9e"
+  }
+}
