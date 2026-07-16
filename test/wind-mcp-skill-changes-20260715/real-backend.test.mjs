@@ -80,8 +80,8 @@ test('both explicit market-cap calibers reach the real backend', () => {
 test('known index alias reaches real K-line backend', () => {
   assertBackendSuccess(call('index_data', 'get_index_kline', {
     windcode: 'DJI',
-    begin_date: '20260708',
-    end_date: '20260708',
+    begin_date: '2026-07-08',
+    end_date: '2026-07-08',
     period: '10',
   }));
 });
@@ -89,8 +89,8 @@ test('known index alias reaches real K-line backend', () => {
 test('real NER failure returns structured inputs and trips batch circuit breaker', () => {
   const result = call('index_data', 'get_index_kline', {
     windcode: '__CODEX_NER_NOT_FOUND_20260715__',
-    begin_date: '20260708',
-    end_date: '20260708',
+    begin_date: '2026-07-08',
+    end_date: '2026-07-08',
     period: '10',
   });
   assert.equal(result.status, 1);
@@ -120,15 +120,15 @@ test('invalid params are short-circuited with inline expectations before backend
   const result = call('economic_data', 'natural_language_get_edb_data', {
     executionMode: 'retrieve',
     question: '中国GDP',
-    beginDate: '2020-01-01',
+    beginDate: '20200101',
     endDate: '2026-07-09',
   });
   assert.equal(result.status, 1);
-  assert.equal(result.output.error.code, 'PARAM_VALIDATION_ERROR');
+  assert.equal(result.output.error.code, 'INVALID_PARAM_VALUE');
   assert.equal(result.output.error.circuit_breaker.tripped, true);
   assert.equal(result.output.error.circuit_breaker.action, 'abort_remaining_calls');
   const details = result.output.error.details;
-  assert.ok(details.some(item => item.field === 'beginDate' && item.expected_format === 'yyyyMMdd'));
+  assert.ok(details.some(item => item.field === 'beginDate' && item.expected_format === 'yyyy-MM-dd'));
   assert.ok(details.some(item => item.field === 'executionMode' && item.allowed_values.includes('searchFetch')));
 });
 

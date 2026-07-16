@@ -15,5 +15,5 @@
 
 ```json
 {"executionMode":"searchFetch","question":"中国GDP","observation":"10"}
-{"executionMode":"searchFetch","question":"中国CPI同比","begin_date":"20240101","end_date":"20260715"}
+{"executionMode":"searchFetch","question":"中国CPI同比","begin_date":"2024-01-01","end_date":"2026-07-15"}
 ```

@@ -20,6 +20,6 @@
 
 ```json
 {"windcode":"000300.SH","indexes":"中文简称,最新成交价,涨跌幅"}
-{"windcode":"000300.SH","begin_date":"20260701","end_date":"20260715","period":"10"}
+{"windcode":"000300.SH","begin_date":"2026-07-01","end_date":"2026-07-15","period":"10"}
 {"question":"沪深300PE和PB历史分位","lang":"中文"}
 ```

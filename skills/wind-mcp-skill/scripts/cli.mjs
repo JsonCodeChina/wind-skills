@@ -60,9 +60,9 @@ const CALL_EXAMPLES = [
   `cli.mjs call fund_data search_funds '{"question":"筛选股票型基金中近一年收益率超20%的产品"}'`,
   `cli.mjs call stock_data get_stock_basicinfo '{"question":"600519.SH公司基本档案"}'`,
   `cli.mjs call stock_data get_stock_price_indicators '{"windcode":"600519.SH","indexes":"中文简称,最新成交价,涨跌幅"}'`,
-  `cli.mjs call fund_data get_fund_kline '{"windcode":"588200.SH","begin_date":"20260401","end_date":"20260430"}'`,
+  `cli.mjs call fund_data get_fund_kline '{"windcode":"588200.SH","begin_date":"2026-04-01","end_date":"2026-04-30"}'`,
   `cli.mjs call stock_data get_stock_quote '{"windcode":"AAPL.O"}'`,
-  `cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","begin_date":"20260401","end_date":"20260430"}'`,
+  `cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","begin_date":"2026-04-01","end_date":"2026-04-30"}'`,
   `cli.mjs call financial_docs get_financial_news '{"question":"美联储利率政策","top_k":3}'`,
   `cli.mjs call economic_data natural_language_get_edb_data '{"executionMode":"searchFetch","question":"中国GDP","observation":"10"}'`,
   `cli.mjs call analytics_data get_financial_data '{"question":"查询中国A股市场过去一年的平均成交量"}'`,
@@ -215,6 +215,34 @@ function writePlainSuccess(data) {
   process.stdout.write(JSON.stringify(data, null, 2) + '\n');
 }
 
+function loadParamsInput(paramsInput) {
+  if (!paramsInput.startsWith('@')) {
+    return { jsonText: paramsInput, source: 'inline' };
+  }
+
+  const fileArg = paramsInput.slice(1);
+  if (!fileArg) {
+    const error = new Error('@file 缺少文件路径');
+    error.code = 'PARAMS_FILE_ERROR';
+    error.file = fileArg;
+    throw error;
+  }
+
+  const filePath = resolve(process.cwd(), fileArg);
+  try {
+    const jsonText = readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '');
+    return { jsonText, source: 'file', filePath };
+  } catch (cause) {
+    const error = new Error(`无法读取 params 文件：${filePath} (${cause.code || cause.message})`);
+    error.code = 'PARAMS_FILE_ERROR';
+    error.file = filePath;
+    error.cause = cause;
+    throw error;
+  }
+}
+
+export { loadParamsInput };
+
 function defaultRetryPolicy(code) {
   if (code === 'RATE_LIMIT_ERROR') return { allowed: true, mode: 'same_request_after_wait', max_attempts: 1, after_ms: 5000 };
   if (code === 'CONCURRENCY_LIMIT_ERROR') return { allowed: true, mode: 'same_request_after_wait', max_attempts: 1, after_ms: 3000 };
@@ -223,7 +251,7 @@ function defaultRetryPolicy(code) {
 }
 
 function defaultCircuitBreaker(code) {
-  const trips = new Set(['MARKET_TARGET_NOT_FOUND', 'PARAM_TYPE_ERROR', 'PARAM_VALIDATION_ERROR', 'PARAM_CONFLICT_ERROR', 'INVALID_PARAM_NAME', 'INVALID_PARAM_VALUE', 'CONCURRENCY_LIMIT_ERROR']);
+  const trips = new Set(['MARKET_TARGET_NOT_FOUND', 'PARAMS_FILE_ERROR', 'PARAM_TYPE_ERROR', 'PARAM_VALIDATION_ERROR', 'PARAM_CONFLICT_ERROR', 'INVALID_PARAM_NAME', 'INVALID_PARAM_VALUE', 'CONCURRENCY_LIMIT_ERROR']);
   return {
     tripped: trips.has(code),
     scope: trips.has(code) ? 'remaining_batch' : 'current_call',
@@ -411,15 +439,31 @@ function isValidBasicDate(value) {
 
 const NORMALIZABLE_DATE_KEYS = new Set(['begin_date', 'end_date', 'begin', 'end', 'beginDate', 'endDate', 'date', 'tradeDate', 'afdate']);
 
-function normalizeDateValue(value, toolName) {
-  if (typeof value !== 'string') return value;
+function normalizeDateValue(value, toolName, field) {
+  if (typeof value !== 'string') return { value, error: null };
   const trimmed = value.trim();
   const upper = trimmed.toUpperCase();
   const specialValues = DATE_NORMALIZATION.special_values_by_tool?.[toolName] || [];
-  if (specialValues.includes(upper)) return upper;
-  if (/^\d{8}$/.test(trimmed)) return trimmed;
-  const matched = trimmed.match(/^(\d{4})[-/](\d{2})[-/](\d{2})$/);
-  return matched ? `${matched[1]}${matched[2]}${matched[3]}` : trimmed;
+  if (specialValues.includes(upper)) return { value: upper, error: null };
+  const matched = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const backendValue = matched ? `${matched[1]}${matched[2]}${matched[3]}` : trimmed;
+  if (!matched || !isValidBasicDate(backendValue)) {
+    return {
+      value: backendValue,
+      error: {
+        code: 'INVALID_PARAM_VALUE',
+        message: `字段 '${field}' 日期格式错误，对外统一要求 yyyy-MM-dd`,
+        field,
+        issue: 'invalid_format',
+        actual: value,
+        expected_format: 'yyyy-MM-dd',
+        accepted_input_formats: ['yyyy-MM-dd'],
+        allowed_special_values: specialValues,
+        example: '2026-07-08',
+      },
+    };
+  }
+  return { value: backendValue, error: null };
 }
 
 function normalizeLangValue(value, toolName) {
@@ -447,7 +491,10 @@ function applyToolParameterMappings(toolName, args) {
   const normalizedArgs = { ...args };
   const errors = [];
   for (const key of NORMALIZABLE_DATE_KEYS) {
-    if (key in normalizedArgs) normalizedArgs[key] = normalizeDateValue(normalizedArgs[key], toolName);
+    if (!(key in normalizedArgs)) continue;
+    const normalizedDate = normalizeDateValue(normalizedArgs[key], toolName, key);
+    normalizedArgs[key] = normalizedDate.value;
+    if (normalizedDate.error) errors.push(normalizedDate.error);
   }
   for (const [canonicalKey, backendKey] of Object.entries(PARAMETER_MAPPINGS_BY_TOOL[toolName] || {})) {
     if (!(canonicalKey in normalizedArgs)) continue;
@@ -551,14 +598,6 @@ function validateBasicParams(params, toolName) {
   for (const key of basic.no_whitespace_keys || []) {
     if (typeof params[key] === 'string' && /\s/.test(params[key])) {
       errors.push({ message: `字段 '${key}' 不得含空格或其它空白字符`, field: key, issue: 'invalid_format', expected_format: 'no whitespace' });
-    }
-  }
-
-  for (const key of basic.date_keys || []) {
-    if (!(key in params)) continue;
-    const specialValues = DATE_NORMALIZATION.special_values_by_tool?.[toolName] || [];
-    if (typeof params[key] === 'string' && !isValidBasicDate(params[key]) && !specialValues.includes(params[key])) {
-      errors.push({ message: `字段 '${key}' 日期格式错误，要求 yyyyMMdd`, field: key, issue: 'invalid_format', actual: params[key], expected_format: 'yyyyMMdd', accepted_input_formats: DATE_NORMALIZATION.accepted_formats || ['yyyyMMdd'], allowed_special_values: specialValues, example: '20260708' });
     }
   }
 
@@ -942,21 +981,47 @@ async function mcpInitializeAndCall(server_type, method, params, diagnosticConte
 
 // section: 命令
 
-async function cmdCall(server_type, toolName, paramsJson) {
-  if (!server_type || !toolName || !paramsJson) {
+async function cmdCall(server_type, toolName, paramsInput) {
+  if (!server_type || !toolName || !paramsInput) {
     exitWithUsage(
-      `用法：call <server_type> <tool_name> '<params_json>'\n` +
+      `用法：call <server_type> <tool_name> '<params_json>|@params_file'\n` +
       `可用 server_type: ${Object.keys(SERVERS).join(' / ')}\n` +
       `典型：\n  ${CALL_EXAMPLES.join('\n  ')}`,
       1,
     );
   }
 
+  let paramsSource;
+  try {
+    paramsSource = loadParamsInput(paramsInput);
+  } catch (e) {
+    die('PARAMS_FILE_ERROR', e.message, 1, {
+      details: { field: 'params', issue: 'file_read_error', source: 'file', file: e.file || null },
+      retry: { allowed: true, mode: 'after_correction', max_attempts: 1 },
+      circuit_breaker: { tripped: true, scope: 'remaining_batch', action: 'abort_remaining_calls' },
+      correction: { change_only: ['params_file'], strategy: 'fix_file_path_or_permissions', requires_user_input: false, preserve_server_type: true, preserve_tool_name: true },
+    });
+  }
+
   let args;
   try {
-    args = JSON.parse(paramsJson);
+    args = JSON.parse(paramsSource.jsonText);
   } catch (e) {
-    die('INVALID_PARAMS_JSON', `params JSON 解析失败：${e.message} | 原文：${paramsJson.slice(0, 200)}`);
+    const sourceDetail = paramsSource.source === 'file'
+      ? `文件：${paramsSource.filePath}`
+      : `原文：${paramsSource.jsonText.slice(0, 200)}`;
+    die('INVALID_PARAMS_JSON', `params JSON 解析失败：${e.message} | ${sourceDetail}`, 1, {
+      details: {
+        field: 'params',
+        issue: 'invalid_json',
+        source: paramsSource.source,
+        ...(paramsSource.filePath ? { file: paramsSource.filePath } : {}),
+        message: e.message,
+      },
+      retry: { allowed: true, mode: 'after_correction', max_attempts: 1 },
+      circuit_breaker: { tripped: true, scope: 'remaining_batch', action: 'abort_remaining_calls' },
+      correction: { change_only: [paramsSource.source === 'file' ? 'params_file_content' : 'params_json'], strategy: 'fix_json_syntax', requires_user_input: false, preserve_server_type: true, preserve_tool_name: true },
+    });
   }
 
   if (!args || typeof args !== 'object' || Array.isArray(args)) {
@@ -1155,7 +1220,7 @@ const USAGE =
   `wind-mcp-skill\n` +
   `访问万得 Wind 金融数据（按数据域分类调用）\n\n` +
   `用法:\n` +
-  `  cli.mjs call <server_type> <tool_name> '<params_json>'\n` +
+  `  cli.mjs call <server_type> <tool_name> '<params_json>|@params_file'\n` +
   `  cli.mjs open-portal                                # 打开万得开发者中心拿 API Key\n` +
   `  cli.mjs setup-key <KEY> --scope <global|skill>     # 配置 API Key（先问用户存放位置）\n\n` +
   `可用 server_type:\n` +

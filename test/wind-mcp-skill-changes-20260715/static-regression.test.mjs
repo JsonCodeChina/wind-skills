@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -47,6 +48,26 @@ test('quota, balance, QPS and concurrency-limit errors are independent', () => {
   assert.doesNotMatch(cli, /\['QUOTA_ERROR'/);
   for (const code of ['DAILY_LIMIT_ERROR', 'BALANCE_ERROR', 'RATE_LIMIT_ERROR', 'CONCURRENCY_LIMIT_ERROR']) {
     assert.equal(typeof errorCodes.codes[code], 'string');
+  }
+});
+
+test('@file loads UTF-8 params without shell JSON escaping', () => {
+  const temp = mkdtempSync(resolve(tmpdir(), 'wind-mcp-params-'));
+  const file = resolve(temp, 'params with spaces.json');
+  try {
+    writeFileSync(file, '\uFEFF{"windcode":"600519.SH","indexes":"中文简称,最新成交价"}', 'utf8');
+    const loaded = cliModule.loadParamsInput(`@${file}`);
+    assert.equal(loaded.source, 'file');
+    assert.deepEqual(JSON.parse(loaded.jsonText), {
+      windcode: '600519.SH',
+      indexes: '中文简称,最新成交价',
+    });
+    assert.throws(
+      () => cliModule.loadParamsInput('@missing-params.json'),
+      error => error.code === 'PARAMS_FILE_ERROR' && /missing-params\.json/.test(error.file),
+    );
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
   }
 });
 
@@ -107,7 +128,7 @@ test('bare total market cap is not silently normalized', () => {
 });
 
 test('failure contract is structured and independent of internal docs', () => {
-  assert.equal(errorCodes.schema_version, 9);
+  assert.equal(errorCodes.schema_version, 10);
   assert.match(errorCodes.envelope_contract.failure, /details/);
   assert.match(errorCodes.envelope_contract.failure, /retry/);
   assert.match(errorCodes.envelope_contract.failure, /circuit_breaker/);
@@ -123,17 +144,33 @@ test('NER and parameter errors trip the remaining-batch circuit breaker', () => 
   assert.match(skill, /NER 失败时必须询问用户/);
 });
 
-test('dates are normalized for K-line, Quote and EDB tools', () => {
-  const kline = cliModule.normalizeCall('stock_data', 'get_stock_kline', { begin_date: '2026-07-08', end_date: '2026/07/09' });
+test('public dates require ISO 8601 and map to backend formats', () => {
+  const kline = cliModule.normalizeCall('stock_data', 'get_stock_kline', { begin_date: '2026-07-08', end_date: '2026-07-09' });
   assert.equal(kline.args.begin_date, '20260708');
   assert.equal(kline.args.end_date, '20260709');
+  assert.deepEqual(kline.normalizationErrors, []);
 
-  const quote = cliModule.normalizeCall('stock_data', 'get_stock_quote', { begin_date: '2026-07-08', end: 'last' });
+  const quote = cliModule.normalizeCall('stock_data', 'get_stock_quote', { begin_date: '2026-07-08', end_date: 'last' });
   assert.deepEqual(quote.args, { begin: '20260708', end: 'LAST' });
 
-  const edb = cliModule.normalizeCall('economic_data', 'natural_language_get_edb_data', { begin_date: '2026-07-08', end_date: '20260709' });
+  const edb = cliModule.normalizeCall('economic_data', 'natural_language_get_edb_data', { begin_date: '2026-07-08', end_date: '2026-07-09' });
   assert.equal(edb.args.beginDate, '20260708');
   assert.equal(edb.args.endDate, '20260709');
+
+  for (const invalid of ['20260708', '2026/07/08', '2026-02-30']) {
+    const rejected = cliModule.normalizeCall('stock_data', 'get_stock_kline', { begin_date: invalid });
+    assert.equal(rejected.normalizationErrors[0].code, 'INVALID_PARAM_VALUE');
+    assert.equal(rejected.normalizationErrors[0].expected_format, 'yyyy-MM-dd');
+  }
+
+  const legacyCli = runCliCall('stock_data', 'get_stock_kline', {
+    windcode: '600519.SH',
+    begin_date: '20260708',
+    end_date: '2026-07-09',
+  });
+  assert.equal(legacyCli.status, 1);
+  assert.equal(legacyCli.body.error.code, 'INVALID_PARAM_VALUE');
+  assert.equal(legacyCli.body.error.details[0].expected_format, 'yyyy-MM-dd');
 });
 
 test('validation coverage matches the three requested phases', () => {
@@ -177,9 +214,9 @@ test('CLI failure envelopes expose lang candidates and parameter conflicts', () 
 });
 
 test('LAST is rejected outside Quote tools at the CLI boundary', () => {
-  const result = runCliCall('stock_data', 'get_stock_kline', { windcode: '600519.SH', begin_date: 'LAST', end_date: '20260709' });
+  const result = runCliCall('stock_data', 'get_stock_kline', { windcode: '600519.SH', begin_date: 'LAST', end_date: '2026-07-09' });
   assert.equal(result.status, 1);
-  assert.equal(result.body.error.code, 'PARAM_VALIDATION_ERROR');
+  assert.equal(result.body.error.code, 'INVALID_PARAM_VALUE');
   assert.deepEqual(result.body.error.details[0].allowed_special_values, []);
 });
 

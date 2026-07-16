@@ -12,7 +12,7 @@ const MANIFEST = JSON.parse(readFileSync(resolve(SKILL, 'references', 'tool-mani
 const cases = [
   { server_type: 'stock_data', tool_name: 'search_stocks', params: { question: '筛选A股中的银行股', lang: 'zh' } },
   { server_type: 'stock_data', tool_name: 'get_stock_price_indicators', params: { windcode: '600519.SH', indexes: '中文简称,最新成交价' } },
-  { server_type: 'stock_data', tool_name: 'get_stock_kline', params: { windcode: '600519.SH', begin_date: '2026-07-01', end_date: '2026/07/15', period: 'day' } },
+  { server_type: 'stock_data', tool_name: 'get_stock_kline', params: { windcode: '600519.SH', begin_date: '2026-07-01', end_date: '2026-07-15', period: 'day' } },
   { server_type: 'stock_data', tool_name: 'get_stock_quote', params: { windcode: '600519.SH', begin_date: 'LAST', end_date: 'LAST' } },
   { server_type: 'stock_data', tool_name: 'get_stock_basicinfo', params: { question: '600519.SH公司基本档案', lang: 'zh' } },
   { server_type: 'stock_data', tool_name: 'get_stock_fundamentals', params: { question: '贵州茅台2024年ROE和净利润增速', lang: 'zh' } },
@@ -23,7 +23,7 @@ const cases = [
 
   { server_type: 'fund_data', tool_name: 'search_funds', params: { question: '筛选股票型基金', lang: 'zh' } },
   { server_type: 'fund_data', tool_name: 'get_fund_price_indicators', params: { windcode: '588200.SH', indexes: '中文简称,最新成交价' } },
-  { server_type: 'fund_data', tool_name: 'get_fund_kline', params: { windcode: '588200.SH', begin_date: '2026-07-01', end_date: '2026/07/15', period: 'day' } },
+  { server_type: 'fund_data', tool_name: 'get_fund_kline', params: { windcode: '588200.SH', begin_date: '2026-07-01', end_date: '2026-07-15', period: 'day' } },
   { server_type: 'fund_data', tool_name: 'get_fund_quote', params: { windcode: '588200.SH', begin_date: 'LAST', end_date: 'LAST' } },
   { server_type: 'fund_data', tool_name: 'get_fund_info', params: { question: '易方达蓝筹精选005827.OF基金档案', lang: 'zh' } },
   { server_type: 'fund_data', tool_name: 'get_fund_financials', params: { question: '005827.OF2024年净利润和分红', lang: 'zh' } },
@@ -33,7 +33,7 @@ const cases = [
   { server_type: 'fund_data', tool_name: 'get_fund_company_info', params: { question: '易方达基金管理公司档案', lang: 'zh' } },
 
   { server_type: 'index_data', tool_name: 'get_index_price_indicators', params: { windcode: '000300.SH', indexes: '中文简称,最新成交价' } },
-  { server_type: 'index_data', tool_name: 'get_index_kline', params: { windcode: '000300.SH', begin_date: '2026-07-01', end_date: '2026/07/15', period: 'day' } },
+  { server_type: 'index_data', tool_name: 'get_index_kline', params: { windcode: '000300.SH', begin_date: '2026-07-01', end_date: '2026-07-15', period: 'day' } },
   { server_type: 'index_data', tool_name: 'get_index_quote', params: { windcode: '000300.SH', begin_date: 'LAST', end_date: 'LAST' } },
   { server_type: 'index_data', tool_name: 'get_index_basicinfo', params: { question: '沪深300指数档案', lang: 'zh' } },
   { server_type: 'index_data', tool_name: 'get_index_fundamentals', params: { question: '沪深300PE和PB历史分位', lang: 'zh' } },
@@ -46,7 +46,7 @@ const cases = [
 
   { server_type: 'financial_docs', tool_name: 'get_company_announcements', params: { question: '贵州茅台2024年年度报告', top_k: 3 } },
   { server_type: 'financial_docs', tool_name: 'get_financial_news', params: { question: '贵州茅台最新新闻', top_k: 3 } },
-  { server_type: 'economic_data', tool_name: 'natural_language_get_edb_data', params: { executionMode: 'searchFetch', question: '中国GDP', begin_date: '2025-01-01', end_date: '2026/07/15' } },
+  { server_type: 'economic_data', tool_name: 'natural_language_get_edb_data', params: { executionMode: 'searchFetch', question: '中国GDP', begin_date: '2025-01-01', end_date: '2026-07-15' } },
   { server_type: 'analytics_data', tool_name: 'get_financial_data', params: { question: '贵州茅台最新收盘价', lang: '中文' } },
 ];
 

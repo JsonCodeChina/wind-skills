@@ -10,7 +10,7 @@ const SKILL = resolve(REPO, 'skills', 'wind-mcp-skill');
 const CLI = resolve(SKILL, 'scripts', 'cli.mjs');
 
 function call(windcode) {
-  const params = { windcode, begin_date: '20260708', end_date: '20260708', period: '10' };
+  const params = { windcode, begin_date: '2026-07-08', end_date: '2026-07-08', period: '10' };
   const run = spawnSync(process.execPath, [CLI, 'call', 'index_data', 'get_index_kline', JSON.stringify(params)], {
     cwd: SKILL,
     encoding: 'utf8',

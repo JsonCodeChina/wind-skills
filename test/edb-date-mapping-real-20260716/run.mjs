@@ -15,7 +15,7 @@ const cases = [
       executionMode: 'searchFetch',
       question: '中国GDP',
       begin_date: '2025-01-01',
-      end_date: '2026/07/15',
+      end_date: '2026-07-15',
     },
   },
   {
@@ -23,8 +23,8 @@ const cases = [
     params: {
       executionMode: 'searchFetch',
       question: '中国GDP',
-      beginDate: '20250101',
-      endDate: '20260715',
+      beginDate: '2025-01-01',
+      endDate: '2026-07-15',
     },
   },
   {

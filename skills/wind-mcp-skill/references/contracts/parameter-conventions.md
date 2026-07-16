@@ -8,7 +8,7 @@
 
 - 自然语言统一使用 `question`。`financial_docs` 兼容旧 `query`，CLI 转换到后端 `query`。
 - 日期范围统一优先使用 `begin_date` / `end_date`。CLI 为 Quote 转成 `begin` / `end`，为 EDB 转成 `beginDate` / `endDate`。
-- 日期值推荐 `yyyyMMdd`；CLI 兼容 `yyyy-MM-dd`、`yyyy/MM/dd` 并归一成 `yyyyMMdd`。只有 Quote 允许 `LAST`。
+- 对外日期值必须使用 ISO 8601 日历日期 `yyyy-MM-dd`；不得传 `yyyyMMdd` 或 `yyyy/MM/dd`。CLI 仅在后端调用边界转换成后端所需的 `yyyyMMdd`。只有 Quote 允许 `LAST`。
 - `lang` 对外使用 `中文` / `English`；兼容 `zh` / `zh-CN` / `CNS` 和 `en` / `en-US` / `ENS`。Analytics 后端由 CLI 转成 `CNS` / `ENS`。
 - 同义字段同时出现且值不一致时返回 `PARAM_CONFLICT_ERROR`，不得静默选择。
 

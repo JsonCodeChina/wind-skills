@@ -22,8 +22,8 @@ const codes = [
   '000776.SZ', '000895.SZ', '002230.SZ', '002352.SZ', '002475.SZ',
 ];
 
-const beginDate = '20260701';
-const endDate = '20260715';
+const beginDate = '2026-07-01';
+const endDate = '2026-07-15';
 const levels = [5, 10, 20, 50];
 
 function percentile(values, p) {

@@ -4,7 +4,7 @@
 - 测试环境：Windows / PowerShell / Node.js v22.22.1
 - 被测对象：`skills/wind-mcp-skill`
 - 后端验证：使用当前已配置的 Wind API Key 调用真实 Wind MCP 后端
-- 最终结果：**32 个自动化测试全部通过**；另完成 3 个 EDB 日期字段真实后端对照用例
+- 最终结果：**33 个自动化测试全部通过**；另完成 3 个 EDB 日期字段真实后端对照用例
 
 ## 测试文件
 
@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | `real-backend.test.mjs` | 真实后端成功、NER 失败、市值口径、多标的、参数错误与熔断 | 10/10 通过 |
 | `ner-observations.test.mjs` | 真实观察 `RUT`、`罗素2000`、`BDTI.HI` | 3/3 通过 |
-| `static-regression.test.mjs` | 错误码、分层合约、日期/lang/question 归一化、校验和错误信封回归 | 19/19 通过 |
+| `static-regression.test.mjs` | 错误码、分层合约、日期/lang/question 归一化、`@file` 参数和错误信封回归 | 20/20 通过 |
 | `edb-date-mapping-real-20260716/run.mjs` | EDB 统一日期字段、后端原生字段及 observation 对照 | 3 个对照用例完成 |
 
 ## 真实后端验证结果
@@ -109,7 +109,7 @@ CLI 本地不再拒绝该请求，后端返回成功；但结果只包含第一�
 
 以错误日期和错误枚举调用 EDB 工具，CLI 在后端调用前返回：
 
-- `beginDate/endDate.expected_format = yyyyMMdd`
+- 对外日期错误返回 `expected_format = yyyy-MM-dd`，后端紧凑格式不再暴露为调用要求
 - `executionMode.allowed_values` 完整内联
 - `circuit_breaker.tripped = true`
 - `correction.change_only` 仅包含错误字段
@@ -135,11 +135,12 @@ params: expected object, actual string
 6. 裸词“总市值”不再默认归一化为 `总市值2`。
 7. 错误信封 schema 为 7，包含 `details/retry/circuit_breaker/correction/agent_action`。
 8. 错误动作不再要求读取 `references/*` 或 `SKILL.md`。
-9. 日期字段统一为公开 snake_case，并按 K 线、Quote、EDB 后端契约分别转换；EDB 映射为 `beginDate/endDate`。
+9. 日期字段统一为公开 snake_case，日期值严格使用 ISO 8601 `yyyy-MM-dd`；CLI 在调用边界按 K 线、Quote、EDB 后端契约转换字段和值，EDB 映射为 `beginDate/endDate`。
 10. `lang` 仅接受统一外部词表，analytics 调用时转换为后端编码。
 11. financial docs 的 `question/query` 可归一化，二者冲突时在调用前拒绝并返回修正信息。
 12. 合约按 `server_type` 拆分，并由 `contracts/tool-index.json` 建立渐进式索引。
 13. `LAST` 仅允许用于 Quote 工具；成功响应中的 `INVALID` 和不可信声明计数得到规范处理。
+14. CLI 支持 `@file` 读取 UTF-8 JSON 参数，兼容 BOM、中文和含空格路径；文件不可读时返回结构化 `PARAMS_FILE_ERROR`。
 
 ## EDB 日期映射真实后端对照
 

@@ -26,6 +26,6 @@
 ```json
 {"question":"筛选股票型基金","lang":"中文"}
 {"windcode":"588200.SH","indexes":"中文简称,最新成交价,IOPV"}
-{"windcode":"588200.SH","begin_date":"20260701","end_date":"20260715","period":"10"}
+{"windcode":"588200.SH","begin_date":"2026-07-01","end_date":"2026-07-15","period":"10"}
 {"question":"005827.OF最新一期重仓股","lang":"中文"}
 ```

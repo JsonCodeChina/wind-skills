@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "description": "Data-driven parameter validation rules used by scripts/cli.mjs before calling Wind MCP tools.",
   "basic": {
     "string_keys": [
@@ -22,17 +22,6 @@
     ],
     "no_whitespace_keys": [
       "query"
-    ],
-    "date_keys": [
-      "begin_date",
-      "end_date",
-      "beginDate",
-      "endDate",
-      "begin",
-      "end",
-      "date",
-      "tradeDate",
-      "afdate"
     ]
   },
   "tool_rules": [

@@ -36,10 +36,10 @@ examples:
 
 1. **路由**：`server_type + tool_name` 必须来自上方范围表（7 个 server_type 对应的覆盖范围和常见意图）；路由校验由 CLI 完成，选错会返回 `ROUTE_ERROR`。股票行情、K 线、分钟行情、价格指标等请求只要能映射到 `stock_data` 行情工具，就必须使用 `stock_data`，不得为了省调用次数改用 `analytics_data.get_financial_data` 兜底，以免造成不必要的积分消耗。
 2. **参数**：先读 `references/contracts/parameter-conventions.md`，再按 `references/contracts/tool-index.json` 只读所选 `server_type` 的一个契约文件；params key 必须逐字来自这两处。
-3. **参数值**：日期统一按 `yyyyMMdd` 传给后端；CLI 也接受 `yyyy-MM-dd` 和 `yyyy/MM/dd` 并自动归一化，只有 Quote 工具额外允许 `LAST`。自然语言入参按工具合约传递，不得为空或全空白；宏观 EDB 工具的 `question` 允许自然语言短语或 EDB 指标代码。`lang` 对外统一使用 `中文` / `English`，CLI 兼容常见中英文别名并为 analytics 转换成 `CNS` / `ENS`。
+3. **参数值**：所有对外日期入参统一使用 ISO 8601 日历日期 `yyyy-MM-dd`，不得使用 `yyyyMMdd` 或 `yyyy/MM/dd`；CLI 仅在调用边界按后端要求转换为 `yyyyMMdd`。只有 Quote 工具额外允许 `LAST`。自然语言入参按工具合约传递，不得为空或全空白；宏观 EDB 工具的 `question` 允许自然语言短语或 EDB 指标代码。`lang` 对外统一使用 `中文` / `English`，CLI 兼容常见中英文别名并为 analytics 转换成 `CNS` / `ENS`。
 4. **标的**：`windcode` 的类型和多标的传入方式以公共参数约定和所选服务契约为准，不得施加全局单标的限制。
 5. **指标**：使用 `indexes` 时，只选择用户明确请求的指标；值必须逐字来自 `references/indicators.md`，不得补充用户未提到的指标。
-6. **命令格式**：首次 CLI 调用前先确认 shell / 执行器类型，按下方「params JSON 写法」表锁定 `<params_json>` 引号。锁定后除非命中 `INVALID_PARAMS_JSON`，不得修改 shell 引号或 JSON 转义。
+6. **命令格式**：优先使用内联 `<params_json>`；若 shell / 执行器会重复转义 JSON，则将参数写入 UTF-8 JSON 文件并改用 `@<params_file>` 兜底。内联调用首次执行前按下方「params JSON 写法」表锁定引号；命中 `INVALID_PARAMS_JSON` 前不得反复改写。
 7. **失败与熔断**：非 0 退出先读 stdout 的 `error.code`、`error.details`、`error.retry`、`error.circuit_breaker` 和 `error.correction`。`circuit_breaker.tripped=true` 时必须立即终止剩余同批调用，不得继续将相同错误扩散到其它标的。NER 失败时必须询问用户标的准确全称或 Wind 标准代码；参数错误时先按 `details` 中的期望类型、格式、枚举或字段集找到正确传参，无法唯一确定时再询问用户。`error.agent_action` 仅作兼容性人类可读摘要。错误只能在 `correction` 允许的域内修复，不得跨域改动；不需要查阅其它错误文档。
 8. **结果安全**：成功结果先读 `cli_meta`。`BACKEND_INVALID_AS_NULL` 表示结构化数据区中的后端 `INVALID` 已归一为 `null`，它是缺失或不适用，禁止当作 0 参与计算。`UNRELIABLE_DECLARED_COUNT` 表示不得使用 `excelTotalCount` 判断总数、完整性、排名全集或分页状态；只能报告实际返回行数，且必须说明完整性未知。analytics 返回多个 Step / 数据块时必须全部保留并分别解释，不得只读取第一个块。
 9. **行情解释**：Quote 是分钟 / 日内序列，不保证包含昨收或日涨跌幅。缺少 `pre_close` / `pct_chg` 时，禁止用 `(收盘-开盘)/开盘` 冒充日涨跌幅；应改用同领域价格指标或 K 线工具取得用户所需指标。数值单位只有返回元数据或契约明确给出时才能换算；单位缺失时保留原值并说明单位未知，禁止猜测元、万元、亿元、股或手。
@@ -80,7 +80,7 @@ examples:
    涉及行业筛选、行业分类或行业对比，且用户未指定分类体系时，默认使用 Wind 行业分类。
 
 6. **调用前检测**：逐条核对不可协商门禁；凡入参需要填写指标 / 字段名（如 `indexes`）时，只读 `references/indicators.md` 的相关类别，逐项核对、逐字复制——每次调用都核对一遍，不复用记忆，不添加用户未请求的指标。
-7. **调用 CLI**：调用前必须先 `cd` 到 skill 目录，即本 `SKILL.md` 所在目录、不是当前项目目录，再用相对路径执行 `node scripts/cli.mjs call <server_type> <tool_name> <params_json>`。不 `cd` 会找不到脚本。`<params_json>` 的引号 / 转义以已锁定命令格式为准，见下方「params JSON 写法」表。
+7. **调用 CLI**：调用前必须先 `cd` 到 skill 目录，即本 `SKILL.md` 所在目录、不是当前项目目录，再用相对路径执行 `node scripts/cli.mjs call <server_type> <tool_name> <params_json>`；需要文件兜底时执行 `node scripts/cli.mjs call <server_type> <tool_name> @<params_file>`。相对文件路径以执行 CLI 时的工作目录为基准。不 `cd` 会找不到脚本。
 8. **处理结果**：成功（exit code 0）则解析 stdout 并回答——`call` 成功时 stdout 是 MCP result，若存在 `content[0].text`，优先解析其中的文本或 JSON。失败（exit code 1）先执行 `error.circuit_breaker`，再按 `error.details` 诊断，只修改 `error.correction` 允许的项，并严格执行 `error.retry`。每次重试前按下方「重试前审计」核对。
 
 ### 重试前审计
@@ -115,6 +115,14 @@ examples:
 
 ## params JSON 写法
 
+若执行器会重复转义 JSON，使用 `@file` 可避免 JSON 本身经过 shell：
+
+```bash
+node scripts/cli.mjs call stock_data get_stock_kline @request.json
+```
+
+`request.json` 必须是 UTF-8 编码的 JSON object；路径含空格时只需给整个 `@路径` 加 shell 引号。内联参数继续按下表执行。
+
 调用前先确认命令最终交给哪种 shell / 执行器，按下表写 `<params_json>` 的引号；同一会话锁定一种写法，命中 `INVALID_PARAMS_JSON` 前不改写。
 
 | 执行路径 | `<params_json>` 写法 |
@@ -124,7 +132,7 @@ examples:
 | cmd.exe | `"{\"windcode\":\"600519.SH\"}"` |
 | agent 工具 / JSON-RPC / 任务运行器等包一层的执行器 | 先按 Bash 式写；命中 `INVALID_PARAMS_JSON` 时按其 agent_action 用 argv 探针校准 |
 
-判断标准只有一个：第三参数必须能被 Node 当 `process.argv[2]` 读取并 `JSON.parse` 解析。不要凭屏幕显示判断转义对错。
+判断标准只有一个：第三参数必须能被 Node 作为一个 argv 读取；普通值直接 `JSON.parse`，以 `@` 开头时读取其余部分指定的 UTF-8 文件再 `JSON.parse`。不要凭屏幕显示判断转义对错。
 
 ## 资源导航
 

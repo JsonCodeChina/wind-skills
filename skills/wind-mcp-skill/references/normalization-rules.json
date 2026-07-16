@@ -1,9 +1,10 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "description": "Runtime normalization rules used by scripts/cli.mjs before calling Wind MCP tools.",
   "date_normalization": {
-    "canonical_format": "yyyyMMdd",
-    "accepted_formats": ["yyyyMMdd", "yyyy-MM-dd", "yyyy/MM/dd"],
+    "public_format": "yyyy-MM-dd",
+    "accepted_formats": ["yyyy-MM-dd"],
+    "backend_format": "yyyyMMdd",
     "special_values_by_tool": {
       "get_stock_quote": ["LAST"],
       "get_fund_quote": ["LAST"],

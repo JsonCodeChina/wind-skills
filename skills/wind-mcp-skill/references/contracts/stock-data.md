@@ -27,6 +27,6 @@
 ```json
 {"question":"筛选A股中的银行股","lang":"中文"}
 {"windcode":"600519.SH","indexes":"中文简称,最新成交价,涨跌幅"}
-{"windcode":"600519.SH","begin_date":"20260701","end_date":"20260715","period":"10"}
+{"windcode":"600519.SH","begin_date":"2026-07-01","end_date":"2026-07-15","period":"10"}
 {"windcode":"AAPL.O","begin_date":"LAST","end_date":"LAST"}
 ```
