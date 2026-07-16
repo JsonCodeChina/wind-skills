@@ -11,7 +11,7 @@
 | `begin_date` / `end_date` | 条件必填 | 提数时间范围；与 `observation` 互斥；CLI 转为后端驼峰字段 |
 | `observation` | 条件必填 | 近 N 期传数字字符串，全量传 `all`；与日期范围互斥 |
 
-`fetch` / `searchFetch` 必须显式提供完整日期范围或 `observation`。后端若明确返回 `observation` 格式错误，只能在同一工具按错误提示改用数字字符串或 `all` 修正一次。
+`fetch` / `searchFetch` 必须显式提供完整日期范围或 `observation`。日期范围请求若被后端误报为 `observation` 错误，视为后端问题：停止自动修正并透传错误，不得把日期范围擅自改成 `observation`，以免改变查询口径。
 
 ```json
 {"executionMode":"searchFetch","question":"中国GDP","observation":"10"}

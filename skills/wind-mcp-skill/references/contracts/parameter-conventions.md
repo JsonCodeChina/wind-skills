@@ -26,7 +26,7 @@
 - K 线 `period`：`1/3/4/5/6/7/8/9/10/11/12/13/14/15`；CLI 可将 `day/D/daily/日线` 归一为 `10`，周线为 `11`，月线为 `12`。
 - K 线可选：`count`、`aftime`、`issusp`、`afdate`；`aftime` 与 `issusp` 只允许 `0/1`。
 - Quote 返回分钟 / 日内序列，不保证提供 `pre_close` 或 `pct_chg`。缺少这些字段时不得用开盘价推导日涨跌幅，改用对应价格指标或 K 线工具。
-- 后端 `INVALID` 由 CLI 转为 `null`，表示缺失或不适用，不得按 0 计算。单位缺失时不得自行猜测或换算。
+- 结构化数据区（`rows` 和数组型 `value`）中的后端 `INVALID` 由 CLI 转为 `null`，表示缺失或不适用，不得按 0 计算；正文、状态和元数据中的同名字面量保持原样。单位缺失时不得自行猜测或换算。
 - `excelTotalCount` 不是可信的总数或分页依据；以 `cli_meta.tables[].actual_row_count` 表示实际返回行数，`cli_meta.completeness=unknown` 时必须披露完整性未知。
 - Quote 的 `begin_date/end_date` 可传日期或 `LAST`。
 

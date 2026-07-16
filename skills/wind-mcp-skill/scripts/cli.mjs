@@ -142,19 +142,20 @@ export { triggerUpdateCheck };
 
 // section: 工具函数
 
-function normalizeSuccessPayload(value, path = '$', state = { warnings: [], tables: [], invalidPaths: [] }) {
-  if (value === 'INVALID') {
+function normalizeSuccessPayload(value, path = '$', state = { warnings: [], tables: [], invalidPaths: [] }, dataCell = false) {
+  if (dataCell && value === 'INVALID') {
     state.invalidPaths.push(path);
     return null;
   }
   if (Array.isArray(value)) {
-    return value.map((item, index) => normalizeSuccessPayload(item, `${path}[${index}]`, state));
+    return value.map((item, index) => normalizeSuccessPayload(item, `${path}[${index}]`, state, dataCell));
   }
   if (!value || typeof value !== 'object') return value;
 
   const normalized = {};
   for (const [key, item] of Object.entries(value)) {
-    normalized[key] = normalizeSuccessPayload(item, `${path}.${key}`, state);
+    const isStructuredDataArray = Array.isArray(item) && (key === 'rows' || key === 'value');
+    normalized[key] = normalizeSuccessPayload(item, `${path}.${key}`, state, dataCell || isStructuredDataArray);
   }
   if (Array.isArray(value.rows)) {
     state.tables.push({ path, actual_row_count: value.rows.length });
@@ -190,7 +191,7 @@ function normalizeCallSuccess(result, context = {}) {
       count: state.invalidPaths.length,
       paths: state.invalidPaths.slice(0, 100),
       truncated: state.invalidPaths.length > 100,
-      message: '后端字符串 INVALID 已转换为 null；表示缺失或不适用，禁止按 0 参与计算。',
+      message: '结构化数据区中的后端字符串 INVALID 已转换为 null；表示缺失或不适用，禁止按 0 参与计算。',
     });
   }
   if (output && typeof output === 'object') {

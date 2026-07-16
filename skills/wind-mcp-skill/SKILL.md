@@ -41,7 +41,7 @@ examples:
 5. **指标**：使用 `indexes` 时，只选择用户明确请求的指标；值必须逐字来自 `references/indicators.md`，不得补充用户未提到的指标。
 6. **命令格式**：首次 CLI 调用前先确认 shell / 执行器类型，按下方「params JSON 写法」表锁定 `<params_json>` 引号。锁定后除非命中 `INVALID_PARAMS_JSON`，不得修改 shell 引号或 JSON 转义。
 7. **失败与熔断**：非 0 退出先读 stdout 的 `error.code`、`error.details`、`error.retry`、`error.circuit_breaker` 和 `error.correction`。`circuit_breaker.tripped=true` 时必须立即终止剩余同批调用，不得继续将相同错误扩散到其它标的。NER 失败时必须询问用户标的准确全称或 Wind 标准代码；参数错误时先按 `details` 中的期望类型、格式、枚举或字段集找到正确传参，无法唯一确定时再询问用户。`error.agent_action` 仅作兼容性人类可读摘要。错误只能在 `correction` 允许的域内修复，不得跨域改动；不需要查阅其它错误文档。
-8. **结果安全**：成功结果先读 `cli_meta`。`BACKEND_INVALID_AS_NULL` 表示后端 `INVALID` 已归一为 `null`，它是缺失或不适用，禁止当作 0 参与计算。`UNRELIABLE_DECLARED_COUNT` 表示不得使用 `excelTotalCount` 判断总数、完整性、排名全集或分页状态；只能报告实际返回行数，且必须说明完整性未知。analytics 返回多个 Step / 数据块时必须全部保留并分别解释，不得只读取第一个块。
+8. **结果安全**：成功结果先读 `cli_meta`。`BACKEND_INVALID_AS_NULL` 表示结构化数据区中的后端 `INVALID` 已归一为 `null`，它是缺失或不适用，禁止当作 0 参与计算。`UNRELIABLE_DECLARED_COUNT` 表示不得使用 `excelTotalCount` 判断总数、完整性、排名全集或分页状态；只能报告实际返回行数，且必须说明完整性未知。analytics 返回多个 Step / 数据块时必须全部保留并分别解释，不得只读取第一个块。
 9. **行情解释**：Quote 是分钟 / 日内序列，不保证包含昨收或日涨跌幅。缺少 `pre_close` / `pct_chg` 时，禁止用 `(收盘-开盘)/开盘` 冒充日涨跌幅；应改用同领域价格指标或 K 线工具取得用户所需指标。数值单位只有返回元数据或契约明确给出时才能换算；单位缺失时保留原值并说明单位未知，禁止猜测元、万元、亿元、股或手。
 10. **回答**：只报告 Wind 返回值和必要限制，不补常识、不补点评。
 
@@ -75,7 +75,7 @@ examples:
 5. **构造参数**：读取 `references/contracts/parameter-conventions.md` 和当前服务契约中所选工具的段落，逐字使用其中的参数 key，并守住门禁 3 / 4 / 5。自然语言字段对应关系：
    - 所有自然语言工具对外统一接受 `question`
    - `financial_docs` 由 CLI 将 `question` 转换为后端 `query`，并继续兼容旧 `query`
-   - `economic_data.natural_language_get_edb_data` 使用 `executionMode` + `question`；提数类请求必须显式填写 `beginDate` / `endDate` 或 `observation`
+   - `economic_data.natural_language_get_edb_data` 使用 `executionMode` + `question`；提数类请求对外统一填写 `begin_date` / `end_date` 或 `observation`，CLI 自动将日期字段转换为后端 `beginDate` / `endDate`
 
    涉及行业筛选、行业分类或行业对比，且用户未指定分类体系时，默认使用 Wind 行业分类。
 

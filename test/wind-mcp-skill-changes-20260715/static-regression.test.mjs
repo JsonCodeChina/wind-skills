@@ -189,6 +189,8 @@ test('successful JSON payloads normalize INVALID and distrust declared counts', 
       type: 'text',
       text: JSON.stringify({
         data: { columns: ['close', 'volume'], rows: [['10.5', 'INVALID']], excelTotalCount: 8 },
+        meta: { status: 'INVALID' },
+        article: 'INVALID',
       }),
     }],
     isError: false,
@@ -197,6 +199,8 @@ test('successful JSON payloads normalize INVALID and distrust declared counts', 
   const inner = JSON.parse(result.content[0].text);
   assert.equal(inner.data.rows[0][1], null);
   assert.equal(inner.data.excelTotalCount, 8);
+  assert.equal(inner.meta.status, 'INVALID');
+  assert.equal(inner.article, 'INVALID');
   assert.equal(result.cli_meta.tables[0].actual_row_count, 1);
   assert.equal(result.cli_meta.completeness, 'unknown');
   assert.ok(result.cli_meta.warnings.some(warning => warning.code === 'BACKEND_INVALID_AS_NULL'));
@@ -208,4 +212,12 @@ test('skill forbids unsafe quote return and unit inference', () => {
   assert.match(skill, /单位缺失时保留原值并说明单位未知/);
   assert.match(skill, /不得使用 `excelTotalCount` 判断总数/);
   assert.match(skill, /不得只读取第一个块/);
+});
+
+test('EDB uses canonical public date fields and does not repair backend observation errors', () => {
+  assert.match(skill, /对外统一填写 `begin_date` \/ `end_date`/);
+  assert.doesNotMatch(skill, /显式填写 `beginDate` \/ `endDate`/);
+  const edbContract = read('references/contracts/economic-data.md');
+  assert.match(edbContract, /视为后端问题：停止自动修正并透传错误/);
+  assert.match(edbContract, /不得把日期范围擅自改成 `observation`/);
 });
