@@ -28,20 +28,24 @@ examples:
 # Wind 万得金融数据
 
 你是 Wind MCP 调用路由器。将用户问题映射到 Wind 支持的
-`server_type + tool_name`，按 `references/tool-contracts.md` 构造参数，调用 CLI，并只基于 Wind 返回结果回答。
+`server_type + tool_name`，按 `references/contracts/tool-index.json` 只加载对应服务契约并构造参数，调用 CLI，并只基于 Wind 返回结果回答。
 
 ## 不可协商门禁
 
 按顺序执行；任一门禁不满足，只修当前门禁，不得跳到后续步骤。
 
 1. **路由**：`server_type + tool_name` 必须来自上方范围表（7 个 server_type 对应的覆盖范围和常见意图）；路由校验由 CLI 完成，选错会返回 `ROUTE_ERROR`。股票行情、K 线、分钟行情、价格指标等请求只要能映射到 `stock_data` 行情工具，就必须使用 `stock_data`，不得为了省调用次数改用 `analytics_data.get_financial_data` 兜底，以免造成不必要的积分消耗。
-2. **参数**：params key 必须逐字来自 `references/tool-contracts.md`。
-3. **参数值**：日期必须是 `yyyyMMdd`；自然语言入参按工具合约原样传递，不得为空或全空白；宏观 EDB 工具的 `question` 允许自然语言短语或 EDB 指标代码。
-4. **标的**：`windcode` 的类型和多标的传入方式以所选工具在 `references/tool-contracts.md` 中的合约为准，不得施加全局单标的限制。
+2. **参数**：先读 `references/contracts/parameter-conventions.md`，再按 `references/contracts/tool-index.json` 只读所选 `server_type` 的一个契约文件；params key 必须逐字来自这两处。
+3. **参数值**：日期统一按 `yyyyMMdd` 传给后端；CLI 也接受 `yyyy-MM-dd` 和 `yyyy/MM/dd` 并自动归一化，只有 Quote 工具额外允许 `LAST`。自然语言入参按工具合约传递，不得为空或全空白；宏观 EDB 工具的 `question` 允许自然语言短语或 EDB 指标代码。`lang` 对外统一使用 `中文` / `English`，CLI 兼容常见中英文别名并为 analytics 转换成 `CNS` / `ENS`。
+4. **标的**：`windcode` 的类型和多标的传入方式以公共参数约定和所选服务契约为准，不得施加全局单标的限制。
 5. **指标**：使用 `indexes` 时，只选择用户明确请求的指标；值必须逐字来自 `references/indicators.md`，不得补充用户未提到的指标。
 6. **命令格式**：首次 CLI 调用前先确认 shell / 执行器类型，按下方「params JSON 写法」表锁定 `<params_json>` 引号。锁定后除非命中 `INVALID_PARAMS_JSON`，不得修改 shell 引号或 JSON 转义。
 7. **失败与熔断**：非 0 退出先读 stdout 的 `error.code`、`error.details`、`error.retry`、`error.circuit_breaker` 和 `error.correction`。`circuit_breaker.tripped=true` 时必须立即终止剩余同批调用，不得继续将相同错误扩散到其它标的。NER 失败时必须询问用户标的准确全称或 Wind 标准代码；参数错误时先按 `details` 中的期望类型、格式、枚举或字段集找到正确传参，无法唯一确定时再询问用户。`error.agent_action` 仅作兼容性人类可读摘要。错误只能在 `correction` 允许的域内修复，不得跨域改动；不需要查阅其它错误文档。
-8. **回答**：只报告 Wind 返回值和必要限制，不补常识、不补点评。
+8. **结果安全**：成功结果先读 `cli_meta`。`BACKEND_INVALID_AS_NULL` 表示后端 `INVALID` 已归一为 `null`，它是缺失或不适用，禁止当作 0 参与计算。`UNRELIABLE_DECLARED_COUNT` 表示不得使用 `excelTotalCount` 判断总数、完整性、排名全集或分页状态；只能报告实际返回行数，且必须说明完整性未知。analytics 返回多个 Step / 数据块时必须全部保留并分别解释，不得只读取第一个块。
+9. **行情解释**：Quote 是分钟 / 日内序列，不保证包含昨收或日涨跌幅。缺少 `pre_close` / `pct_chg` 时，禁止用 `(收盘-开盘)/开盘` 冒充日涨跌幅；应改用同领域价格指标或 K 线工具取得用户所需指标。数值单位只有返回元数据或契约明确给出时才能换算；单位缺失时保留原值并说明单位未知，禁止猜测元、万元、亿元、股或手。
+10. **回答**：只报告 Wind 返回值和必要限制，不补常识、不补点评。
+
+**调用并发规则**：默认串行调用 Wind 工具（并发数 1），不得主动并发。只有用户明确要求并发时才可并发，最大并发数为 10；超过 10 的请求必须排队分批执行。命中 `CONCURRENCY_LIMIT_ERROR` 后立即停止发起新请求，等待并优先恢复串行调用。
 
 **Key 判定规则**：不得手动检查部分配置来源后声称没有 API Key。必须直接执行 CLI；CLI 会一次性按“用户全局配置 > Skill 本地配置 > `WIND_API_KEY` 环境变量”检查全部来源。只有 CLI 返回 `AUTH_ERROR` 且 detail 明确为“未配置”，才能判定 Key 缺失。
 
@@ -67,10 +71,10 @@ examples:
 1. **分析意图**：判断用户要的是选股筛选、文档 / 新闻、宏观指标、行情或时序、专项业务数据、通用结构化取数，还是超范围请求。
 2. **判断标的类型**：识别股票、基金 / ETF / LOF、指数 / 板块、债券、文档主体或宏观指标。简称或别名可能歧义时先问用户。
 3. **选择 `server_type`**：用标的类型匹配上方范围表。股票都用 `stock_data`。
-4. **选择 `tool_name`**：按意图在 `references/tool-contracts.md` 中找到对应工具；路由校验由 CLI 完成，选错会返回 `ROUTE_ERROR`。
-5. **构造参数**：只读取所选工具在 `references/tool-contracts.md` 中的段落，逐字使用其中的参数 key，并守住门禁 3 / 4 / 5。自然语言字段对应关系：
-   - 选股筛选、领域 NL 工具和 `analytics_data` 使用 `question`
-   - `financial_docs` 使用 `query`
+4. **选择 `tool_name`**：读取 `references/contracts/tool-index.json` 指向的当前服务契约，按意图选择其中工具；不得读取其它服务契约。路由校验由 CLI 完成，选错会返回 `ROUTE_ERROR`。
+5. **构造参数**：读取 `references/contracts/parameter-conventions.md` 和当前服务契约中所选工具的段落，逐字使用其中的参数 key，并守住门禁 3 / 4 / 5。自然语言字段对应关系：
+   - 所有自然语言工具对外统一接受 `question`
+   - `financial_docs` 由 CLI 将 `question` 转换为后端 `query`，并继续兼容旧 `query`
    - `economic_data.natural_language_get_edb_data` 使用 `executionMode` + `question`；提数类请求必须显式填写 `beginDate` / `endDate` 或 `observation`
 
    涉及行业筛选、行业分类或行业对比，且用户未指定分类体系时，默认使用 Wind 行业分类。
@@ -85,10 +89,11 @@ examples:
 
 - 上一次 `error.code` 是什么。
 - 本次计划修改是否属于该错误码允许的错误域。
-- 是否保持同一 `server_type` 和 `tool_name`；只有 `tool-contracts.md` 证明当前工具无法表达字段 / 口径时才可在同业务域切换。
+- 是否保持同一 `server_type` 和 `tool_name`；只有当前服务契约证明当前工具无法表达字段 / 口径时才可在同业务域切换。
 - 除非上一次错误是 `INVALID_PARAMS_JSON`，否则不得修改命令引号 / JSON 转义。
 - 除非上一次错误是 `PARAM_VALIDATION_ERROR`、`NO_RESULTS`，或 `agent_action` 明确要求缩小范围 / 减少字段，否则不得修改业务参数。
-- params key 不得来自 `tool-contracts.md` 之外；`indexes` 不得来自 `indicators.md` 之外。
+- 命中 `PARAM_CONFLICT_ERROR` 时，只消除 `details.fields` 指出的同义字段冲突，不得自行选择其中一个不同值。
+- params key 不得来自公共参数约定和当前服务契约之外；`indexes` 不得来自 `indicators.md` 之外。
 
 ## 路由顺序
 
@@ -125,13 +130,15 @@ examples:
 
 | 读取或运行                       | 何时                                                                     | 权威于                           |
 | -------------------------------- | ------------------------------------------------------------------------ | -------------------------------- |
-| `references/tool-contracts.md`   | **MUST**：选定工具后读对应段落                                           | 工具字段、参数、场景、示例       |
+| `references/contracts/tool-index.json` | **MUST**：选定 `server_type` 后查一次，只取当前服务的 `contract_ref` | 服务到契约文件的导航 |
+| `references/contracts/parameter-conventions.md` | **MUST**：构造参数前读一次 | 跨服务统一字段和值规则 |
+| `references/contracts/*.md` | **MUST**：只读索引指向的一个服务文件 | 当前服务工具字段、场景、示例 |
 | `references/tool-validation-rules.json` | MAY：更新工具参数校验时                                           | CLI 本地参数校验规则             |
 | `references/indicators.md`       | **MUST**：入参需填指标 / 字段名时（如 `indexes`），每次核对              | Wind 指标 / 字段名词典           |
 | `references/fallback-alice.md`   | MAY：判定可切 `wind-alice` 后                                            | wind-alice 最终兜底流程          |
 
 引用优先级：CLI stdout 的 `error.code` / `error.details` / `error.retry` / `error.correction` 是当前失败的直接指令；
-业务参数以 `references/tool-contracts.md` 和 `references/indicators.md` 为准；命令传递写法见「params JSON 写法」表。
+业务参数以公共参数约定、索引指向的当前服务契约和 `references/indicators.md` 为准；命令传递写法见「params JSON 写法」表。
 不同 reference 看似冲突时，停止重试并说明文档不一致，不得自行选择更方便的解释。
 
 ## 失败与回答

@@ -6,7 +6,9 @@ import { join, dirname, basename, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 
-const SKILL_VERSION = '1.9.8';
+const SKILL_VERSION = '1.10.2';
+const DEFAULT_TOOL_CONCURRENCY = 1;
+const MAX_TOOL_CONCURRENCY = 10;
 
 // 本地 registry: 工具选择可在任何网络调用前失败
 const SERVERS = {
@@ -61,7 +63,7 @@ const CALL_EXAMPLES = [
   `cli.mjs call fund_data get_fund_kline '{"windcode":"588200.SH","begin_date":"20260401","end_date":"20260430"}'`,
   `cli.mjs call stock_data get_stock_quote '{"windcode":"AAPL.O"}'`,
   `cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","begin_date":"20260401","end_date":"20260430"}'`,
-  `cli.mjs call financial_docs get_financial_news '{"query":"美联储利率政策","top_k":3}'`,
+  `cli.mjs call financial_docs get_financial_news '{"question":"美联储利率政策","top_k":3}'`,
   `cli.mjs call economic_data natural_language_get_edb_data '{"executionMode":"searchFetch","question":"中国GDP","observation":"10"}'`,
   `cli.mjs call analytics_data get_financial_data '{"question":"查询中国A股市场过去一年的平均成交量"}'`,
 ];
@@ -140,9 +142,72 @@ export { triggerUpdateCheck };
 
 // section: 工具函数
 
-// call 成功: 完整透传 MCP result, 不抽取; agent 自行 parse content[0].text
-function writeRawCallSuccess(result) {
-  process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+function normalizeSuccessPayload(value, path = '$', state = { warnings: [], tables: [], invalidPaths: [] }) {
+  if (value === 'INVALID') {
+    state.invalidPaths.push(path);
+    return null;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item, index) => normalizeSuccessPayload(item, `${path}[${index}]`, state));
+  }
+  if (!value || typeof value !== 'object') return value;
+
+  const normalized = {};
+  for (const [key, item] of Object.entries(value)) {
+    normalized[key] = normalizeSuccessPayload(item, `${path}.${key}`, state);
+  }
+  if (Array.isArray(value.rows)) {
+    state.tables.push({ path, actual_row_count: value.rows.length });
+  }
+  if (Object.hasOwn(value, 'excelTotalCount')) {
+    state.warnings.push({
+      code: 'UNRELIABLE_DECLARED_COUNT',
+      path: `${path}.excelTotalCount`,
+      message: 'excelTotalCount 仅保留为后端原始字段，不得据此判断结果总数或完整性。',
+    });
+  }
+  return normalized;
+}
+
+// 保留 MCP result 外层兼容性；只清洗可解析的 JSON 文本并附加机器可读安全元数据。
+function normalizeCallSuccess(result, context = {}) {
+  const output = result && typeof result === 'object' ? structuredClone(result) : result;
+  const state = { warnings: [], tables: [], invalidPaths: [] };
+  if (output && Array.isArray(output.content)) {
+    for (const item of output.content) {
+      if (item?.type !== 'text' || typeof item.text !== 'string') continue;
+      try {
+        const parsed = JSON.parse(item.text);
+        item.text = JSON.stringify(normalizeSuccessPayload(parsed, '$', state));
+      } catch {
+        // 非 JSON 文本按后端原文透传。
+      }
+    }
+  }
+  if (state.invalidPaths.length) {
+    state.warnings.push({
+      code: 'BACKEND_INVALID_AS_NULL',
+      count: state.invalidPaths.length,
+      paths: state.invalidPaths.slice(0, 100),
+      truncated: state.invalidPaths.length > 100,
+      message: '后端字符串 INVALID 已转换为 null；表示缺失或不适用，禁止按 0 参与计算。',
+    });
+  }
+  if (output && typeof output === 'object') {
+    output.cli_meta = {
+      schema_version: '1.0',
+      server_type: context.server_type || null,
+      tool_name: context.tool_name || null,
+      completeness: state.warnings.some(warning => warning.code === 'UNRELIABLE_DECLARED_COUNT') ? 'unknown' : 'not_asserted',
+      tables: state.tables,
+      warnings: state.warnings,
+    };
+  }
+  return output;
+}
+
+function writeRawCallSuccess(result, context = {}) {
+  process.stdout.write(JSON.stringify(normalizeCallSuccess(result, context), null, 2) + '\n');
 }
 
 function writePlainSuccess(data) {
@@ -151,17 +216,33 @@ function writePlainSuccess(data) {
 
 function defaultRetryPolicy(code) {
   if (code === 'RATE_LIMIT_ERROR') return { allowed: true, mode: 'same_request_after_wait', max_attempts: 1, after_ms: 5000 };
+  if (code === 'CONCURRENCY_LIMIT_ERROR') return { allowed: true, mode: 'same_request_after_wait', max_attempts: 1, after_ms: 3000 };
   if (code === 'TEMPORARILY_UNAVAILABLE' || code === 'NETWORK_ERROR') return { allowed: true, mode: 'same_request', max_attempts: 1 };
   return { allowed: false, mode: 'after_correction', max_attempts: 0 };
 }
 
 function defaultCircuitBreaker(code) {
-  const trips = new Set(['MARKET_TARGET_NOT_FOUND', 'PARAM_TYPE_ERROR', 'PARAM_VALIDATION_ERROR', 'INVALID_PARAM_NAME', 'INVALID_PARAM_VALUE']);
+  const trips = new Set(['MARKET_TARGET_NOT_FOUND', 'PARAM_TYPE_ERROR', 'PARAM_VALIDATION_ERROR', 'PARAM_CONFLICT_ERROR', 'INVALID_PARAM_NAME', 'INVALID_PARAM_VALUE', 'CONCURRENCY_LIMIT_ERROR']);
   return {
     tripped: trips.has(code),
     scope: trips.has(code) ? 'remaining_batch' : 'current_call',
     action: trips.has(code) ? 'abort_remaining_calls' : 'none',
   };
+}
+
+function defaultCorrection(code) {
+  if (code === 'CONCURRENCY_LIMIT_ERROR') {
+    return {
+      strategy: 'reduce_concurrency',
+      change_only: ['concurrency'],
+      recommended_concurrency: DEFAULT_TOOL_CONCURRENCY,
+      recommended_max_concurrency: MAX_TOOL_CONCURRENCY,
+      preserve_server_type: true,
+      preserve_tool_name: true,
+      preserve_params: true,
+    };
+  }
+  return {};
 }
 
 // 失败 envelope 保留 agent_action 向后兼容，同时提供机器可读的诊断与重试策略。
@@ -173,7 +254,7 @@ function writeErrorEnvelope(code, detail, metadata = {}) {
       details: metadata.details || (detail ? { message: String(detail).slice(0, 500) } : {}),
       retry: metadata.retry || defaultRetryPolicy(code),
       circuit_breaker: metadata.circuit_breaker || defaultCircuitBreaker(code),
-      correction: metadata.correction || {},
+      correction: metadata.correction || defaultCorrection(code),
       agent_action: buildAgentAction(code, detail),
     },
   };
@@ -278,6 +359,10 @@ const EDB_EXECUTION_MODE_ALIASES = new Map([
 function readNormalizationRules() {
   const rules = JSON.parse(readFileSync(NORMALIZATION_RULES_PATH, 'utf8'));
   return {
+    dateNormalization: rules.date_normalization || {},
+    langAliases: new Map(Object.entries(rules.lang_aliases || {})),
+    langBackendValuesByTool: rules.lang_backend_values_by_tool || {},
+    parameterMappingsByTool: rules.parameter_mappings_by_tool || {},
     klinePeriods: new Set(rules.kline_periods || []),
     periodAliases: new Map(Object.entries(rules.period_aliases || {})),
     indicatorAliases: new Map(Object.entries(rules.indicator_aliases || {})),
@@ -288,6 +373,10 @@ function readNormalizationRules() {
 }
 
 const NORMALIZATION_RULES = readNormalizationRules();
+const DATE_NORMALIZATION = NORMALIZATION_RULES.dateNormalization;
+const LANG_ALIASES = NORMALIZATION_RULES.langAliases;
+const LANG_BACKEND_VALUES_BY_TOOL = NORMALIZATION_RULES.langBackendValuesByTool;
+const PARAMETER_MAPPINGS_BY_TOOL = NORMALIZATION_RULES.parameterMappingsByTool;
 const KLINE_PERIODS = NORMALIZATION_RULES.klinePeriods;
 const PERIOD_ALIASES = NORMALIZATION_RULES.periodAliases;
 const INDICATOR_ALIASES = NORMALIZATION_RULES.indicatorAliases;
@@ -317,6 +406,65 @@ function isValidBasicDate(value) {
   const d = Number(value.slice(6, 8));
   const dt = new Date(Date.UTC(y, m - 1, d));
   return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+
+const NORMALIZABLE_DATE_KEYS = new Set(['begin_date', 'end_date', 'begin', 'end', 'beginDate', 'endDate', 'date', 'tradeDate', 'afdate']);
+
+function normalizeDateValue(value, toolName) {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  const upper = trimmed.toUpperCase();
+  const specialValues = DATE_NORMALIZATION.special_values_by_tool?.[toolName] || [];
+  if (specialValues.includes(upper)) return upper;
+  if (/^\d{8}$/.test(trimmed)) return trimmed;
+  const matched = trimmed.match(/^(\d{4})[-/](\d{2})[-/](\d{2})$/);
+  return matched ? `${matched[1]}${matched[2]}${matched[3]}` : trimmed;
+}
+
+function normalizeLangValue(value, toolName) {
+  if (typeof value !== 'string') return { value, error: null };
+  const trimmed = value.trim();
+  const canonical = LANG_ALIASES.get(trimmed.toLowerCase());
+  if (!canonical) {
+    return {
+      value: trimmed,
+      error: {
+        code: 'INVALID_PARAM_VALUE',
+        message: `字段 'lang' 取值 '${trimmed}' 不合法`,
+        field: 'lang',
+        issue: 'invalid_enum',
+        actual: trimmed,
+        allowed_values: ['中文', 'English'],
+        accepted_aliases: [...LANG_ALIASES.keys()],
+      },
+    };
+  }
+  return { value: LANG_BACKEND_VALUES_BY_TOOL[toolName]?.[canonical] || canonical, error: null };
+}
+
+function applyToolParameterMappings(toolName, args) {
+  const normalizedArgs = { ...args };
+  const errors = [];
+  for (const key of NORMALIZABLE_DATE_KEYS) {
+    if (key in normalizedArgs) normalizedArgs[key] = normalizeDateValue(normalizedArgs[key], toolName);
+  }
+  for (const [canonicalKey, backendKey] of Object.entries(PARAMETER_MAPPINGS_BY_TOOL[toolName] || {})) {
+    if (!(canonicalKey in normalizedArgs)) continue;
+    if (backendKey in normalizedArgs && normalizedArgs[backendKey] !== normalizedArgs[canonicalKey]) {
+      errors.push({
+        code: 'PARAM_CONFLICT_ERROR',
+        message: `同义字段 '${canonicalKey}' 和 '${backendKey}' 的值不一致`,
+        fields: [canonicalKey, backendKey],
+        issue: 'conflicting_aliases',
+        actual_values: { [canonicalKey]: normalizedArgs[canonicalKey], [backendKey]: normalizedArgs[backendKey] },
+        expected: '只保留一个字段，或为两个字段传入相同值',
+      });
+      continue;
+    }
+    normalizedArgs[backendKey] = normalizedArgs[canonicalKey];
+    if (canonicalKey !== backendKey) delete normalizedArgs[canonicalKey];
+  }
+  return { args: normalizedArgs, errors };
 }
 
 function normalizeIndicatorKey(value) {
@@ -352,12 +500,20 @@ function toolFamily(toolName) {
 }
 
 function normalizeCall(server_type, toolName, args) {
-  const originalToolName = toolName;
   const legacyTool = LEGACY_TOOL_ALIASES.get(toolName);
   if (legacyTool) [server_type, toolName] = legacyTool;
-  const normalizedArgs = { ...args };
+  const family = toolFamily(toolName);
+  if (family) toolName = TOOL_BY_DOMAIN[family]?.[server_type] || toolName;
+  const mapped = applyToolParameterMappings(toolName, args);
+  const normalizedArgs = mapped.args;
+  const normalizationErrors = [...mapped.errors];
   if (toolName === 'natural_language_get_edb_data' && typeof normalizedArgs.executionMode === 'string') {
     normalizedArgs.executionMode = EDB_EXECUTION_MODE_ALIASES.get(normalizedArgs.executionMode) || normalizedArgs.executionMode;
+  }
+  if ('lang' in normalizedArgs) {
+    const normalizedLang = normalizeLangValue(normalizedArgs.lang, toolName);
+    normalizedArgs.lang = normalizedLang.value;
+    if (normalizedLang.error) normalizationErrors.push(normalizedLang.error);
   }
   if (typeof normalizedArgs.indexes === 'string') normalizedArgs.indexes = normalizeIndexes(normalizedArgs.indexes);
   if (typeof normalizedArgs.windcode === 'string') normalizedArgs.windcode = normalizeWindcode(normalizedArgs.windcode);
@@ -365,14 +521,10 @@ function normalizeCall(server_type, toolName, args) {
     const key = normalizedArgs.period.trim().toLowerCase();
     normalizedArgs.period = PERIOD_ALIASES.get(key) || normalizedArgs.period.trim();
   }
-  const family = toolFamily(toolName);
-  if (family) {
-    toolName = TOOL_BY_DOMAIN[family]?.[server_type] || toolName;
-  }
-  return { server_type, toolName, args: normalizedArgs };
+  return { server_type, toolName, args: normalizedArgs, normalizationErrors };
 }
 
-function validateBasicParams(params) {
+function validateBasicParams(params, toolName) {
   const errors = [];
   if (!params || typeof params !== 'object' || Array.isArray(params)) {
     return [{
@@ -403,8 +555,9 @@ function validateBasicParams(params) {
 
   for (const key of basic.date_keys || []) {
     if (!(key in params)) continue;
-    if (typeof params[key] === 'string' && !isValidBasicDate(params[key])) {
-      errors.push({ message: `字段 '${key}' 日期格式错误，要求 yyyyMMdd`, field: key, issue: 'invalid_format', actual: params[key], expected_format: 'yyyyMMdd', example: '20260708' });
+    const specialValues = DATE_NORMALIZATION.special_values_by_tool?.[toolName] || [];
+    if (typeof params[key] === 'string' && !isValidBasicDate(params[key]) && !specialValues.includes(params[key])) {
+      errors.push({ message: `字段 '${key}' 日期格式错误，要求 yyyyMMdd`, field: key, issue: 'invalid_format', actual: params[key], expected_format: 'yyyyMMdd', accepted_input_formats: DATE_NORMALIZATION.accepted_formats || ['yyyyMMdd'], allowed_special_values: specialValues, example: '20260708' });
     }
   }
 
@@ -512,6 +665,8 @@ function validateToolParams(toolName, params) {
   return errors;
 }
 
+export { normalizeCall, normalizeCallSuccess, validateBasicParams, validateToolParams };
+
 // ───── 认证 ─────
 
 function getApiKey() {
@@ -551,6 +706,7 @@ const ERROR_PATTERNS = [
   ['INVALID_PARAM_NAME', /invalid_param_name|缺少必填参数|missing required/i, '后端参数名错误。'],
   ['DAILY_LIMIT_ERROR', /单日请求次数超限|daily.*(?:request|quota)?.*limit|daily.*limit.*exceed/i, '单日请求次数已超限。'],
   ['BALANCE_ERROR', /余额不足|请先充值|insufficient.*balance/i, '账户余额不足。'],
+  ['CONCURRENCY_LIMIT_ERROR', /当前工具并发请求数量超限|并发(?:请求)?(?:数量)?(?:超限|过多)|concurren(?:cy|t).*(?:limit|exceed|too many)/i, '工具并发请求数量超限。'],
   ['RATE_LIMIT_ERROR', /请求过于频繁|qps.*limit|too.*frequent|rate.*limit/i, 'QPS 限流。'],
   ['AUTH_ERROR', /密钥无效|key.*invalid|unauthorized|认证失败|auth.*fail/i, '认证/权限错误。按 Key 机制修复后原样重试。'],
   ['NO_RESULTS', /未获取到数据|"NO_RESULTS"|no\s*results?|not\s*found|empty\s*result/i, '未获取到匹配数据。先在不改变用户意图的前提下调整关键词或参数。'],
@@ -662,7 +818,18 @@ async function mcpRequest(server_type, method, params, {
     params
   });
   const dieMcp = (code, detail) => {
-    if (code !== 'MARKET_TARGET_NOT_FOUND') die(code, detail);
+    if (code !== 'MARKET_TARGET_NOT_FOUND') {
+      const backendMessage = String(detail || '').replace(/\s*\(server=[^)]+\)\s*$/, '').slice(0, 2000);
+      const callArguments = params?.arguments && typeof params.arguments === 'object' ? params.arguments : null;
+      die(code, detail, 1, {
+        details: {
+          server_type,
+          tool_name: params?.name || null,
+          backend_message: backendMessage,
+          original_params: callArguments,
+        },
+      });
+    }
     const originalInput = diagnosticContext?.original_input ?? params?.arguments?.windcode ?? null;
     const attemptedInput = diagnosticContext?.normalized_input ?? params?.arguments?.windcode ?? null;
     die(code, detail, 1, {
@@ -802,10 +969,11 @@ async function cmdCall(server_type, toolName, paramsJson) {
   }
 
   const originalArgs = args && typeof args === 'object' && !Array.isArray(args) ? { ...args } : args;
-  ({ server_type, toolName, args } = normalizeCall(server_type, toolName, args));
+  let normalizationErrors;
+  ({ server_type, toolName, args, normalizationErrors } = normalizeCall(server_type, toolName, args));
   validateToolSelection(server_type, toolName);
 
-  const validationErrors = validateBasicParams(args);
+  const validationErrors = [...normalizationErrors, ...validateBasicParams(args, toolName)];
   const paramsShapeInvalid = validationErrors.some(error => validationErrorCode(error) === 'PARAM_TYPE_ERROR' && error.field === 'params');
   if (!paramsShapeInvalid) validationErrors.push(...validateToolParams(toolName, args));
   if (validationErrors.length > 0) {
@@ -819,7 +987,7 @@ async function cmdCall(server_type, toolName, paramsJson) {
       correction: {
         change_only: [...new Set(validationErrors.flatMap(error => error?.field ? [error.field] : error?.fields || []))],
         strategy: 'fix_from_error_details',
-        requires_user_input: validationErrors.some(error => error?.issue === 'ambiguous_value'),
+        requires_user_input: validationErrors.some(error => ['ambiguous_value', 'conflicting_aliases'].includes(error?.issue)),
         preserve_server_type: true,
         preserve_tool_name: true,
       },
@@ -1015,7 +1183,7 @@ commands[cmd]()
   .then((data) => {
     if (cmd === 'call') {
       // call: 透传 result 内容 (parse JSON if applicable, else raw text)
-      writeRawCallSuccess(data?.result);
+      writeRawCallSuccess(data?.result, { server_type: data?.server_type, tool_name: data?.tool });
       setTimeout(triggerUpdateCheck, 0);
     } else {
       // open-portal / setup-key: 直接输出结构化数据 (无 envelope 包裹)
