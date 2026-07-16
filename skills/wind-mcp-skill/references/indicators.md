@@ -3,7 +3,7 @@
 > 何时读：入参需要填写 Wind 指标 / 字段名时（如 `indexes`），每次都核对 | 权威于：Wind 指标 / 字段名词典 | 不覆盖：自然语言字段 `question` / `query`
 
 本表是 Wind 指标 / 字段名的**唯一权威词典**。凡入参需要填写指标 / 字段名的调用都以本表为准——
-最常见是 `*_price_indicators` 工具的 `indexes` 参数（股票 / 港美股 / 基金 / 指数共用同一份词典），
+最常见是 `*_price_indicators` 工具的 `indexes` 参数（股票 / 基金 / 指数共用同一份词典），
 但**不限于此**。每次构造这类参数都回本表逐字核对；表内没有的字段不要传，不要凭记忆或猜拼写。
 
 ## 怎么用
@@ -14,13 +14,9 @@
 4. 字段表里**没有**的概念 → 告诉用户"该指标不在 Wind 行情字段范围内",**不要猜名字**
 
 ```bash
-# A股
+# 股票（A 股、港股、美股共用同一工具）
 node scripts/cli.mjs call stock_data get_stock_price_indicators \
   '{"windcode":"600519.SH","indexes":"中文简称,最新成交价,涨跌幅,成交量,换手率,市盈率(TTM)"}'
-
-# 美股
-node scripts/cli.mjs call stock_data get_stock_price_indicators \
-  '{"windcode":"AAPL.O","indexes":"中文简称,最新成交价,涨跌幅,52周最高,52周最低"}'
 
 # 指数
 node scripts/cli.mjs call index_data get_index_price_indicators \
@@ -40,7 +36,7 @@ node scripts/cli.mjs call index_data get_index_price_indicators \
 ## ⚠️ 字段陷阱
 
 1. **必须照抄字面**:`市净率(LF)`、`涨跌`、`涨跌幅`、`5分钟涨跌幅`、`市盈率(TTM)`、`52周最高`、`基于Wind算法的量比`,**括号 / 全角字符 / 阿拉伯数字** 一字不差。
-2. **括号区分含义**:`市盈率(TTM)` / `市盈率(LYR)` / `市盈率(预测)` 是三个不同字段;`总市值1` / `总市值2` 同理(2 是含限售股的口径)。
+2. **括号与口径区分含义**:`市盈率(TTM)` / `市盈率(LYR)` / `市盈率(预测)` 是三个不同字段；`总市值1` 是不含限售股的流通口径，`总市值2` 是含限售股口径。用户只说“总市值”时必须先询问口径，不得默认。
 3. **极易混淆的同名变种**:`涨跌` (单位:元) ≠ `涨跌幅` (单位:%) ≠ `涨跌BP` (单位:bp,债券专用) ≠ `5分钟涨跌幅`。
 4. **schema 列了不代表后端实现了 / 不代表当前品种有数据**。遇到字段返空或报错,**不要在快照工具里反复试拼写**,直接切 NL 类工具兜底:
    - 多周期涨跌幅 / 历史走势 / 资金流时间序列 → `get_stock_technicals` / `get_index_technicals` (`{question}` 自然语言)
@@ -157,9 +153,9 @@ node scripts/cli.mjs call index_data get_index_price_indicators \
 
 | 字段 | 说明 |
 |---|---|
-| `总市值1` | 流通口径 |
+| `总市值1` | 总市值（不含限售股 / 流通口径） |
 | `流通市值` | |
-| `总市值2` | 含限售股口径 |
+| `总市值2` | 总市值（含限售股口径） |
 | `52周最高` `52周最低` | |
 
 ## 股息 / 涨跌停

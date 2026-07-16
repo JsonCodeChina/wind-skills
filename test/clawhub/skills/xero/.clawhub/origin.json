@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "xero",
+  "ownerHandle": "byungkyu",
+  "installedVersion": "1.0.5",
+  "installedAt": 1783927764464,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "b0c9fda06b7de61b6c8a01d6b7b1a2057ac10f477ac91ac0c2e8b99d4d157d89",
+    "integrity": "sha256-sMn9oGt95htsigHWt7GiBXrBD0d6yRrAwui5nU0VfYk="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "d8037cd45a4b146c7a21270a78adb56fecb7318c4ae846b7c7735984343b089f"
+  }
+}

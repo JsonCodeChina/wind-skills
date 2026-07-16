@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "mx-macro-data",
+  "ownerHandle": "financial-ai-analyst",
+  "installedVersion": "1.0.12",
+  "installedAt": 1783927744906,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "c94a80bb9be2a3a8f8eb620d8c553382943a3d59f83375b9248ddafdaaccf3c2",
+    "integrity": "sha256-yUqAu5vio6j462INjFUzgpQ6PVn4M3W5JI3a/arM88I="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "2a86e1520737b927ba488f81ace80420f894abc7ebf64df46a563dc5f4843497"
+  }
+}

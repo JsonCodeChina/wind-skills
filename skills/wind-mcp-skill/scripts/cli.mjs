@@ -6,13 +6,15 @@ import { join, dirname, basename, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 
-const SKILL_VERSION = '1.9.6';
+const SKILL_VERSION = '1.10.2';
+const DEFAULT_TOOL_CONCURRENCY = 1;
+const MAX_TOOL_CONCURRENCY = 10;
 
 // 本地 registry: 工具选择可在任何网络调用前失败
 const SERVERS = {
   stock_data: {
     endpoint: 'https://mcp.wind.com.cn/vserver_stock_data/mcp/',
-    label: 'Wind A股/港股/美股 股票（选股筛选 + 档案/财务/股本/事件/技术/风险 + 行情/K线/分钟）',
+    label: 'Wind 股票（选股筛选 + 档案/财务/股本/事件/技术/风险 + 行情/K线/分钟）',
   },
   fund_data: {
     endpoint: 'https://mcp.wind.com.cn/vserver_fund_data/mcp/',
@@ -58,10 +60,10 @@ const CALL_EXAMPLES = [
   `cli.mjs call fund_data search_funds '{"question":"筛选股票型基金中近一年收益率超20%的产品"}'`,
   `cli.mjs call stock_data get_stock_basicinfo '{"question":"600519.SH公司基本档案"}'`,
   `cli.mjs call stock_data get_stock_price_indicators '{"windcode":"600519.SH","indexes":"中文简称,最新成交价,涨跌幅"}'`,
-  `cli.mjs call fund_data get_fund_kline '{"windcode":"588200.SH","begin_date":"20260401","end_date":"20260430"}'`,
+  `cli.mjs call fund_data get_fund_kline '{"windcode":"588200.SH","begin_date":"2026-04-01","end_date":"2026-04-30"}'`,
   `cli.mjs call stock_data get_stock_quote '{"windcode":"AAPL.O"}'`,
-  `cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","begin_date":"20260401","end_date":"20260430"}'`,
-  `cli.mjs call financial_docs get_financial_news '{"query":"美联储利率政策","top_k":3}'`,
+  `cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","begin_date":"2026-04-01","end_date":"2026-04-30"}'`,
+  `cli.mjs call financial_docs get_financial_news '{"question":"美联储利率政策","top_k":3}'`,
   `cli.mjs call economic_data natural_language_get_edb_data '{"executionMode":"searchFetch","question":"中国GDP","observation":"10"}'`,
   `cli.mjs call analytics_data get_financial_data '{"question":"查询中国A股市场过去一年的平均成交量"}'`,
 ];
@@ -140,29 +142,156 @@ export { triggerUpdateCheck };
 
 // section: 工具函数
 
-// call 成功: 完整透传 MCP result, 不抽取; agent 自行 parse content[0].text
-function writeRawCallSuccess(result) {
-  process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+function normalizeSuccessPayload(value, path = '$', state = { warnings: [], tables: [], invalidPaths: [] }, dataCell = false) {
+  if (dataCell && value === 'INVALID') {
+    state.invalidPaths.push(path);
+    return null;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item, index) => normalizeSuccessPayload(item, `${path}[${index}]`, state, dataCell));
+  }
+  if (!value || typeof value !== 'object') return value;
+
+  const normalized = {};
+  for (const [key, item] of Object.entries(value)) {
+    const isStructuredDataArray = Array.isArray(item) && (key === 'rows' || key === 'value');
+    normalized[key] = normalizeSuccessPayload(item, `${path}.${key}`, state, dataCell || isStructuredDataArray);
+  }
+  if (Array.isArray(value.rows)) {
+    state.tables.push({ path, actual_row_count: value.rows.length });
+  }
+  if (Object.hasOwn(value, 'excelTotalCount')) {
+    state.warnings.push({
+      code: 'UNRELIABLE_DECLARED_COUNT',
+      path: `${path}.excelTotalCount`,
+      message: 'excelTotalCount 仅保留为后端原始字段，不得据此判断结果总数或完整性。',
+    });
+  }
+  return normalized;
+}
+
+// 保留 MCP result 外层兼容性；只清洗可解析的 JSON 文本并附加机器可读安全元数据。
+function normalizeCallSuccess(result, context = {}) {
+  const output = result && typeof result === 'object' ? structuredClone(result) : result;
+  const state = { warnings: [], tables: [], invalidPaths: [] };
+  if (output && Array.isArray(output.content)) {
+    for (const item of output.content) {
+      if (item?.type !== 'text' || typeof item.text !== 'string') continue;
+      try {
+        const parsed = JSON.parse(item.text);
+        item.text = JSON.stringify(normalizeSuccessPayload(parsed, '$', state));
+      } catch {
+        // 非 JSON 文本按后端原文透传。
+      }
+    }
+  }
+  if (state.invalidPaths.length) {
+    state.warnings.push({
+      code: 'BACKEND_INVALID_AS_NULL',
+      count: state.invalidPaths.length,
+      paths: state.invalidPaths.slice(0, 100),
+      truncated: state.invalidPaths.length > 100,
+      message: '结构化数据区中的后端字符串 INVALID 已转换为 null；表示缺失或不适用，禁止按 0 参与计算。',
+    });
+  }
+  if (output && typeof output === 'object') {
+    output.cli_meta = {
+      schema_version: '1.0',
+      server_type: context.server_type || null,
+      tool_name: context.tool_name || null,
+      completeness: state.warnings.some(warning => warning.code === 'UNRELIABLE_DECLARED_COUNT') ? 'unknown' : 'not_asserted',
+      tables: state.tables,
+      warnings: state.warnings,
+    };
+  }
+  return output;
+}
+
+function writeRawCallSuccess(result, context = {}) {
+  process.stdout.write(JSON.stringify(normalizeCallSuccess(result, context), null, 2) + '\n');
 }
 
 function writePlainSuccess(data) {
   process.stdout.write(JSON.stringify(data, null, 2) + '\n');
 }
 
-// 失败 envelope { ok:false, error:{code, agent_action} }; update 信号走 stderr 不进 stdout
-function writeErrorEnvelope(code, detail) {
+function loadParamsInput(paramsInput) {
+  if (!paramsInput.startsWith('@')) {
+    return { jsonText: paramsInput, source: 'inline' };
+  }
+
+  const fileArg = paramsInput.slice(1);
+  if (!fileArg) {
+    const error = new Error('@file 缺少文件路径');
+    error.code = 'PARAMS_FILE_ERROR';
+    error.file = fileArg;
+    throw error;
+  }
+
+  const filePath = resolve(process.cwd(), fileArg);
+  try {
+    const jsonText = readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '');
+    return { jsonText, source: 'file', filePath };
+  } catch (cause) {
+    const error = new Error(`无法读取 params 文件：${filePath} (${cause.code || cause.message})`);
+    error.code = 'PARAMS_FILE_ERROR';
+    error.file = filePath;
+    error.cause = cause;
+    throw error;
+  }
+}
+
+export { loadParamsInput };
+
+function defaultRetryPolicy(code) {
+  if (code === 'RATE_LIMIT_ERROR') return { allowed: true, mode: 'same_request_after_wait', max_attempts: 1, after_ms: 5000 };
+  if (code === 'CONCURRENCY_LIMIT_ERROR') return { allowed: true, mode: 'same_request_after_wait', max_attempts: 1, after_ms: 3000 };
+  if (code === 'TEMPORARILY_UNAVAILABLE' || code === 'NETWORK_ERROR') return { allowed: true, mode: 'same_request', max_attempts: 1 };
+  return { allowed: false, mode: 'after_correction', max_attempts: 0 };
+}
+
+function defaultCircuitBreaker(code) {
+  const trips = new Set(['MARKET_TARGET_NOT_FOUND', 'PARAMS_FILE_ERROR', 'PARAM_TYPE_ERROR', 'PARAM_VALIDATION_ERROR', 'PARAM_CONFLICT_ERROR', 'INVALID_PARAM_NAME', 'INVALID_PARAM_VALUE', 'CONCURRENCY_LIMIT_ERROR']);
+  return {
+    tripped: trips.has(code),
+    scope: trips.has(code) ? 'remaining_batch' : 'current_call',
+    action: trips.has(code) ? 'abort_remaining_calls' : 'none',
+  };
+}
+
+function defaultCorrection(code) {
+  if (code === 'CONCURRENCY_LIMIT_ERROR') {
+    return {
+      strategy: 'reduce_concurrency',
+      change_only: ['concurrency'],
+      recommended_concurrency: DEFAULT_TOOL_CONCURRENCY,
+      recommended_max_concurrency: MAX_TOOL_CONCURRENCY,
+      preserve_server_type: true,
+      preserve_tool_name: true,
+      preserve_params: true,
+    };
+  }
+  return {};
+}
+
+// 失败 envelope 保留 agent_action 向后兼容，同时提供机器可读的诊断与重试策略。
+function writeErrorEnvelope(code, detail, metadata = {}) {
   const envelope = {
     ok: false,
     error: {
       code,
+      details: metadata.details || (detail ? { message: String(detail).slice(0, 500) } : {}),
+      retry: metadata.retry || defaultRetryPolicy(code),
+      circuit_breaker: metadata.circuit_breaker || defaultCircuitBreaker(code),
+      correction: metadata.correction || defaultCorrection(code),
       agent_action: buildAgentAction(code, detail),
     },
   };
   process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
 }
 
-function die(code, detail = null, exitCode = 1) {
-  writeErrorEnvelope(code, detail);
+function die(code, detail = null, exitCode = 1, metadata = {}) {
+  writeErrorEnvelope(code, detail, metadata);
   process.exit(exitCode);
 }
 
@@ -200,7 +329,11 @@ function parseDotenv(content) {
 function getServer(server_type) {
   const server = SERVERS[server_type];
   if (!server) {
-    die('ROUTE_ERROR', `未知 server_type: ${server_type}. 可用: ${Object.keys(SERVERS).join(' / ')}`);
+    die('ROUTE_ERROR', `未知 server_type: ${server_type}. 可用: ${Object.keys(SERVERS).join(' / ')}`, 1, {
+      details: { field: 'server_type', issue: 'invalid_enum', actual: server_type, allowed_values: Object.keys(SERVERS) },
+      retry: { allowed: true, mode: 'after_correction', max_attempts: 1 },
+      correction: { change_only: ['server_type'] },
+    });
   }
   return server;
 }
@@ -236,7 +369,11 @@ function validateToolSelection(server_type, toolName) {
   const manifest = loadToolManifest();
   const tools = manifest[server_type];
   if (!tools.includes(toolName)) {
-    die('ROUTE_ERROR', `工具名 "${toolName}" 不属于 server_type "${server_type}"。`);
+    die('ROUTE_ERROR', `工具名 "${toolName}" 不属于 server_type "${server_type}"。`, 1, {
+      details: { field: 'tool_name', issue: 'invalid_enum', actual: toolName, server_type, allowed_values: tools },
+      retry: { allowed: true, mode: 'after_correction', max_attempts: 1 },
+      correction: { change_only: ['tool_name'], preserve_server_type: true },
+    });
   }
 }
 
@@ -251,6 +388,10 @@ const EDB_EXECUTION_MODE_ALIASES = new Map([
 function readNormalizationRules() {
   const rules = JSON.parse(readFileSync(NORMALIZATION_RULES_PATH, 'utf8'));
   return {
+    dateNormalization: rules.date_normalization || {},
+    langAliases: new Map(Object.entries(rules.lang_aliases || {})),
+    langBackendValuesByTool: rules.lang_backend_values_by_tool || {},
+    parameterMappingsByTool: rules.parameter_mappings_by_tool || {},
     klinePeriods: new Set(rules.kline_periods || []),
     periodAliases: new Map(Object.entries(rules.period_aliases || {})),
     indicatorAliases: new Map(Object.entries(rules.indicator_aliases || {})),
@@ -261,6 +402,10 @@ function readNormalizationRules() {
 }
 
 const NORMALIZATION_RULES = readNormalizationRules();
+const DATE_NORMALIZATION = NORMALIZATION_RULES.dateNormalization;
+const LANG_ALIASES = NORMALIZATION_RULES.langAliases;
+const LANG_BACKEND_VALUES_BY_TOOL = NORMALIZATION_RULES.langBackendValuesByTool;
+const PARAMETER_MAPPINGS_BY_TOOL = NORMALIZATION_RULES.parameterMappingsByTool;
 const KLINE_PERIODS = NORMALIZATION_RULES.klinePeriods;
 const PERIOD_ALIASES = NORMALIZATION_RULES.periodAliases;
 const INDICATOR_ALIASES = NORMALIZATION_RULES.indicatorAliases;
@@ -290,6 +435,84 @@ function isValidBasicDate(value) {
   const d = Number(value.slice(6, 8));
   const dt = new Date(Date.UTC(y, m - 1, d));
   return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+
+const NORMALIZABLE_DATE_KEYS = new Set(['begin_date', 'end_date', 'begin', 'end', 'beginDate', 'endDate', 'date', 'tradeDate', 'afdate']);
+
+function normalizeDateValue(value, toolName, field) {
+  if (typeof value !== 'string') return { value, error: null };
+  const trimmed = value.trim();
+  const upper = trimmed.toUpperCase();
+  const specialValues = DATE_NORMALIZATION.special_values_by_tool?.[toolName] || [];
+  if (specialValues.includes(upper)) return { value: upper, error: null };
+  const matched = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const backendValue = matched ? `${matched[1]}${matched[2]}${matched[3]}` : trimmed;
+  if (!matched || !isValidBasicDate(backendValue)) {
+    return {
+      value: backendValue,
+      error: {
+        code: 'INVALID_PARAM_VALUE',
+        message: `字段 '${field}' 日期格式错误，对外统一要求 yyyy-MM-dd`,
+        field,
+        issue: 'invalid_format',
+        actual: value,
+        expected_format: 'yyyy-MM-dd',
+        accepted_input_formats: ['yyyy-MM-dd'],
+        allowed_special_values: specialValues,
+        example: '2026-07-08',
+      },
+    };
+  }
+  return { value: backendValue, error: null };
+}
+
+function normalizeLangValue(value, toolName) {
+  if (typeof value !== 'string') return { value, error: null };
+  const trimmed = value.trim();
+  const canonical = LANG_ALIASES.get(trimmed.toLowerCase());
+  if (!canonical) {
+    return {
+      value: trimmed,
+      error: {
+        code: 'INVALID_PARAM_VALUE',
+        message: `字段 'lang' 取值 '${trimmed}' 不合法`,
+        field: 'lang',
+        issue: 'invalid_enum',
+        actual: trimmed,
+        allowed_values: ['中文', 'English'],
+        accepted_aliases: [...LANG_ALIASES.keys()],
+      },
+    };
+  }
+  return { value: LANG_BACKEND_VALUES_BY_TOOL[toolName]?.[canonical] || canonical, error: null };
+}
+
+function applyToolParameterMappings(toolName, args) {
+  const normalizedArgs = { ...args };
+  const errors = [];
+  for (const key of NORMALIZABLE_DATE_KEYS) {
+    if (!(key in normalizedArgs)) continue;
+    const normalizedDate = normalizeDateValue(normalizedArgs[key], toolName, key);
+    normalizedArgs[key] = normalizedDate.value;
+    if (normalizedDate.error) errors.push(normalizedDate.error);
+  }
+  for (const [canonicalKey, backendKey] of Object.entries(PARAMETER_MAPPINGS_BY_TOOL[toolName] || {})) {
+    if (!(canonicalKey in normalizedArgs)) continue;
+    if (backendKey in normalizedArgs && normalizedArgs[backendKey] !== normalizedArgs[canonicalKey]) {
+      errors.push({
+        code: 'PARAM_CONFLICT_ERROR',
+        message: `同义字段 '${canonicalKey}' 和 '${backendKey}' 的值不一致`,
+        fields: [canonicalKey, backendKey],
+        issue: 'conflicting_aliases',
+        actual_values: { [canonicalKey]: normalizedArgs[canonicalKey], [backendKey]: normalizedArgs[backendKey] },
+        expected: '只保留一个字段，或为两个字段传入相同值',
+      });
+      continue;
+    }
+    normalizedArgs[backendKey] = normalizedArgs[canonicalKey];
+    if (canonicalKey !== backendKey) delete normalizedArgs[canonicalKey];
+  }
+  return { args: normalizedArgs, errors };
 }
 
 function normalizeIndicatorKey(value) {
@@ -325,12 +548,20 @@ function toolFamily(toolName) {
 }
 
 function normalizeCall(server_type, toolName, args) {
-  const originalToolName = toolName;
   const legacyTool = LEGACY_TOOL_ALIASES.get(toolName);
   if (legacyTool) [server_type, toolName] = legacyTool;
-  const normalizedArgs = { ...args };
+  const family = toolFamily(toolName);
+  if (family) toolName = TOOL_BY_DOMAIN[family]?.[server_type] || toolName;
+  const mapped = applyToolParameterMappings(toolName, args);
+  const normalizedArgs = mapped.args;
+  const normalizationErrors = [...mapped.errors];
   if (toolName === 'natural_language_get_edb_data' && typeof normalizedArgs.executionMode === 'string') {
     normalizedArgs.executionMode = EDB_EXECUTION_MODE_ALIASES.get(normalizedArgs.executionMode) || normalizedArgs.executionMode;
+  }
+  if ('lang' in normalizedArgs) {
+    const normalizedLang = normalizeLangValue(normalizedArgs.lang, toolName);
+    normalizedArgs.lang = normalizedLang.value;
+    if (normalizedLang.error) normalizationErrors.push(normalizedLang.error);
   }
   if (typeof normalizedArgs.indexes === 'string') normalizedArgs.indexes = normalizeIndexes(normalizedArgs.indexes);
   if (typeof normalizedArgs.windcode === 'string') normalizedArgs.windcode = normalizeWindcode(normalizedArgs.windcode);
@@ -338,45 +569,35 @@ function normalizeCall(server_type, toolName, args) {
     const key = normalizedArgs.period.trim().toLowerCase();
     normalizedArgs.period = PERIOD_ALIASES.get(key) || normalizedArgs.period.trim();
   }
-  const family = toolFamily(toolName);
-  if (family) {
-    toolName = TOOL_BY_DOMAIN[family]?.[server_type] || toolName;
-  }
-  return { server_type, toolName, args: normalizedArgs };
+  return { server_type, toolName, args: normalizedArgs, normalizationErrors };
 }
 
-function validateBasicParams(params) {
+function validateBasicParams(params, toolName) {
   const errors = [];
   if (!params || typeof params !== 'object' || Array.isArray(params)) {
-    return ['params 必须是 JSON object'];
+    return [{
+      code: 'PARAM_TYPE_ERROR',
+      message: 'params 必须是 JSON object',
+      field: 'params',
+      issue: 'invalid_type',
+      expected_type: 'object',
+      actual_type: Array.isArray(params) ? 'array' : typeof params,
+    }];
   }
 
   const basic = TOOL_VALIDATION_RULES.basic;
   for (const key of basic.string_keys || []) {
     if (!(key in params)) continue;
     if (typeof params[key] !== 'string') {
-      errors.push(`字段 '${key}' 必须是字符串`);
+      errors.push({ message: `字段 '${key}' 必须是字符串`, field: key, issue: 'invalid_type', expected_type: 'string', actual_type: Array.isArray(params[key]) ? 'array' : typeof params[key] });
     } else if (params[key].trim().length === 0) {
-      errors.push(`字段 '${key}' 不能为空或全空白`);
+      errors.push({ message: `字段 '${key}' 不能为空或全空白`, field: key, issue: 'empty_value', expected: 'non-empty string' });
     }
   }
 
   for (const key of basic.no_whitespace_keys || []) {
     if (typeof params[key] === 'string' && /\s/.test(params[key])) {
-      errors.push(`字段 '${key}' 不得含空格或其它空白字符`);
-    }
-  }
-
-  for (const key of basic.single_target_keys || []) {
-    if (typeof params[key] === 'string' && params[key].includes(',')) {
-      errors.push(`字段 '${key}' 只允许单个标的，禁止逗号拼接多代码`);
-    }
-  }
-
-  for (const key of basic.date_keys || []) {
-    if (!(key in params)) continue;
-    if (typeof params[key] === 'string' && !isValidBasicDate(params[key])) {
-      errors.push(`字段 '${key}' 日期格式错误，要求 yyyyMMdd`);
+      errors.push({ message: `字段 '${key}' 不得含空格或其它空白字符`, field: key, issue: 'invalid_format', expected_format: 'no whitespace' });
     }
   }
 
@@ -431,39 +652,39 @@ function validateToolParams(toolName, params) {
     if (Array.isArray(rule.allowed)) {
       const allowedKeys = new Set(rule.allowed);
       for (const key of Object.keys(params)) {
-        if (!allowedKeys.has(key)) errors.push(`${ruleLabel} 工具不支持字段 '${key}'`);
+        if (!allowedKeys.has(key)) errors.push({ message: `${ruleLabel} 工具不支持字段 '${key}'`, field: key, issue: 'unknown_field', allowed_fields: [...allowedKeys] });
       }
     }
 
     for (const key of rule.required || []) {
-      if (!hasParamValue(params, key)) errors.push(`${ruleLabel} 工具缺少必填字段 '${key}'`);
+      if (!hasParamValue(params, key)) errors.push({ message: `${ruleLabel} 工具缺少必填字段 '${key}'`, field: key, issue: 'missing_required', required_fields: rule.required || [] });
     }
 
     for (const [field, fieldRule] of Object.entries(rule.enum_fields || {})) {
       if (!(field in params)) continue;
       const values = resolveValidationValues(fieldRule);
       if (!values.includes(String(params[field]))) {
-        errors.push(renderValidationMessage(fieldRule.message, values));
+        errors.push({ message: renderValidationMessage(fieldRule.message, values), field, issue: 'invalid_enum', actual: params[field], allowed_values: values });
       }
     }
 
     for (const fields of rule.paired || []) {
       const present = fields.filter(key => hasParamValue(params, key));
       if (present.length > 0 && present.length < fields.length) {
-        errors.push(`字段 '${fields.join("' 和 '")}' 应成对填写`);
+        errors.push({ message: `字段 '${fields.join("' 和 '")}' 应成对填写`, fields, issue: 'incomplete_pair', expected_fields: fields });
       }
     }
 
     for (const fields of rule.mutually_exclusive || []) {
       const present = fields.filter(key => hasParamValue(params, key));
       if (present.length > 1) {
-        errors.push(`字段 '${fields.join('/')}' 互斥，不应同时填写`);
+        errors.push({ message: `字段 '${fields.join('/')}' 互斥，不应同时填写`, fields, issue: 'mutually_exclusive' });
       }
     }
 
     for (const [startKey, endKey] of rule.ordered_dates || []) {
       if (params[startKey] && params[endKey] && params[startKey] > params[endKey]) {
-        errors.push(`字段 '${startKey}' 不能晚于 '${endKey}'`);
+        errors.push({ message: `字段 '${startKey}' 不能晚于 '${endKey}'`, fields: [startKey, endKey], issue: 'invalid_order', expected: `${startKey} <= ${endKey}` });
       }
     }
 
@@ -471,18 +692,20 @@ function validateToolParams(toolName, params) {
       if (!(field in params)) continue;
       const pattern = new RegExp(patternRule.pattern);
       if (!pattern.test(String(params[field]))) {
-        errors.push(patternRule.message || `字段 '${field}' 格式不合法`);
+        errors.push({ message: patternRule.message || `字段 '${field}' 格式不合法`, field, issue: 'invalid_format', actual: params[field], expected_pattern: patternRule.pattern });
       }
     }
 
     for (const conditional of rule.required_one_of_when || []) {
       if (!conditional.values?.map(String).includes(String(params[conditional.field]))) continue;
       const satisfied = conditional.one_of?.some(group => group.every(key => hasParamValue(params, key)));
-      if (!satisfied) errors.push(conditional.message || `字段 '${conditional.field}' 当前取值缺少配套参数`);
+      if (!satisfied) errors.push({ message: conditional.message || `字段 '${conditional.field}' 当前取值缺少配套参数`, field: conditional.field, issue: 'missing_conditional_fields', one_of: conditional.one_of });
     }
   }
   return errors;
 }
+
+export { normalizeCall, normalizeCallSuccess, validateBasicParams, validateToolParams };
 
 // ───── 认证 ─────
 
@@ -521,7 +744,10 @@ const ERROR_PATTERNS = [
   ['PERIOD_PARSE_ERROR', /srv_internal_error|For input string:\s*\\?["\x27]?(?:day|daily|monthly|week|weekly|month|D|M|W)\\?["\x27]?/i, 'K 线周期值无法解析。'],
   ['INVALID_PARAM_VALUE', /invalid_param_value|Invalid value .* for field|参数值.*不合法|参数值错误/i, '后端参数值错误。'],
   ['INVALID_PARAM_NAME', /invalid_param_name|缺少必填参数|missing required/i, '后端参数名错误。'],
-  ['QUOTA_ERROR', /单日请求次数超限|daily.*limit|余额不足|请先充值|insufficient.*balance|请求过于频繁|qps.*limit|too.*frequent/i, '额度/限流错误。等待额度刷新、换备用 Key 或充值后原样重试。'],
+  ['DAILY_LIMIT_ERROR', /单日请求次数超限|daily.*(?:request|quota)?.*limit|daily.*limit.*exceed/i, '单日请求次数已超限。'],
+  ['BALANCE_ERROR', /余额不足|请先充值|insufficient.*balance/i, '账户余额不足。'],
+  ['CONCURRENCY_LIMIT_ERROR', /当前工具并发请求数量超限|并发(?:请求)?(?:数量)?(?:超限|过多)|concurren(?:cy|t).*(?:limit|exceed|too many)/i, '工具并发请求数量超限。'],
+  ['RATE_LIMIT_ERROR', /请求过于频繁|qps.*limit|too.*frequent|rate.*limit/i, 'QPS 限流。'],
   ['AUTH_ERROR', /密钥无效|key.*invalid|unauthorized|认证失败|auth.*fail/i, '认证/权限错误。按 Key 机制修复后原样重试。'],
   ['NO_RESULTS', /未获取到数据|"NO_RESULTS"|no\s*results?|not\s*found|empty\s*result/i, '未获取到匹配数据。先在不改变用户意图的前提下调整关键词或参数。'],
   ['PARAM_VALIDATION_ERROR', /参数验证失败|参数.*(错误|非法|无效)|字段.*(不存在|不识别|不支持|非法)|invalid\s*(param|argument|field)|missing\s*(param|argument|field|required)/i, '后端参数验证失败。先按 SKILL.md 工具表核对字段名、必填项、日期格式和枚举值后重试。'],
@@ -606,7 +832,7 @@ function parseSSE(text) {
 
 const HTTP_ERROR_MAP = {
   401: ['AUTH_ERROR', 'API Key 无效或过期'],
-  429: ['QUOTA_ERROR', '请求过于频繁'],
+  429: ['RATE_LIMIT_ERROR', '请求过于频繁'],
   500: ['NETWORK_ERROR', '服务端异常'],
   502: ['NETWORK_ERROR', '网关异常'],
   503: ['NETWORK_ERROR', '服务暂不可用'],
@@ -614,7 +840,8 @@ const HTTP_ERROR_MAP = {
 };
 
 async function mcpRequest(server_type, method, params, {
-  timeoutMs = 60_000
+  timeoutMs = 60_000,
+  diagnosticContext = null,
 } = {}) {
   const server = getServer(server_type);
   const apiKey = getApiKey();
@@ -630,6 +857,42 @@ async function mcpRequest(server_type, method, params, {
     method,
     params
   });
+  const dieMcp = (code, detail) => {
+    if (code !== 'MARKET_TARGET_NOT_FOUND') {
+      const backendMessage = String(detail || '').replace(/\s*\(server=[^)]+\)\s*$/, '').slice(0, 2000);
+      const callArguments = params?.arguments && typeof params.arguments === 'object' ? params.arguments : null;
+      die(code, detail, 1, {
+        details: {
+          server_type,
+          tool_name: params?.name || null,
+          backend_message: backendMessage,
+          original_params: callArguments,
+        },
+      });
+    }
+    const originalInput = diagnosticContext?.original_input ?? params?.arguments?.windcode ?? null;
+    const attemptedInput = diagnosticContext?.normalized_input ?? params?.arguments?.windcode ?? null;
+    die(code, detail, 1, {
+      details: {
+        message: String(detail || '').slice(0, 500),
+        field: 'windcode',
+        issue: 'instrument_not_resolved',
+        original_input: originalInput,
+        normalized_input: attemptedInput,
+        attempted_inputs: attemptedInput == null ? [] : [attemptedInput],
+        candidates: [],
+      },
+      retry: { allowed: false, mode: 'after_user_correction', max_attempts: 0 },
+      circuit_breaker: { tripped: true, scope: 'remaining_batch', action: 'abort_remaining_calls' },
+      correction: {
+        required: ['instrument_full_name_or_windcode'],
+        requires_user_input: true,
+        user_prompt: '请提供该标的的准确全称或 Wind 标准代码。',
+        preserve_server_type: true,
+        preserve_tool_name: true,
+      },
+    });
+  };
   let resp;
   try {
     resp = await fetch(server.endpoint, {
@@ -659,12 +922,12 @@ async function mcpRequest(server_type, method, params, {
 
   if (payload.error) {
     const msg = payload.error.message || JSON.stringify(payload.error);
-    die(inferErrorCode(msg), `${msg} (server=${server_type})`);
+    dieMcp(inferErrorCode(msg), `${msg} (server=${server_type})`);
   }
 
   if (payload.result?.isError) {
     const msg = payload.result.content?.[0]?.text || JSON.stringify(payload.result);
-    die(inferErrorCode(msg), `${msg} (server=${server_type})`);
+    dieMcp(inferErrorCode(msg), `${msg} (server=${server_type})`);
   }
 
   // 部分工具把业务错误包在 content[0].text 的 JSON 字符串里, 必须二次解析
@@ -679,18 +942,18 @@ async function mcpRequest(server_type, method, params, {
     if (inner) {
       if (typeof inner.mcp_tool_error_code === 'number' && inner.mcp_tool_error_code !== 0) {
         const msg = inner.mcp_tool_error_msg || JSON.stringify(inner);
-        die(inferErrorCode(msg), `${msg} (server=${server_type})`);
+        dieMcp(inferErrorCode(msg), `${msg} (server=${server_type})`);
       }
       if (inner.error && (inner.error.code || inner.error.message)) {
         const errCode = inner.error.code || '';
         const errMsg = inner.error.message || '';
         const combined = errCode ? `${errCode}: ${errMsg}` : errMsg;
-        die(inferErrorCode(combined), `${combined} (server=${server_type})`);
+        dieMcp(inferErrorCode(combined), `${combined} (server=${server_type})`);
       }
       const businessError = inferBusinessErrorCode(inner, server_type);
       if (businessError) {
         const [code, msg] = businessError;
-        die(code, `${msg} (server=${server_type})`);
+        dieMcp(code, `${msg} (server=${server_type})`);
       }
     }
   }
@@ -698,7 +961,7 @@ async function mcpRequest(server_type, method, params, {
   return payload.result;
 }
 
-async function mcpInitializeAndCall(server_type, method, params) {
+async function mcpInitializeAndCall(server_type, method, params, diagnosticContext = null) {
   await mcpRequest(server_type, 'initialize', {
     protocolVersion: '2025-03-26',
     capabilities: {},
@@ -711,45 +974,99 @@ async function mcpInitializeAndCall(server_type, method, params) {
   });
 
   return mcpRequest(server_type, method, params, {
-    timeoutMs: 600_000
+    timeoutMs: 600_000,
+    diagnosticContext,
   });
 }
 
 // section: 命令
 
-async function cmdCall(server_type, toolName, paramsJson) {
-  if (!server_type || !toolName || !paramsJson) {
+async function cmdCall(server_type, toolName, paramsInput) {
+  if (!server_type || !toolName || !paramsInput) {
     exitWithUsage(
-      `用法：call <server_type> <tool_name> '<params_json>'\n` +
+      `用法：call <server_type> <tool_name> '<params_json>|@params_file'\n` +
       `可用 server_type: ${Object.keys(SERVERS).join(' / ')}\n` +
       `典型：\n  ${CALL_EXAMPLES.join('\n  ')}`,
       1,
     );
   }
 
-  let args;
+  let paramsSource;
   try {
-    args = JSON.parse(paramsJson);
+    paramsSource = loadParamsInput(paramsInput);
   } catch (e) {
-    die('INVALID_PARAMS_JSON', `params JSON 解析失败：${e.message} | 原文：${paramsJson.slice(0, 200)}`);
+    die('PARAMS_FILE_ERROR', e.message, 1, {
+      details: { field: 'params', issue: 'file_read_error', source: 'file', file: e.file || null },
+      retry: { allowed: true, mode: 'after_correction', max_attempts: 1 },
+      circuit_breaker: { tripped: true, scope: 'remaining_batch', action: 'abort_remaining_calls' },
+      correction: { change_only: ['params_file'], strategy: 'fix_file_path_or_permissions', requires_user_input: false, preserve_server_type: true, preserve_tool_name: true },
+    });
   }
 
-  ({ server_type, toolName, args } = normalizeCall(server_type, toolName, args));
+  let args;
+  try {
+    args = JSON.parse(paramsSource.jsonText);
+  } catch (e) {
+    const sourceDetail = paramsSource.source === 'file'
+      ? `文件：${paramsSource.filePath}`
+      : `原文：${paramsSource.jsonText.slice(0, 200)}`;
+    die('INVALID_PARAMS_JSON', `params JSON 解析失败：${e.message} | ${sourceDetail}`, 1, {
+      details: {
+        field: 'params',
+        issue: 'invalid_json',
+        source: paramsSource.source,
+        ...(paramsSource.filePath ? { file: paramsSource.filePath } : {}),
+        message: e.message,
+      },
+      retry: { allowed: true, mode: 'after_correction', max_attempts: 1 },
+      circuit_breaker: { tripped: true, scope: 'remaining_batch', action: 'abort_remaining_calls' },
+      correction: { change_only: [paramsSource.source === 'file' ? 'params_file_content' : 'params_json'], strategy: 'fix_json_syntax', requires_user_input: false, preserve_server_type: true, preserve_tool_name: true },
+    });
+  }
+
+  if (!args || typeof args !== 'object' || Array.isArray(args)) {
+    const actualType = Array.isArray(args) ? 'array' : typeof args;
+    die('PARAM_TYPE_ERROR', 'params 必须是 JSON object', 1, {
+      details: [{ field: 'params', issue: 'invalid_type', expected_type: 'object', actual_type: actualType }],
+      retry: { allowed: true, mode: 'after_correction', max_attempts: 1 },
+      circuit_breaker: { tripped: true, scope: 'remaining_batch', action: 'abort_remaining_calls' },
+      correction: { change_only: ['params'], strategy: 'fix_from_error_details', requires_user_input: false, preserve_server_type: true, preserve_tool_name: true },
+    });
+  }
+
+  const originalArgs = args && typeof args === 'object' && !Array.isArray(args) ? { ...args } : args;
+  let normalizationErrors;
+  ({ server_type, toolName, args, normalizationErrors } = normalizeCall(server_type, toolName, args));
   validateToolSelection(server_type, toolName);
 
-  const validationErrors = validateBasicParams(args);
-  validationErrors.push(...validateToolParams(toolName, args));
+  const validationErrors = [...normalizationErrors, ...validateBasicParams(args, toolName)];
+  const paramsShapeInvalid = validationErrors.some(error => validationErrorCode(error) === 'PARAM_TYPE_ERROR' && error.field === 'params');
+  if (!paramsShapeInvalid) validationErrors.push(...validateToolParams(toolName, args));
   if (validationErrors.length > 0) {
     const explicitCode = validationErrors.map(validationErrorCode).find(Boolean);
     const messages = validationErrors.map(validationErrorMessage);
-    const hasTypeError = messages.some((message) => message.includes('必须是字符串'));
-    die(explicitCode || (hasTypeError ? 'PARAM_TYPE_ERROR' : 'PARAM_VALIDATION_ERROR'), messages.join('；'));
+    const hasTypeError = validationErrors.some(error => typeof error === 'object' && error?.issue === 'invalid_type');
+    die(explicitCode || (hasTypeError ? 'PARAM_TYPE_ERROR' : 'PARAM_VALIDATION_ERROR'), messages.join('；'), 1, {
+      details: validationErrors.map(error => typeof error === 'string' ? { message: error } : { ...error, code: undefined, message: undefined }),
+      retry: { allowed: true, mode: 'after_correction', max_attempts: 1 },
+      circuit_breaker: { tripped: true, scope: 'remaining_batch', action: 'abort_remaining_calls' },
+      correction: {
+        change_only: [...new Set(validationErrors.flatMap(error => error?.field ? [error.field] : error?.fields || []))],
+        strategy: 'fix_from_error_details',
+        requires_user_input: validationErrors.some(error => ['ambiguous_value', 'conflicting_aliases'].includes(error?.issue)),
+        preserve_server_type: true,
+        preserve_tool_name: true,
+      },
+    });
   }
 
   const result = await mcpInitializeAndCall(server_type, 'tools/call', {
     name: toolName,
     arguments: args,
     _meta: { clientVersion: SKILL_VERSION },
+  }, {
+    original_input: originalArgs && typeof originalArgs === 'object' ? originalArgs.windcode : null,
+    normalized_input: args && typeof args === 'object' ? args.windcode : null,
   });
   return {
     server_type,
@@ -903,7 +1220,7 @@ const USAGE =
   `wind-mcp-skill\n` +
   `访问万得 Wind 金融数据（按数据域分类调用）\n\n` +
   `用法:\n` +
-  `  cli.mjs call <server_type> <tool_name> '<params_json>'\n` +
+  `  cli.mjs call <server_type> <tool_name> '<params_json>|@params_file'\n` +
   `  cli.mjs open-portal                                # 打开万得开发者中心拿 API Key\n` +
   `  cli.mjs setup-key <KEY> --scope <global|skill>     # 配置 API Key（先问用户存放位置）\n\n` +
   `可用 server_type:\n` +
@@ -932,7 +1249,7 @@ commands[cmd]()
   .then((data) => {
     if (cmd === 'call') {
       // call: 透传 result 内容 (parse JSON if applicable, else raw text)
-      writeRawCallSuccess(data?.result);
+      writeRawCallSuccess(data?.result, { server_type: data?.server_type, tool_name: data?.tool });
       setTimeout(triggerUpdateCheck, 0);
     } else {
       // open-portal / setup-key: 直接输出结构化数据 (无 envelope 包裹)

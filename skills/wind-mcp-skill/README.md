@@ -1,6 +1,6 @@
 # wind-mcp-skill
 
-> **访问万得 Wind 金融数据** · A股 / 港股 / 美股 / 基金 / 指数 / 债券 / 公告 / 新闻 / 宏观经济
+> **访问万得 Wind 金融数据** · 股票 / 基金 / 指数 / 债券 / 公告 / 新闻 / 宏观经济
 
 ---
 
@@ -8,7 +8,7 @@
  
 通过 MCP 协议访问万得 Wind 金融数据库，给 AI Agent 提供：
 
-- A股 / 港股 / 美股股票筛选 + 行情（最新价 / K 线 / 分钟）+ 财务基本面（档案 / 财报 / 股本 / 事件 / 技术指标 / 风险）
+- 股票筛选 + 行情（最新价 / K 线 / 分钟）+ 财务基本面（档案 / 财报 / 股本 / 事件 / 技术指标 / 风险）
 - ETF / 公募基金筛选 + 行情 + 全维数据（档案 / 财务 / 持仓 / 业绩 / 持有人 / 管理公司）
 - 指数 / 板块行情 + 档案 / 基本面（成份股加权 PE / PB / PS）/ 技术指标
 - 债券基本档案 / 发债主体 / 行情估值（久期 / 凸性 / 利差）/ 主体财务
@@ -16,7 +16,7 @@
 - 宏观经济 / 行业经济指标（EDB）
 - 自然语言通用查询入口（仅在专项能力无法覆盖时兜底，覆盖更广泛的 Wind 数据库）
 
-**不包含**：欧股 / 日股 / 其它非中概非美股、汇率 / 期货盘口、加密货币、非金融数据。
+**不包含**：欧股 / 日股 / 其它非中概非美股、期货盘口、加密货币、非金融数据。
 
 ---
 
@@ -55,9 +55,8 @@ node scripts/cli.mjs open-portal
 - `analytics_data` 只是兜底入口；公告 / 新闻、宏观、行情、财务基本面等明确意图应优先走对应 `server_type`。
 - `references/tool-manifest.json` 是 CLI 校验 `server_type + tool_name` 的权威清单；错误组合会在真正调用后端前被本地拒绝。
 - Windows PowerShell 5.x 中 JSON 转义容易导致 `INVALID_PARAMS_JSON`。如果遇到该错误，请优先看 [SKILL.md](./SKILL.md) 里的 Shell 转义说明。
-- K 线工具必须同时传 `begin_date` / `end_date`；分钟级行情工具字段名是 `begin` / `end`。
+- K 线和分钟行情对外统一传 `begin_date` / `end_date`，日期值必须是 ISO 8601 `yyyy-MM-dd`；CLI 在后端调用边界转换字段名和紧凑日期格式。
 - 行情类 `indexes` 建议从 [references/indicators.md](./references/indicators.md) 复制表内字段名。
-- 单次工具调用只支持单标的；多标的对比需要拆成多次调用。
 - Codex 沙箱中调用 Wind 后端联网时，需要使用 `require_escalated`。
 
 ---

@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "a-stock-analysis",
+  "ownerHandle": "cnyezi",
+  "installedVersion": "1.0.0",
+  "installedAt": 1783927679789,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "83d9613e272d69d9c868bb0944fb7dd57bf7187e505d020a93458a9556445a78",
+    "integrity": "sha256-g9lhPictadnIaLsJRPt91Xv3GH5QXQIKk0WKlVZEWng="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "95986e4e69e0510fa4a0321ea6d4b27336ce2041128ae464b12fc43a13866ea9"
+  }
+}

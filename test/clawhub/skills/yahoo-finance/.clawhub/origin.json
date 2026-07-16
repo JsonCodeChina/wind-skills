@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "yahoo-finance",
+  "ownerHandle": "ajanraj",
+  "installedVersion": "1.0.0",
+  "installedAt": 1783920834253,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "64c8e46c51eb2074e67fe3ba6cf1cb49b8ab3dc751dd7b5c07c86a08cd8e2530",
+    "integrity": "sha256-ZMjkbFHrIHTmf+O6bPHLSbirPcdR3XtcB8hqCM2OJTA="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "ee459f2b634cf904b14826fa7920b2e5f8d93648219399a67275fa1b9989fdfe"
+  }
+}

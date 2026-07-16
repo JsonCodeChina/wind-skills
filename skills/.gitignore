@@ -1,0 +1,16 @@
+# Wind MCP 工具导出文件
+wind_mcp_tools.json
+wind_mcp_tools.csv
+wind_mcp_tools.xlsx
+
+# 压缩包
+*.zip
+
+# 反馈目录
+wind-mcp-feedback-*/
+
+# 打包目录
+skills-zipped/
+
+# 技能管理状态文件
+**/update-state.json

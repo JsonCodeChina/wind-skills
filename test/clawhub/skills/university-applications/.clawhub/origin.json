@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "university-applications",
+  "ownerHandle": "wscats",
+  "installedVersion": "1.2.10",
+  "installedAt": 1783920849288,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "3fd84f69df840d1bdd070193a0115113ae9fefe344168a173e3c4954eb402d66",
+    "integrity": "sha256-P9hPad+EDRvdBwGToBFRE66f7+NEFooXPjxJVOtALWY="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "8b5572d47819a3a87b36fe77e80b225f0d3f1a7bb2d8f7ea393c4d4ab4ecccbf"
+  }
+}

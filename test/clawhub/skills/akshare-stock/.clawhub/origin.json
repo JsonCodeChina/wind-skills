@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "akshare-stock",
+  "ownerHandle": "mbpz",
+  "installedVersion": "1.0.1",
+  "installedAt": 1783923486119,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "bdae25c633766a7ec483ee08e3468ebed78cd7e8ec6bd25a7464b36adf2f3e3d",
+    "integrity": "sha256-va4lxjN2an7Eg+4I40aOvteM1+jsa9JadGSzat8vPj0="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "eaf0dfd766c0fef85f37c06f4856f1f0addb943716ddad0b7141d2fa1986d503"
+  }
+}

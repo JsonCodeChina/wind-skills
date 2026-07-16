@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "woocommerce",
+  "ownerHandle": "byungkyu",
+  "installedVersion": "1.0.5",
+  "installedAt": 1783927691597,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "9de341ac3ddfa9c42d8c7a8e26449ee935ff77f28f2341760ca1af4ccb0aad01",
+    "integrity": "sha256-neNBrD3fqcQtjHqOJkSe6TX/d/KPI0F2DKGvTMsKrQE="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "a5cd826794f44a639cdd045f18b834ee7dc0ebf59371556e5e2f7759bae2678a"
+  }
+}

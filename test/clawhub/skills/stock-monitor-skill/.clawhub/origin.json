@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "stock-monitor-skill",
+  "ownerHandle": "thirtyfang",
+  "installedVersion": "0.1.0",
+  "installedAt": 1783927804923,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "2dfc67138fc789d784064a75f9e3b0bca0634c786e988fd89ed68594dbf5e3e5",
+    "integrity": "sha256-LfxnE4/HideEBkp1+eOwvKBjTHhumI/YntaFlNv14+U="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "31d4de8c186bbf0a01c01fc1cb2dcd50e53f4a0bfb570f8a1f66ce03f5461eea"
+  }
+}

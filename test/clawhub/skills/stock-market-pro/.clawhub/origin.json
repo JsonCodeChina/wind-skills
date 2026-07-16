@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "stock-market-pro",
+  "ownerHandle": "kys42",
+  "installedVersion": "1.2.12",
+  "installedAt": 1783923500580,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "39f7b7ac011e3dd98146c348c89f2379d27059e63a116472b734cd2f58e4de63",
+    "integrity": "sha256-Ofe3rAEePdmBRsNIyJ8jedJwWeY6EWRytzTNL1jk3mM="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "b48066924239fb1e92e00451ed2d400df5ff443fd6e5296c827113ea45b671e9"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "tushare-finance",
+  "ownerHandle": "stanleychanh",
+  "installedVersion": "2.1.0",
+  "installedAt": 1783921311967,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "6bdf3e7ac1237dc6c1bf156d634324e4b28d0336b37307befa0f8e25cf70e850",
+    "integrity": "sha256-a98+esEjfcbBvxVtY0Mk5LKNAzazcwe++g+OJc9w6FA="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "4e1e80963b98a32a19c3491c7f88f598a966e0d3777e3c1436442587df1f6f02"
+  }
+}

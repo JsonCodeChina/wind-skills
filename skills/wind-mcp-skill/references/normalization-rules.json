@@ -1,6 +1,40 @@
 {
-  "schema_version": 1,
+  "schema_version": 3,
   "description": "Runtime normalization rules used by scripts/cli.mjs before calling Wind MCP tools.",
+  "date_normalization": {
+    "public_format": "yyyy-MM-dd",
+    "accepted_formats": ["yyyy-MM-dd"],
+    "backend_format": "yyyyMMdd",
+    "special_values_by_tool": {
+      "get_stock_quote": ["LAST"],
+      "get_fund_quote": ["LAST"],
+      "get_index_quote": ["LAST"]
+    }
+  },
+  "lang_aliases": {
+    "中文": "中文",
+    "zh": "中文",
+    "zh-cn": "中文",
+    "cns": "中文",
+    "english": "English",
+    "en": "English",
+    "en-us": "English",
+    "ens": "English"
+  },
+  "lang_backend_values_by_tool": {
+    "get_financial_data": {
+      "中文": "CNS",
+      "English": "ENS"
+    }
+  },
+  "parameter_mappings_by_tool": {
+    "get_stock_quote": {"begin_date": "begin", "end_date": "end"},
+    "get_fund_quote": {"begin_date": "begin", "end_date": "end"},
+    "get_index_quote": {"begin_date": "begin", "end_date": "end"},
+    "natural_language_get_edb_data": {"begin_date": "beginDate", "end_date": "endDate"},
+    "get_company_announcements": {"question": "query"},
+    "get_financial_news": {"question": "query"}
+  },
   "kline_periods": ["1", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"],
   "period_aliases": {
     "1m": "1",
@@ -102,7 +136,6 @@
     "市净率lf": "市净率(LF)",
     "pb": "市净率",
     "pb_lf": "市净率(LF)",
-    "总市值": "总市值2",
     "总市值含限售": "总市值2",
     "总市值不含限售": "总市值1",
     "股息率ttm": "股息率",
