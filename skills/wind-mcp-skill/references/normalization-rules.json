@@ -12,19 +12,23 @@
     }
   },
   "lang_aliases": {
-    "中文": "中文",
-    "zh": "中文",
-    "zh-cn": "中文",
-    "cns": "中文",
-    "english": "English",
-    "en": "English",
-    "en-us": "English",
-    "ens": "English"
+    "中文": "zh-CN",
+    "zh": "zh-CN",
+    "zh-cn": "zh-CN",
+    "cns": "zh-CN",
+    "english": "en-US",
+    "en": "en-US",
+    "en-us": "en-US",
+    "ens": "en-US"
+  },
+  "lang_backend_values_default": {
+    "zh-CN": "中文",
+    "en-US": "English"
   },
   "lang_backend_values_by_tool": {
     "get_financial_data": {
-      "中文": "CNS",
-      "English": "ENS"
+      "zh-CN": "CNS",
+      "en-US": "ENS"
     }
   },
   "parameter_mappings_by_tool": {

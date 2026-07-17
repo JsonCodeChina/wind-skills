@@ -42,6 +42,11 @@ const SERVERS = {
   },
 };
 
+// Backend tools intentionally not exposed by this skill.
+const EXCLUDED_TOOLS = {
+  economic_data: new Set(['get_economic_data']),
+};
+
 const PORTAL_URL = 'https://aifinmarket.wind.com.cn/#/user/overview';
 
 const SKILL_DIR = dirname(dirname(fileURLToPath(
@@ -52,6 +57,26 @@ const TOOL_MANIFEST_PATH = join(SKILL_DIR, 'references', 'tool-manifest.json');
 const ERROR_CODES_PATH = join(SKILL_DIR, 'references', 'error-codes.json');
 const NORMALIZATION_RULES_PATH = join(SKILL_DIR, 'references', 'normalization-rules.json');
 const TOOL_VALIDATION_RULES_PATH = join(SKILL_DIR, 'references', 'tool-validation-rules.json');
+const CONTRACT_REFS = {
+  stock_data: 'stock-data.md',
+  fund_data: 'fund-data.md',
+  index_data: 'index-data.md',
+  bond_data: 'bond-data.md',
+  financial_docs: 'financial-docs.md',
+  economic_data: 'economic-data.md',
+  analytics_data: 'analytics-data.md',
+};
+const CONTRACT_PREAMBLES = {
+  stock_data: `# \`stock_data\` 工具契约\n\n只用于股票：A 股、港股、美股共用本服务。公共字段规则见 \`references/contracts/parameter-conventions.md\`。\n\n- \`search_stocks\` 只用于未指定具体股票的筛选；已指定具体股票时使用对应行情或领域工具。\n- 行情、K 线、分钟行情和价格指标不得改用 \`analytics_data\` 节省调用次数。\n- 市值口径：\`总市值1\`=不含限售股，\`总市值2\`=含限售股；口径不明确时先询问。`,
+  fund_data: `# \`fund_data\` 工具契约\n\n只用于基金、ETF、LOF。公共字段规则见 \`references/contracts/parameter-conventions.md\`。\n\n- \`search_funds\` 只用于未指定具体产品的基金筛选。\n- 场外基金代码如 \`005827.OF\`；ETF/LOF 代码如 \`588200.SH\`、\`159915.SZ\`。`,
+  index_data: `# \`index_data\` 工具契约\n\n只用于指数和板块。公共字段规则见 \`references/contracts/parameter-conventions.md\`。\n\n- 已确认的标准代码可直接传，例如 \`000300.SH\`、\`HSI.HI\`；不得猜测未知后缀。`,
+  bond_data: `# \`bond_data\` 工具契约\n\n只用于债券；本服务没有行情快照、K 线或 Quote 工具。公共字段规则见 \`references/contracts/parameter-conventions.md\`。`,
+  financial_docs: `# \`financial_docs\` 工具契约\n\n只用于公告和财经新闻。公共字段规则见 \`references/contracts/parameter-conventions.md\`。\n\n- 对外统一传 \`question\`，CLI 转成后端 \`query\`。\n- 旧 \`query\` 继续兼容；与 \`question\` 同时出现时值必须一致。`,
+  economic_data: `# \`economic_data\` 工具契约\n\n只用于宏观和行业 EDB 指标。公共字段规则见 \`references/contracts/parameter-conventions.md\`。\n\n- 对外日期字段使用 \`begin_date\` / \`end_date\`，CLI 转成后端 \`beginDate\` / \`endDate\`。\n- \`仅提数\` / \`搜索并提数\` 必须提供完整日期范围或 \`observation\`，两者互斥。`,
+  analytics_data: `# \`analytics_data\` 工具契约\n\n仅当专项服务无法覆盖结构化取数时使用；不得替代行情、K 线、Quote 或价格指标。公共字段规则见 \`references/contracts/parameter-conventions.md\`。\n\n- 首次调用保持用户原意，不增加筛选条件。\n- 首次失败、空数据或明显不匹配后，才可在同一取数意图内改写或拆分一次。`,
+};
+const GENERATED_CONTRACT_START = '<!-- BEGIN MCP TOOLS/LIST GENERATED CONTRACT -->';
+const GENERATED_CONTRACT_END = '<!-- END MCP TOOLS/LIST GENERATED CONTRACT -->';
 const SKILL_NAME = basename(SKILL_DIR);
 
 const CALL_EXAMPLES = [
@@ -390,6 +415,7 @@ function readNormalizationRules() {
   return {
     dateNormalization: rules.date_normalization || {},
     langAliases: new Map(Object.entries(rules.lang_aliases || {})),
+    langBackendValuesDefault: rules.lang_backend_values_default || {},
     langBackendValuesByTool: rules.lang_backend_values_by_tool || {},
     parameterMappingsByTool: rules.parameter_mappings_by_tool || {},
     klinePeriods: new Set(rules.kline_periods || []),
@@ -404,6 +430,7 @@ function readNormalizationRules() {
 const NORMALIZATION_RULES = readNormalizationRules();
 const DATE_NORMALIZATION = NORMALIZATION_RULES.dateNormalization;
 const LANG_ALIASES = NORMALIZATION_RULES.langAliases;
+const LANG_BACKEND_VALUES_DEFAULT = NORMALIZATION_RULES.langBackendValuesDefault;
 const LANG_BACKEND_VALUES_BY_TOOL = NORMALIZATION_RULES.langBackendValuesByTool;
 const PARAMETER_MAPPINGS_BY_TOOL = NORMALIZATION_RULES.parameterMappingsByTool;
 const KLINE_PERIODS = NORMALIZATION_RULES.klinePeriods;
@@ -479,12 +506,17 @@ function normalizeLangValue(value, toolName) {
         field: 'lang',
         issue: 'invalid_enum',
         actual: trimmed,
-        allowed_values: ['中文', 'English'],
+        allowed_values: ['zh-CN', 'en-US'],
         accepted_aliases: [...LANG_ALIASES.keys()],
       },
     };
   }
-  return { value: LANG_BACKEND_VALUES_BY_TOOL[toolName]?.[canonical] || canonical, error: null };
+  return {
+    value: LANG_BACKEND_VALUES_BY_TOOL[toolName]?.[canonical]
+      || LANG_BACKEND_VALUES_DEFAULT[canonical]
+      || canonical,
+    error: null,
+  };
 }
 
 function applyToolParameterMappings(toolName, args) {
@@ -1075,6 +1107,86 @@ async function cmdCall(server_type, toolName, paramsInput) {
   };
 }
 
+async function cmdListTools(server_type) {
+  if (!server_type) {
+    exitWithUsage(
+      `用法：list-tools <server_type>\n` +
+      `可用 server_type: ${Object.keys(SERVERS).join(' / ')}`,
+      1,
+    );
+  }
+  getServer(server_type);
+  const result = await mcpInitializeAndCall(server_type, 'tools/list', {});
+  return { server_type, ...result };
+}
+
+function validateToolsList(serverType, result) {
+  if (!result || !Array.isArray(result.tools)) {
+    throw new Error(`${serverType} 的 tools/list 响应缺少 tools 数组`);
+  }
+  for (const tool of result.tools) {
+    if (!tool || typeof tool.name !== 'string' || !tool.name.trim()) {
+      throw new Error(`${serverType} 的 tools/list 包含无效工具名`);
+    }
+    if (!tool.inputSchema || typeof tool.inputSchema !== 'object' || Array.isArray(tool.inputSchema)) {
+      throw new Error(`${serverType}.${tool.name} 缺少有效 inputSchema`);
+    }
+  }
+}
+
+function markdownCell(value) {
+  return String(value ?? '—').replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>');
+}
+
+function renderOfficialContract(serverType, tools) {
+  const sections = tools.map(tool => {
+    const schema = tool.inputSchema || {};
+    const properties = schema.properties || {};
+    const required = new Set(schema.required || []);
+    const rows = Object.entries(properties).map(([name, property]) => {
+      const publicProperty = name === 'lang'
+        ? { ...property, enum: ['zh-CN', 'en-US'], default: 'zh-CN', description: '返回语言：zh-CN=简体中文，en-US=英文；CLI 在调用边界转换成后端编码。' }
+        : property;
+      const enums = Array.isArray(publicProperty.enum) ? publicProperty.enum.map(String).join(' / ') : '—';
+      const defaultValue = Object.hasOwn(publicProperty, 'default') ? JSON.stringify(publicProperty.default) : '—';
+      return `| \`${name}\` | ${required.has(name) ? '是' : '否'} | ${markdownCell(publicProperty.type)} | ${markdownCell(enums)} | ${markdownCell(defaultValue)} | ${markdownCell(publicProperty.description)} |`;
+    });
+    return `### \`${tool.name}\`\n\n${tool.description || '—'}\n\n| 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |\n| --- | --- | --- | --- | --- | --- |\n${rows.length ? rows.join('\n') : '| — | — | — | — | — | 无参数 |'}`;
+  });
+  return `${GENERATED_CONTRACT_START}\n## 工具契约\n\n${sections.join('\n\n')}\n${GENERATED_CONTRACT_END}`;
+}
+
+function mergeGeneratedContract(filePath, preamble, generated) {
+  writeFileSync(filePath, `${preamble.trim()}\n\n${generated}\n`, 'utf8');
+}
+
+async function cmdSyncContracts() {
+  const manifest = {};
+  const contracts = {};
+
+  for (const serverType of Object.keys(SERVERS)) {
+    const result = await mcpInitializeAndCall(serverType, 'tools/list', {});
+    validateToolsList(serverType, result);
+    const excluded = EXCLUDED_TOOLS[serverType] || new Set();
+    const tools = result.tools.filter(tool => !excluded.has(tool.name));
+    contracts[serverType] = tools;
+    manifest[serverType] = tools.map(tool => tool.name);
+  }
+
+  // Only mutate local contracts after every server returned a valid tools/list response.
+  for (const [serverType, tools] of Object.entries(contracts)) {
+    const contractPath = join(SKILL_DIR, 'references', 'contracts', CONTRACT_REFS[serverType]);
+    mergeGeneratedContract(contractPath, CONTRACT_PREAMBLES[serverType], renderOfficialContract(serverType, tools));
+  }
+  writeFileSync(TOOL_MANIFEST_PATH, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+  return {
+    updated: true,
+    source: 'MCP tools/list',
+    contracts_dir: join(SKILL_DIR, 'references', 'contracts'),
+    tool_counts: Object.fromEntries(Object.entries(manifest).map(([key, tools]) => [key, tools.length])),
+  };
+}
+
 async function cmdSetupKey(...rawArgs) {
   const key = rawArgs[0];
 
@@ -1221,6 +1333,8 @@ const USAGE =
   `访问万得 Wind 金融数据（按数据域分类调用）\n\n` +
   `用法:\n` +
   `  cli.mjs call <server_type> <tool_name> '<params_json>|@params_file'\n` +
+  `  cli.mjs list-tools <server_type>                    # 获取后端官方工具描述和 inputSchema\n` +
+  `  cli.mjs sync-contracts                             # 将七个后端的 tools/list 合并进原有契约\n` +
   `  cli.mjs open-portal                                # 打开万得开发者中心拿 API Key\n` +
   `  cli.mjs setup-key <KEY> --scope <global|skill>     # 配置 API Key（先问用户存放位置）\n\n` +
   `可用 server_type:\n` +
@@ -1230,6 +1344,8 @@ const USAGE =
 
 const commands = {
   call: () => cmdCall(args[0], args[1], args[2]),
+  'list-tools': () => cmdListTools(args[0]),
+  'sync-contracts': () => cmdSyncContracts(),
   'open-portal': () => cmdOpenPortal(),
   'setup-key': () => cmdSetupKey(...args),
   diagnose: () => cmdDiagnose(),

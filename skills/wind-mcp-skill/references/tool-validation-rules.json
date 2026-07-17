@@ -78,12 +78,12 @@
           "values_from": "normalization.kline_periods",
           "message": "字段 'period' 只能是 ${values}，日 K 请传 '10'"
         },
-        "aftime": {
+        "aftype": {
           "values": [
             "0",
             "1"
           ],
-          "message": "字段 'aftime' 只能是 '0' 或 '1'"
+          "message": "字段 'aftype' 只能是 '0' 或 '1'"
         },
         "issusp": {
           "values": [

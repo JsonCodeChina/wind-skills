@@ -2,14 +2,46 @@
 
 只用于债券；本服务没有行情快照、K 线或 Quote 工具。公共字段规则见 `references/contracts/parameter-conventions.md`。
 
-| tool_name | 意图 | 必填 | 可选 |
-| --- | --- | --- | --- |
-| `get_bond_basicinfo` | 债券档案、发行、规模、票息、期限、兑付 | `question` | `lang` |
-| `get_bond_issuer_info` | 发债主体、注册地、行业、股权结构 | `question` | `lang` |
-| `get_bond_market_data` | 报价、估价、久期、凸性、利差 | `question` | `lang` |
-| `get_bond_financial_data` | 发债主体营收、利润、资产、负债 | `question` | `lang` |
+<!-- BEGIN MCP TOOLS/LIST GENERATED CONTRACT -->
+## 工具契约
 
-```json
-{"question":"国债2601基本信息","lang":"中文"}
-{"question":"国债2601久期和凸性","lang":"中文"}
-```
+### `get_bond_basicinfo`
+
+获取债券基本档案信息，涵盖交易所上市详情、债券分类、发行数据（发行日期、发行规模、发行价格、票面利率、期限）、以及兑付安排。
+
+| 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
+| --- | --- | --- | --- | --- | --- |
+| `question` | 是 | string | — | "查询国债2601的基本信息，包括发行日期、票面利率和期限" | 获取债券基本档案信息，涵盖交易所上市详情、债券分类、发行数据（发行日期、发行规模、发行价格、票面利率、期限）、以及兑付安排 |
+| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文；CLI 在调用边界转换成后端编码。 |
+| `version` | 否 | string | — | — | version |
+
+### `get_bond_issuer_info`
+
+获取债券发债主体公司信息，涵盖发债主体名称、注册地址、行业分类、股权结构、以及企业背景。
+
+| 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
+| --- | --- | --- | --- | --- | --- |
+| `question` | 是 | string | — | "查询国债2601发债主体的公司信息，包括注册地址和行业分类" | 获取债券发债主体公司信息，涵盖发债主体名称、注册地址、行业分类、股权结构、以及企业背景 |
+| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文；CLI 在调用边界转换成后端编码。 |
+| `version` | 否 | string | — | — | version |
+
+### `get_bond_market_data`
+
+获取债券行情数据与估值分析数据，涵盖交易行情及报价、估值分析（估价、溢价）、以及风险收益指标（久期、凸性、利差）。
+
+| 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
+| --- | --- | --- | --- | --- | --- |
+| `question` | 是 | string | — | "查询国债2601的行情数据，包括久期和凸性" | 获取债券行情数据与估值分析数据，涵盖交易行情及报价、估值分析（估价、溢价）、以及风险收益指标（久期、凸性、利差） |
+| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文；CLI 在调用边界转换成后端编码。 |
+| `version` | 否 | string | — | — | version |
+
+### `get_bond_financial_data`
+
+获取债券发债主体的财务表现数据，涵盖发债主体财务报表项目（营收、利润、资产、负债）及发债主体层面财务表现指标。
+
+| 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
+| --- | --- | --- | --- | --- | --- |
+| `question` | 是 | string | — | "查询国债2601发债主体2024年营业收入和净利润" | 获取债券发债主体的财务表现数据，涵盖发债主体财务报表项目（营收、利润、资产、负债）及发债主体层面财务表现指标 |
+| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文；CLI 在调用边界转换成后端编码。 |
+| `version` | 否 | string | — | — | version |
+<!-- END MCP TOOLS/LIST GENERATED CONTRACT -->

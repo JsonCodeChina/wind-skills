@@ -35,8 +35,8 @@ examples:
 按顺序执行；任一门禁不满足，只修当前门禁，不得跳到后续步骤。
 
 1. **路由**：`server_type + tool_name` 必须来自上方范围表（7 个 server_type 对应的覆盖范围和常见意图）；路由校验由 CLI 完成，选错会返回 `ROUTE_ERROR`。股票行情、K 线、分钟行情、价格指标等请求只要能映射到 `stock_data` 行情工具，就必须使用 `stock_data`，不得为了省调用次数改用 `analytics_data.get_financial_data` 兜底，以免造成不必要的积分消耗。
-2. **参数**：先读 `references/contracts/parameter-conventions.md`，再按 `references/contracts/tool-index.json` 只读所选 `server_type` 的一个契约文件；params key 必须逐字来自这两处。
-3. **参数值**：所有对外日期入参统一使用 ISO 8601 日历日期 `yyyy-MM-dd`，不得使用 `yyyyMMdd` 或 `yyyy/MM/dd`；CLI 仅在调用边界按后端要求转换为 `yyyyMMdd`。只有 Quote 工具额外允许 `LAST`。自然语言入参按工具合约传递，不得为空或全空白；宏观 EDB 工具的 `question` 允许自然语言短语或 EDB 指标代码。`lang` 对外统一使用 `中文` / `English`，CLI 兼容常见中英文别名并为 analytics 转换成 `CNS` / `ENS`。
+2. **参数**：先读 `references/contracts/parameter-conventions.md`，再按 `references/contracts/tool-index.json` 只读所选 `server_type` 的 `contract_ref`；工具描述、参数 key、类型、默认值和枚举以该工具契约为准，公共对外归一化字段以公共参数约定为准。
+3. **参数值**：所有对外日期入参统一使用 ISO 8601 日历日期 `yyyy-MM-dd`，不得使用 `yyyyMMdd` 或 `yyyy/MM/dd`；CLI 仅在调用边界按后端要求转换为 `yyyyMMdd`。只有 Quote 工具额外允许 `LAST`。自然语言入参按工具合约传递，不得为空或全空白；宏观 EDB 工具的 `question` 允许自然语言短语或 EDB 指标代码。`lang` 对外统一使用 `zh-CN` / `en-US`，默认 `zh-CN`；CLI 兼容旧别名，并在调用边界转换成各后端要求的语言值。
 4. **标的**：`windcode` 的类型和多标的传入方式以公共参数约定和所选服务契约为准，不得施加全局单标的限制。
 5. **指标**：使用 `indexes` 时，只选择用户明确请求的指标；值必须逐字来自 `references/indicators.md`，不得补充用户未提到的指标。
 6. **命令格式**：优先使用内联 `<params_json>`；若 shell / 执行器会重复转义 JSON，则将参数写入 UTF-8 JSON 文件并改用 `@<params_file>` 兜底。内联调用首次执行前按下方「params JSON 写法」表锁定引号；命中 `INVALID_PARAMS_JSON` 前不得反复改写。
@@ -71,8 +71,8 @@ examples:
 1. **分析意图**：判断用户要的是选股筛选、文档 / 新闻、宏观指标、行情或时序、专项业务数据、通用结构化取数，还是超范围请求。
 2. **判断标的类型**：识别股票、基金 / ETF / LOF、指数 / 板块、债券、文档主体或宏观指标。简称或别名可能歧义时先问用户。
 3. **选择 `server_type`**：用标的类型匹配上方范围表。股票都用 `stock_data`。
-4. **选择 `tool_name`**：读取 `references/contracts/tool-index.json` 指向的当前服务契约，按意图选择其中工具；不得读取其它服务契约。路由校验由 CLI 完成，选错会返回 `ROUTE_ERROR`。
-5. **构造参数**：读取 `references/contracts/parameter-conventions.md` 和当前服务契约中所选工具的段落，逐字使用其中的参数 key，并守住门禁 3 / 4 / 5。自然语言字段对应关系：
+4. **选择 `tool_name`**：读取 `references/contracts/tool-index.json` 指向的当前服务 `contract_ref`，按其中的官方工具描述及本地路由约束选择工具；不得读取其它服务契约。路由校验由 CLI 完成，选错会返回 `ROUTE_ERROR`。
+5. **构造参数**：读取 `references/contracts/parameter-conventions.md`、当前服务契约和官方 `inputSchema`，逐字使用其中的参数 key，并守住门禁 3 / 4 / 5。自然语言字段对应关系：
    - 所有自然语言工具对外统一接受 `question`
    - `financial_docs` 由 CLI 将 `question` 转换为后端 `query`，并继续兼容旧 `query`
    - `economic_data.natural_language_get_edb_data` 使用 `executionMode` + `question`；提数类请求对外统一填写 `begin_date` / `end_date` 或 `observation`，CLI 自动将日期字段转换为后端 `beginDate` / `endDate`
@@ -140,7 +140,7 @@ node scripts/cli.mjs call stock_data get_stock_kline @request.json
 | -------------------------------- | ------------------------------------------------------------------------ | -------------------------------- |
 | `references/contracts/tool-index.json` | **MUST**：选定 `server_type` 后查一次，只取当前服务的 `contract_ref` | 服务到契约文件的导航 |
 | `references/contracts/parameter-conventions.md` | **MUST**：构造参数前读一次 | 跨服务统一字段和值规则 |
-| `references/contracts/*.md` | **MUST**：只读索引指向的一个服务文件 | 当前服务工具字段、场景、示例 |
+| `references/contracts/*.md` | **MUST**：只读索引指向的一个服务文件 | 当前服务的领域约束与完整工具契约 |
 | `references/tool-validation-rules.json` | MAY：更新工具参数校验时                                           | CLI 本地参数校验规则             |
 | `references/indicators.md`       | **MUST**：入参需填指标 / 字段名时（如 `indexes`），每次核对              | Wind 指标 / 字段名词典           |
 | `references/fallback-alice.md`   | MAY：判定可切 `wind-alice` 后                                            | wind-alice 最终兜底流程          |

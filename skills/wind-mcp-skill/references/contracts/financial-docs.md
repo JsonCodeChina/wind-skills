@@ -2,16 +2,27 @@
 
 只用于公告和财经新闻。公共字段规则见 `references/contracts/parameter-conventions.md`。
 
-| tool_name | 意图 | 必填 | 可选 |
-| --- | --- | --- | --- |
-| `get_company_announcements` | 公告、监管披露、年报、季报、招股书 | `question` | `top_k` |
-| `get_financial_news` | 新闻、快讯、媒体报道、政策消息 | `question` | `top_k` |
+- 对外统一传 `question`，CLI 转成后端 `query`。
+- 旧 `query` 继续兼容；与 `question` 同时出现时值必须一致。
 
-- 对外统一传 `question`；CLI 转成后端 `query`。
-- 旧 `query` 继续兼容；若和 `question` 同时传入，值必须一致。
-- 查询文本不得为空；`top_k` 控制返回数量。
+<!-- BEGIN MCP TOOLS/LIST GENERATED CONTRACT -->
+## 工具契约
 
-```json
-{"question":"贵州茅台2024年年度报告","top_k":3}
-{"question":"贵州茅台最新新闻","top_k":3}
-```
+### `get_company_announcements`
+
+获取上市公司、债券发行人及其他金融工具发行人向交易所及监管机构发布的官方公告与监管文件。返回发行人披露的文件，包括定期报告（年报、半年报、季报）、临时公告（董事会决议、股权变动、分红通知、风险提示）、以及招股说明书等。不包含第三方新闻报道或分析师评论
+
+| 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
+| --- | --- | --- | --- | --- | --- |
+| `query` | 是 | string | — | — | 自然语言查询语句，用于检索金融公告文档, 需要指明对象，时间范围。例:贵州茅台最新公告 |
+| `top_k` | 否 | integer | — | 5 | 返回的相关文档或片段的最大数量 |
+
+### `get_financial_news`
+
+获取来自第三方媒体的财经新闻报道，涵盖公司、行业、最新市场/政策/政经动态相关内容。不包含公司官方发布的公告或监管披露文件
+
+| 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
+| --- | --- | --- | --- | --- | --- |
+| `query` | 是 | string | — | — | 自然语言查询语句，用于检索金融新闻文档, 需要指明对象，时间范围。例:贵州茅台最新一周的新闻 |
+| `top_k` | 否 | integer | — | 5 | 返回的相关文档或片段的最大数量 |
+<!-- END MCP TOOLS/LIST GENERATED CONTRACT -->
