@@ -5,11 +5,7 @@
     "public_format": "yyyy-MM-dd",
     "accepted_formats": ["yyyy-MM-dd"],
     "backend_format": "yyyyMMdd",
-    "special_values_by_tool": {
-      "get_stock_quote": ["LAST"],
-      "get_fund_quote": ["LAST"],
-      "get_index_quote": ["LAST"]
-    }
+    "special_values_by_tool": {}
   },
   "lang_aliases": {
     "中文": "zh-CN",

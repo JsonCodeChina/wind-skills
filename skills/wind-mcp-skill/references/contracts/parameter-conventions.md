@@ -8,7 +8,7 @@
 
 - 自然语言统一使用 `question`。`financial_docs` 兼容旧 `query`，CLI 转换到后端 `query`。
 - 日期范围统一优先使用 `begin_date` / `end_date`。CLI 为 Quote 转成 `begin` / `end`，为 EDB 转成 `beginDate` / `endDate`。
-- 对外日期值必须使用 ISO 8601 日历日期 `yyyy-MM-dd`；不得传 `yyyyMMdd` 或 `yyyy/MM/dd`。CLI 仅在后端调用边界转换成后端所需的 `yyyyMMdd`。只有 Quote 允许 `LAST`。
+- 对外日期值必须使用 ISO 8601 日历日期 `yyyy-MM-dd`；不得传 `LAST`、`yyyyMMdd` 或 `yyyy/MM/dd`，也不得依赖隐式日期默认值。CLI 仅在后端调用边界转换成后端所需的 `yyyyMMdd`。
 - `lang` 对外使用 `zh-CN` / `en-US`，默认 `zh-CN`；兼容旧值 `中文` / `English`、`zh` / `en`、`CNS` / `ENS`。CLI 在调用边界为普通工具转换成 `中文` / `English`，为 Analytics 转换成 `CNS` / `ENS`。
 - 同义字段同时出现且值不一致时返回 `PARAM_CONFLICT_ERROR`，不得静默选择。
 
@@ -28,7 +28,7 @@
 - Quote 返回分钟 / 日内序列，不保证提供 `pre_close` 或 `pct_chg`。缺少这些字段时不得用开盘价推导日涨跌幅，改用对应价格指标或 K 线工具。
 - 结构化数据区（`rows` 和数组型 `value`）中的后端 `INVALID` 由 CLI 转为 `null`，表示缺失或不适用，不得按 0 计算；正文、状态和元数据中的同名字面量保持原样。单位缺失时不得自行猜测或换算。
 - `excelTotalCount` 不是可信的总数或分页依据；以 `cli_meta.tables[].actual_row_count` 表示实际返回行数，`cli_meta.completeness=unknown` 时必须披露完整性未知。
-- Quote 的 `begin_date/end_date` 可传日期或 `LAST`。
+- Quote 的 `begin_date/end_date` 必须显式传入绝对日期。
 
 ## 自然语言参数
 

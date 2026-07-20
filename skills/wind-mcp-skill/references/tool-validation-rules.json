@@ -95,6 +95,32 @@
       }
     },
     {
+      "name": "quote",
+      "label": "分钟行情",
+      "tools": [
+        "get_stock_quote",
+        "get_fund_quote",
+        "get_index_quote"
+      ],
+      "required": [
+        "windcode",
+        "begin",
+        "end"
+      ],
+      "paired": [
+        [
+          "begin",
+          "end"
+        ]
+      ],
+      "ordered_dates": [
+        [
+          "begin",
+          "end"
+        ]
+      ]
+    },
+    {
       "name": "standard_lang",
       "label": "语言参数",
       "tools": [

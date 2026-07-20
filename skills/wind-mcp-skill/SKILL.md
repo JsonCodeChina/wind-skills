@@ -36,7 +36,7 @@ examples:
 
 1. **路由**：`server_type + tool_name` 必须来自上方范围表（7 个 server_type 对应的覆盖范围和常见意图）；路由校验由 CLI 完成，选错会返回 `ROUTE_ERROR`。股票行情、K 线、分钟行情、价格指标等请求只要能映射到 `stock_data` 行情工具，就必须使用 `stock_data`，不得为了省调用次数改用 `analytics_data.get_financial_data` 兜底，以免造成不必要的积分消耗。
 2. **参数**：先读 `references/contracts/parameter-conventions.md`，再按 `references/contracts/tool-index.json` 只读所选 `server_type` 的 `contract_ref`；工具描述、参数 key、类型、默认值和枚举以该工具契约为准，公共对外归一化字段以公共参数约定为准。
-3. **参数值**：所有对外日期入参统一使用 ISO 8601 日历日期 `yyyy-MM-dd`，不得使用 `yyyyMMdd` 或 `yyyy/MM/dd`；CLI 仅在调用边界按后端要求转换为 `yyyyMMdd`。只有 Quote 工具额外允许 `LAST`。自然语言入参按工具合约传递，不得为空或全空白；宏观 EDB 工具的 `question` 允许自然语言短语或 EDB 指标代码。`lang` 对外统一使用 `zh-CN` / `en-US`，默认 `zh-CN`；CLI 兼容旧别名，并在调用边界转换成各后端要求的语言值。
+3. **参数值**：所有对外日期入参统一使用 ISO 8601 日历日期 `yyyy-MM-dd`，不得使用 `LAST`、`yyyyMMdd` 或 `yyyy/MM/dd`，也不得依赖隐式日期默认值；CLI 仅在调用边界按后端要求转换为 `yyyyMMdd`。自然语言入参按工具合约传递，不得为空或全空白；宏观 EDB 工具的 `question` 允许自然语言短语或 EDB 指标代码。`lang` 对外统一使用 `zh-CN` / `en-US`，默认 `zh-CN`；CLI 兼容旧别名，并在调用边界转换成各后端要求的语言值。
 4. **标的**：`windcode` 的类型和多标的传入方式以公共参数约定和所选服务契约为准，不得施加全局单标的限制。
 5. **指标**：使用 `indexes` 时，只选择用户明确请求的指标；值必须逐字来自 `references/indicators.md`，不得补充用户未提到的指标。
 6. **命令格式**：优先使用内联 `<params_json>`；若 shell / 执行器会重复转义 JSON，则将参数写入 UTF-8 JSON 文件并改用 `@<params_file>` 兜底。内联调用首次执行前按下方「params JSON 写法」表锁定引号；命中 `INVALID_PARAMS_JSON` 前不得反复改写。
