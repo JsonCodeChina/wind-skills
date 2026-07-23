@@ -1,0 +1,1761 @@
+{
+  "seed": "run-20260723",
+  "generated_at": "2026-07-23T08:54:15.585Z",
+  "source_skill": "G:\\jhuan.jerry\\GIT\\wind-skills\\skills\\wind-mcp-skill",
+  "summary": {
+    "requested_count": 100,
+    "generated_count": 100,
+    "unique_questions": 100,
+    "contract_tool_count": 34,
+    "covered_tool_count": 34,
+    "missing_tools": [],
+    "by_server": {
+      "stock_data": 32,
+      "fund_data": 27,
+      "index_data": 18,
+      "bond_data": 13,
+      "financial_docs": 6,
+      "economic_data": 2,
+      "analytics_data": 2
+    }
+  },
+  "cases": [
+    {
+      "id": "001",
+      "question": "查询中国平安2023-12-31的经营现金流净额、营业收入",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_fundamentals",
+        "params": {
+          "question": "查询中国平安2023-12-31的经营现金流净额、营业收入",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "A股基本面",
+        "2023",
+        "经营现金流净额、营业收入"
+      ]
+    },
+    {
+      "id": "002",
+      "question": "筛选A股医药行业中总市值2超过500亿元且最近3日涨幅为正的股票",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "search_stocks",
+        "params": {
+          "question": "筛选A股医药行业中总市值2超过500亿元且最近3日涨幅为正的股票",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "选股",
+        "医药",
+        "市值>500亿",
+        "3日"
+      ]
+    },
+    {
+      "id": "003",
+      "question": "查询23国开05当前的溢价、估价、利差",
+      "expected": {
+        "server_type": "bond_data",
+        "tool_name": "get_bond_market_data",
+        "params": {
+          "question": "查询23国开05当前的溢价、估价、利差",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "债券行情估值",
+        "溢价、估价、利差"
+      ]
+    },
+    {
+      "id": "004",
+      "question": "AAPL.O目前的自由流通股本、前十大股东、实际控制人是什么？",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_equity_holders",
+        "params": {
+          "question": "AAPL.O目前的自由流通股本、前十大股东、实际控制人是什么？",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "AAPL.O",
+        "自由流通股本、前十大股东、实际控制人"
+      ]
+    },
+    {
+      "id": "005",
+      "question": "查询AAPL.O的最近20日收盘价、融资余额、RSI",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_technicals",
+        "params": {
+          "question": "查询AAPL.O的最近20日收盘价、融资余额、RSI",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "AAPL.O",
+        "最近20日收盘价、融资余额、RSI"
+      ]
+    },
+    {
+      "id": "006",
+      "question": "查询上证50的布林带、RSI",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_technicals",
+        "params": {
+          "question": "查询上证50的布林带、RSI",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "000016.SH",
+        "布林带、RSI"
+      ]
+    },
+    {
+      "id": "007",
+      "question": "查询贵州茅台（600519.SH）最新的今日最低价、今日开盘价、今日最高价、最新成交价",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_price_indicators",
+        "params": {
+          "windcode": "600519.SH",
+          "indexes": "今日最低价,今日开盘价,今日最高价,最新成交价"
+        }
+      },
+      "variation_tags": [
+        "行情快照",
+        "今日最低价",
+        "今日开盘价",
+        "今日最高价",
+        "最新成交价"
+      ]
+    },
+    {
+      "id": "008",
+      "question": "易方达蓝筹精选目前的持有人户数是什么？",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_holders",
+        "params": {
+          "question": "易方达蓝筹精选目前的持有人户数是什么？",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "005827.OF",
+        "持有人户数"
+      ]
+    },
+    {
+      "id": "009",
+      "question": "查询创业板ETF从2024-07-01到2024-12-31的5min K线，后复权，取20条数据",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_kline",
+        "params": {
+          "windcode": "159915.SZ",
+          "begin_date": "2024-07-01",
+          "end_date": "2024-12-31",
+          "count": -20,
+          "period": "5min",
+          "aftype": "1",
+          "issusp": "0"
+        }
+      },
+      "variation_tags": [
+        "日期区间",
+        "5min",
+        "aftype=1"
+      ]
+    },
+    {
+      "id": "010",
+      "question": "请给出000001.OF的基金经理人数",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_company_info",
+        "params": {
+          "question": "请给出000001.OF的基金经理人数",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "000001.OF",
+        "基金经理人数"
+      ]
+    },
+    {
+      "id": "011",
+      "question": "请给出英伟达的95%置信度VaR",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_risk_metrics",
+        "params": {
+          "question": "请给出英伟达的95%置信度VaR",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "NVDA.O",
+        "95%置信度VaR"
+      ]
+    },
+    {
+      "id": "012",
+      "question": "查看创业板ETF（159915.SZ）在2024-01-02至2024-06-28的分钟行情走势",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_quote",
+        "params": {
+          "windcode": "159915.SZ",
+          "begin_date": "2024-01-02",
+          "end_date": "2024-06-28"
+        }
+      },
+      "variation_tags": [
+        "分钟行情",
+        "日期区间"
+      ]
+    },
+    {
+      "id": "013",
+      "question": "查询300750.SZ的股权激励",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_events",
+        "params": {
+          "question": "查询300750.SZ的股权激励",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "300750.SZ",
+        "股权激励"
+      ]
+    },
+    {
+      "id": "014",
+      "question": "中证500目前的发布机构、基日是什么？",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_basicinfo",
+        "params": {
+          "question": "中证500目前的发布机构、基日是什么？",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "000905.SH",
+        "发布机构、基日"
+      ]
+    },
+    {
+      "id": "015",
+      "question": "查询科创芯片ETF（588200.SH）最新的成交量",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_price_indicators",
+        "params": {
+          "windcode": "588200.SH",
+          "indexes": "成交量"
+        }
+      },
+      "variation_tags": [
+        "行情快照",
+        "成交量"
+      ]
+    },
+    {
+      "id": "016",
+      "question": "检索比亚迪最近一个月的财经新闻，最多返回5条",
+      "expected": {
+        "server_type": "financial_docs",
+        "tool_name": "get_financial_news",
+        "params": {
+          "question": "检索比亚迪最近一个月的财经新闻，最多返回5条",
+          "top_k": 5
+        }
+      },
+      "variation_tags": [
+        "财经新闻",
+        "最近一个月",
+        "top_k=5"
+      ]
+    },
+    {
+      "id": "017",
+      "question": "请给出易方达蓝筹精选（005827.OF）的近一年年化收益率、区间净流入额",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_performance",
+        "params": {
+          "question": "请给出易方达蓝筹精选（005827.OF）的近一年年化收益率、区间净流入额",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "005827.OF",
+        "近一年年化收益率、区间净流入额"
+      ]
+    },
+    {
+      "id": "018",
+      "question": "000300.SH目前的成份股加权营收、PE是什么？",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_fundamentals",
+        "params": {
+          "question": "000300.SH目前的成份股加权营收、PE是什么？",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "000300.SH",
+        "成份股加权营收、PE"
+      ]
+    },
+    {
+      "id": "019",
+      "question": "检索比亚迪在2025年至2026年的董事会决议，最多返回8条",
+      "expected": {
+        "server_type": "financial_docs",
+        "tool_name": "get_company_announcements",
+        "params": {
+          "question": "检索比亚迪在2025年至2026年的董事会决议，最多返回8条",
+          "top_k": 8
+        }
+      },
+      "variation_tags": [
+        "公告",
+        "董事会决议",
+        "top_k=8"
+      ]
+    },
+    {
+      "id": "020",
+      "question": "查询000001.OF的重仓股占比、前十大股票持仓、行业配置",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_holdings",
+        "params": {
+          "question": "查询000001.OF的重仓股占比、前十大股票持仓、行业配置",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "000001.OF",
+        "重仓股占比、前十大股票持仓、行业配置"
+      ]
+    },
+    {
+      "id": "021",
+      "question": "计算A股半导体行业2025年经营现金流的同比增速分布",
+      "expected": {
+        "server_type": "analytics_data",
+        "tool_name": "get_financial_data",
+        "params": {
+          "question": "计算A股半导体行业2025年经营现金流的同比增速分布",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "聚合计算",
+        "半导体",
+        "2025",
+        "经营现金流",
+        "同比增速分布"
+      ]
+    },
+    {
+      "id": "022",
+      "question": "查看贵州茅台（600519.SH）在2025-01-02至2025-12-31的分钟行情走势",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_quote",
+        "params": {
+          "windcode": "600519.SH",
+          "begin_date": "2025-01-02",
+          "end_date": "2025-12-31"
+        }
+      },
+      "variation_tags": [
+        "分钟行情",
+        "日期区间"
+      ]
+    },
+    {
+      "id": "023",
+      "question": "查询沪深300从2024-01-02到2024-06-28的60min K线，后复权，取20条数据",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_kline",
+        "params": {
+          "windcode": "000300.SH",
+          "begin_date": "2024-01-02",
+          "end_date": "2024-06-28",
+          "count": -20,
+          "period": "60min",
+          "aftype": "1",
+          "issusp": "1"
+        }
+      },
+      "variation_tags": [
+        "日期区间",
+        "60min",
+        "aftype=1"
+      ]
+    },
+    {
+      "id": "024",
+      "question": "请给出华夏成长混合的成立日期、基金经理、申购赎回状态",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_info",
+        "params": {
+          "question": "请给出华夏成长混合的成立日期、基金经理、申购赎回状态",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "000001.OF",
+        "成立日期、基金经理、申购赎回状态"
+      ]
+    },
+    {
+      "id": "025",
+      "question": "查看000016.SH在2024-01-02至2024-06-28的分钟行情走势",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_quote",
+        "params": {
+          "windcode": "000016.SH",
+          "begin_date": "2024-01-02",
+          "end_date": "2024-06-28"
+        }
+      },
+      "variation_tags": [
+        "分钟行情",
+        "日期区间"
+      ]
+    },
+    {
+      "id": "026",
+      "question": "筛选近一年收益率超过30%且规模大于50亿元的指数基金",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "search_funds",
+        "params": {
+          "question": "筛选近一年收益率超过30%且规模大于50亿元的指数基金",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "基金筛选",
+        "指数基金",
+        "收益>30%",
+        "规模>50亿"
+      ]
+    },
+    {
+      "id": "027",
+      "question": "查询浦发转债发行人的发债主体名称",
+      "expected": {
+        "server_type": "bond_data",
+        "tool_name": "get_bond_issuer_info",
+        "params": {
+          "question": "查询浦发转债发行人的发债主体名称",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "发行人",
+        "发债主体名称"
+      ]
+    },
+    {
+      "id": "028",
+      "question": "查询24附息国债11的发行日期、发行规模",
+      "expected": {
+        "server_type": "bond_data",
+        "tool_name": "get_bond_basicinfo",
+        "params": {
+          "question": "查询24附息国债11的发行日期、发行规模",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "债券档案",
+        "发行日期、发行规模"
+      ]
+    },
+    {
+      "id": "029",
+      "question": "查询腾讯控股从2024-07-01到2024-12-31的1w K线，前复权，取30条数据",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_kline",
+        "params": {
+          "windcode": "0700.HK",
+          "begin_date": "2024-07-01",
+          "end_date": "2024-12-31",
+          "count": 30,
+          "period": "1w",
+          "aftype": "0",
+          "issusp": "1"
+        }
+      },
+      "variation_tags": [
+        "日期区间",
+        "1w",
+        "aftype=0"
+      ]
+    },
+    {
+      "id": "030",
+      "question": "提取G0000069,G8411182从2024-07-01到2024-12-31的数据",
+      "expected": {
+        "server_type": "economic_data",
+        "tool_name": "natural_language_get_edb_data",
+        "params": {
+          "executionMode": "仅提数",
+          "question": "G0000069,G8411182",
+          "begin_date": "2024-07-01",
+          "end_date": "2024-12-31"
+        }
+      },
+      "variation_tags": [
+        "EDB",
+        "仅提数",
+        "date-range"
+      ]
+    },
+    {
+      "id": "031",
+      "question": "查询中证500（000905.SH）最新的今日最高价、前收盘价、今日开盘价",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_price_indicators",
+        "params": {
+          "windcode": "000905.SH",
+          "indexes": "今日最高价,前收盘价,今日开盘价"
+        }
+      },
+      "variation_tags": [
+        "行情快照",
+        "今日最高价",
+        "前收盘价",
+        "今日开盘价"
+      ]
+    },
+    {
+      "id": "032",
+      "question": "查询苹果公司的主营业务、注册地址、行业分类",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_basicinfo",
+        "params": {
+          "question": "查询苹果公司的主营业务、注册地址、行业分类",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "AAPL.O",
+        "主营业务、注册地址、行业分类"
+      ]
+    },
+    {
+      "id": "033",
+      "question": "查询创业板ETF（159915.SZ）的托管费",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_financials",
+        "params": {
+          "question": "查询创业板ETF（159915.SZ）的托管费",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "159915.SZ",
+        "托管费"
+      ]
+    },
+    {
+      "id": "034",
+      "question": "查询24附息国债11发债主体2023年的营业收入、总负债",
+      "expected": {
+        "server_type": "bond_data",
+        "tool_name": "get_bond_financial_data",
+        "params": {
+          "question": "查询24附息国债11发债主体2023年的营业收入、总负债",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "发行人财务",
+        "2023",
+        "营业收入、总负债"
+      ]
+    },
+    {
+      "id": "035",
+      "question": "查询苹果公司（AAPL.O）最新的成交量、今日开盘价、今日最低价、最新成交价",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_price_indicators",
+        "params": {
+          "windcode": "AAPL.O",
+          "indexes": "成交量,今日开盘价,今日最低价,最新成交价"
+        }
+      },
+      "variation_tags": [
+        "行情快照",
+        "成交量",
+        "今日开盘价",
+        "今日最低价",
+        "最新成交价"
+      ]
+    },
+    {
+      "id": "036",
+      "question": "计算A股银行行业2026年经营现金流的行业中位数及公司排名",
+      "expected": {
+        "server_type": "analytics_data",
+        "tool_name": "get_financial_data",
+        "params": {
+          "question": "计算A股银行行业2026年经营现金流的行业中位数及公司排名",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "聚合计算",
+        "银行",
+        "2026",
+        "经营现金流",
+        "行业中位数及公司排名"
+      ]
+    },
+    {
+      "id": "037",
+      "question": "请给出588200.SH的最新规模",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_info",
+        "params": {
+          "question": "请给出588200.SH的最新规模",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "588200.SH",
+        "最新规模"
+      ]
+    },
+    {
+      "id": "038",
+      "question": "查询苹果公司的分红派息历史",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_events",
+        "params": {
+          "question": "查询苹果公司的分红派息历史",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "AAPL.O",
+        "分红派息历史"
+      ]
+    },
+    {
+      "id": "039",
+      "question": "筛选近一年收益率超过30%且规模大于50亿元的ETF",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "search_funds",
+        "params": {
+          "question": "筛选近一年收益率超过30%且规模大于50亿元的ETF",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "基金筛选",
+        "ETF",
+        "收益>30%",
+        "规模>50亿"
+      ]
+    },
+    {
+      "id": "040",
+      "question": "英伟达（NVDA.O）目前的法定代表人、主营业务、注册地址是什么？",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_basicinfo",
+        "params": {
+          "question": "英伟达（NVDA.O）目前的法定代表人、主营业务、注册地址是什么？",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "NVDA.O",
+        "法定代表人、主营业务、注册地址"
+      ]
+    },
+    {
+      "id": "041",
+      "question": "比亚迪（002594.SZ）目前的机构持股比例、股东户数、前十大股东是什么？",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_equity_holders",
+        "params": {
+          "question": "比亚迪（002594.SZ）目前的机构持股比例、股东户数、前十大股东是什么？",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "002594.SZ",
+        "机构持股比例、股东户数、前十大股东"
+      ]
+    },
+    {
+      "id": "042",
+      "question": "查询国债2601的发行规模、发行日期、票面利率、兑付安排",
+      "expected": {
+        "server_type": "bond_data",
+        "tool_name": "get_bond_basicinfo",
+        "params": {
+          "question": "查询国债2601的发行规模、发行日期、票面利率、兑付安排",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "债券档案",
+        "发行规模、发行日期、票面利率、兑付安排"
+      ]
+    },
+    {
+      "id": "043",
+      "question": "查询贵州茅台（600519.SH）2023-12-31的经营现金流净额、PB、归母净利润",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_fundamentals",
+        "params": {
+          "question": "查询贵州茅台（600519.SH）2023-12-31的经营现金流净额、PB、归母净利润",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "A股基本面",
+        "2023",
+        "经营现金流净额、PB、归母净利润"
+      ]
+    },
+    {
+      "id": "044",
+      "question": "查询比亚迪最新的今日最低价、成交量、今日最高价、今日开盘价",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_price_indicators",
+        "params": {
+          "windcode": "002594.SZ",
+          "indexes": "今日最低价,成交量,今日最高价,今日开盘价"
+        }
+      },
+      "variation_tags": [
+        "行情快照",
+        "今日最低价",
+        "成交量",
+        "今日最高价",
+        "今日开盘价"
+      ]
+    },
+    {
+      "id": "045",
+      "question": "查询宁德时代（300750.SZ）2024-12-31的毛利率、归母净利润、经营现金流净额",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_fundamentals",
+        "params": {
+          "question": "查询宁德时代（300750.SZ）2024-12-31的毛利率、归母净利润、经营现金流净额",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "A股基本面",
+        "2024",
+        "毛利率、归母净利润、经营现金流净额"
+      ]
+    },
+    {
+      "id": "046",
+      "question": "华夏成长混合目前的投资类型、申购赎回状态是什么？",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_info",
+        "params": {
+          "question": "华夏成长混合目前的投资类型、申购赎回状态是什么？",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "000001.OF",
+        "投资类型、申购赎回状态"
+      ]
+    },
+    {
+      "id": "047",
+      "question": "查询创业板ETF（159915.SZ）的前十大股票持仓、行业配置、重仓股占比",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_holdings",
+        "params": {
+          "question": "查询创业板ETF（159915.SZ）的前十大股票持仓、行业配置、重仓股占比",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "159915.SZ",
+        "前十大股票持仓、行业配置、重仓股占比"
+      ]
+    },
+    {
+      "id": "048",
+      "question": "请给出贵州茅台的行业分类、主营业务",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_basicinfo",
+        "params": {
+          "question": "请给出贵州茅台的行业分类、主营业务",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "600519.SH",
+        "行业分类、主营业务"
+      ]
+    },
+    {
+      "id": "049",
+      "question": "查询002594.SZ最新的最新成交价",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_price_indicators",
+        "params": {
+          "windcode": "002594.SZ",
+          "indexes": "最新成交价"
+        }
+      },
+      "variation_tags": [
+        "行情快照",
+        "最新成交价"
+      ]
+    },
+    {
+      "id": "050",
+      "question": "查询沪深300最新的前收盘价",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_price_indicators",
+        "params": {
+          "windcode": "000300.SH",
+          "indexes": "前收盘价"
+        }
+      },
+      "variation_tags": [
+        "行情快照",
+        "前收盘价"
+      ]
+    },
+    {
+      "id": "051",
+      "question": "请给出000905.SH的成份股加权营收、PE、PS",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_fundamentals",
+        "params": {
+          "question": "请给出000905.SH的成份股加权营收、PE、PS",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "000905.SH",
+        "成份股加权营收、PE、PS"
+      ]
+    },
+    {
+      "id": "052",
+      "question": "查看159915.SZ在2025-01-02至2025-12-31的分钟行情走势",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_quote",
+        "params": {
+          "windcode": "159915.SZ",
+          "begin_date": "2025-01-02",
+          "end_date": "2025-12-31"
+        }
+      },
+      "variation_tags": [
+        "分钟行情",
+        "日期区间"
+      ]
+    },
+    {
+      "id": "053",
+      "question": "筛选A股食品饮料行业中总市值2超过300亿元且最近3日涨幅为正的股票",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "search_stocks",
+        "params": {
+          "question": "筛选A股食品饮料行业中总市值2超过300亿元且最近3日涨幅为正的股票",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "选股",
+        "食品饮料",
+        "市值>300亿",
+        "3日"
+      ]
+    },
+    {
+      "id": "054",
+      "question": "查询创业板ETF（159915.SZ）从2025-01-02到2025-12-31的1d K线，后复权，取20条数据",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_kline",
+        "params": {
+          "windcode": "159915.SZ",
+          "begin_date": "2025-01-02",
+          "end_date": "2025-12-31",
+          "count": -20,
+          "period": "1d",
+          "aftype": "1",
+          "issusp": "0"
+        }
+      },
+      "variation_tags": [
+        "日期区间",
+        "1d",
+        "aftype=1"
+      ]
+    },
+    {
+      "id": "055",
+      "question": "请给出005827.OF的托管费",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_financials",
+        "params": {
+          "question": "请给出005827.OF的托管费",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "005827.OF",
+        "托管费"
+      ]
+    },
+    {
+      "id": "056",
+      "question": "查询英伟达的分红派息历史",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_events",
+        "params": {
+          "question": "查询英伟达的分红派息历史",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "NVDA.O",
+        "分红派息历史"
+      ]
+    },
+    {
+      "id": "057",
+      "question": "检索英伟达最近一周的财经新闻，最多返回3条",
+      "expected": {
+        "server_type": "financial_docs",
+        "tool_name": "get_financial_news",
+        "params": {
+          "question": "检索英伟达最近一周的财经新闻，最多返回3条",
+          "top_k": 3
+        }
+      },
+      "variation_tags": [
+        "财经新闻",
+        "最近一周",
+        "top_k=3"
+      ]
+    },
+    {
+      "id": "058",
+      "question": "查看科创芯片ETF（588200.SH）在2024-07-01至2024-12-31的分钟行情走势",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_quote",
+        "params": {
+          "windcode": "588200.SH",
+          "begin_date": "2024-07-01",
+          "end_date": "2024-12-31"
+        }
+      },
+      "variation_tags": [
+        "分钟行情",
+        "日期区间"
+      ]
+    },
+    {
+      "id": "059",
+      "question": "查询科创芯片ETF的机构持有人比例、持有人户数、内部持有份额",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_holders",
+        "params": {
+          "question": "查询科创芯片ETF的机构持有人比例、持有人户数、内部持有份额",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "588200.SH",
+        "机构持有人比例、持有人户数、内部持有份额"
+      ]
+    },
+    {
+      "id": "060",
+      "question": "查询24附息国债11的发行日期、票面利率",
+      "expected": {
+        "server_type": "bond_data",
+        "tool_name": "get_bond_basicinfo",
+        "params": {
+          "question": "查询24附息国债11的发行日期、票面利率",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "债券档案",
+        "发行日期、票面利率"
+      ]
+    },
+    {
+      "id": "061",
+      "question": "查询588200.SH的旗下基金数量、基金公司管理规模",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_company_info",
+        "params": {
+          "question": "查询588200.SH的旗下基金数量、基金公司管理规模",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "588200.SH",
+        "旗下基金数量、基金公司管理规模"
+      ]
+    },
+    {
+      "id": "062",
+      "question": "查询国债2601当前的凸性、利差、久期、估价",
+      "expected": {
+        "server_type": "bond_data",
+        "tool_name": "get_bond_market_data",
+        "params": {
+          "question": "查询国债2601当前的凸性、利差、久期、估价",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "债券行情估值",
+        "凸性、利差、久期、估价"
+      ]
+    },
+    {
+      "id": "063",
+      "question": "招商银行（600036.SH）目前的上市日期、法定代表人是什么？",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_basicinfo",
+        "params": {
+          "question": "招商银行（600036.SH）目前的上市日期、法定代表人是什么？",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "600036.SH",
+        "上市日期、法定代表人"
+      ]
+    },
+    {
+      "id": "064",
+      "question": "沪深300目前的发布机构、成份股数量是什么？",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_basicinfo",
+        "params": {
+          "question": "沪深300目前的发布机构、成份股数量是什么？",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "000300.SH",
+        "发布机构、成份股数量"
+      ]
+    },
+    {
+      "id": "065",
+      "question": "查看中证500（000905.SH）在2024-01-02至2024-06-28的分钟行情走势",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_quote",
+        "params": {
+          "windcode": "000905.SH",
+          "begin_date": "2024-01-02",
+          "end_date": "2024-06-28"
+        }
+      },
+      "variation_tags": [
+        "分钟行情",
+        "日期区间"
+      ]
+    },
+    {
+      "id": "066",
+      "question": "请给出中国平安（601318.SH）的Beta",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_risk_metrics",
+        "params": {
+          "question": "请给出中国平安（601318.SH）的Beta",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "601318.SH",
+        "Beta"
+      ]
+    },
+    {
+      "id": "067",
+      "question": "查询英伟达（NVDA.O）最新的今日开盘价",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_price_indicators",
+        "params": {
+          "windcode": "NVDA.O",
+          "indexes": "今日开盘价"
+        }
+      },
+      "variation_tags": [
+        "行情快照",
+        "今日开盘价"
+      ]
+    },
+    {
+      "id": "068",
+      "question": "查询上证50的20日涨跌幅、RSI",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_technicals",
+        "params": {
+          "question": "查询上证50的20日涨跌幅、RSI",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "000016.SH",
+        "20日涨跌幅、RSI"
+      ]
+    },
+    {
+      "id": "069",
+      "question": "查询23国开05发债主体2025年的总负债、总资产、净利润",
+      "expected": {
+        "server_type": "bond_data",
+        "tool_name": "get_bond_financial_data",
+        "params": {
+          "question": "查询23国开05发债主体2025年的总负债、总资产、净利润",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "发行人财务",
+        "2025",
+        "总负债、总资产、净利润"
+      ]
+    },
+    {
+      "id": "070",
+      "question": "查询比亚迪（002594.SZ）最新的今日开盘价、今日最高价、前收盘价",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_price_indicators",
+        "params": {
+          "windcode": "002594.SZ",
+          "indexes": "今日开盘价,今日最高价,前收盘价"
+        }
+      },
+      "variation_tags": [
+        "行情快照",
+        "今日开盘价",
+        "今日最高价",
+        "前收盘价"
+      ]
+    },
+    {
+      "id": "071",
+      "question": "查看159915.SZ在2024-01-02至2024-06-28的分钟行情走势",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_quote",
+        "params": {
+          "windcode": "159915.SZ",
+          "begin_date": "2024-01-02",
+          "end_date": "2024-06-28"
+        }
+      },
+      "variation_tags": [
+        "分钟行情",
+        "日期区间"
+      ]
+    },
+    {
+      "id": "072",
+      "question": "搜索并提取美国CPI最近12期的数据",
+      "expected": {
+        "server_type": "economic_data",
+        "tool_name": "natural_language_get_edb_data",
+        "params": {
+          "executionMode": "搜索并提数",
+          "question": "美国CPI",
+          "observation": "12"
+        }
+      },
+      "variation_tags": [
+        "EDB",
+        "搜索并提数",
+        "observation"
+      ]
+    },
+    {
+      "id": "073",
+      "question": "请给出005827.OF的机构持有人比例",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_holders",
+        "params": {
+          "question": "请给出005827.OF的机构持有人比例",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "005827.OF",
+        "机构持有人比例"
+      ]
+    },
+    {
+      "id": "074",
+      "question": "000905.SH目前的20日涨跌幅是什么？",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_technicals",
+        "params": {
+          "question": "000905.SH目前的20日涨跌幅是什么？",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "000905.SH",
+        "20日涨跌幅"
+      ]
+    },
+    {
+      "id": "075",
+      "question": "查看中证500在2026-01-05至2026-06-30的分钟行情走势",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_quote",
+        "params": {
+          "windcode": "000905.SH",
+          "begin_date": "2026-01-05",
+          "end_date": "2026-06-30"
+        }
+      },
+      "variation_tags": [
+        "分钟行情",
+        "日期区间"
+      ]
+    },
+    {
+      "id": "076",
+      "question": "请给出600519.SH的95%置信度VaR、年化波动率",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_risk_metrics",
+        "params": {
+          "question": "请给出600519.SH的95%置信度VaR、年化波动率",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "600519.SH",
+        "95%置信度VaR、年化波动率"
+      ]
+    },
+    {
+      "id": "077",
+      "question": "查询国债2601发行人的股权结构、行业分类",
+      "expected": {
+        "server_type": "bond_data",
+        "tool_name": "get_bond_issuer_info",
+        "params": {
+          "question": "查询国债2601发行人的股权结构、行业分类",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "发行人",
+        "股权结构、行业分类"
+      ]
+    },
+    {
+      "id": "078",
+      "question": "查询易方达蓝筹精选的投资类型、最新规模、成立日期",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_info",
+        "params": {
+          "question": "查询易方达蓝筹精选的投资类型、最新规模、成立日期",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "005827.OF",
+        "投资类型、最新规模、成立日期"
+      ]
+    },
+    {
+      "id": "079",
+      "question": "查询中证500的成份股加权营收",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_fundamentals",
+        "params": {
+          "question": "查询中证500的成份股加权营收",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "000905.SH",
+        "成份股加权营收"
+      ]
+    },
+    {
+      "id": "080",
+      "question": "查询招商银行（600036.SH）的法定代表人、上市日期、行业分类",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_basicinfo",
+        "params": {
+          "question": "查询招商银行（600036.SH）的法定代表人、上市日期、行业分类",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "600036.SH",
+        "法定代表人、上市日期、行业分类"
+      ]
+    },
+    {
+      "id": "081",
+      "question": "查询科创芯片ETF（588200.SH）的基金经理人数、旗下基金数量",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_company_info",
+        "params": {
+          "question": "查询科创芯片ETF（588200.SH）的基金经理人数、旗下基金数量",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "588200.SH",
+        "基金经理人数、旗下基金数量"
+      ]
+    },
+    {
+      "id": "082",
+      "question": "检索苹果公司（AAPL.O）在2025年至2026年的董事会决议，最多返回8条",
+      "expected": {
+        "server_type": "financial_docs",
+        "tool_name": "get_company_announcements",
+        "params": {
+          "question": "检索苹果公司（AAPL.O）在2025年至2026年的董事会决议，最多返回8条",
+          "top_k": 8
+        }
+      },
+      "variation_tags": [
+        "公告",
+        "董事会决议",
+        "top_k=8"
+      ]
+    },
+    {
+      "id": "083",
+      "question": "检索招商银行（600036.SH）在2025年至2026年的分红公告，最多返回5条",
+      "expected": {
+        "server_type": "financial_docs",
+        "tool_name": "get_company_announcements",
+        "params": {
+          "question": "检索招商银行（600036.SH）在2025年至2026年的分红公告，最多返回5条",
+          "top_k": 5
+        }
+      },
+      "variation_tags": [
+        "公告",
+        "分红公告",
+        "top_k=5"
+      ]
+    },
+    {
+      "id": "084",
+      "question": "查看000905.SH在2025-01-02至2025-12-31的分钟行情走势",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_quote",
+        "params": {
+          "windcode": "000905.SH",
+          "begin_date": "2025-01-02",
+          "end_date": "2025-12-31"
+        }
+      },
+      "variation_tags": [
+        "分钟行情",
+        "日期区间"
+      ]
+    },
+    {
+      "id": "085",
+      "question": "查询24附息国债11发债主体2025年的总负债、总资产",
+      "expected": {
+        "server_type": "bond_data",
+        "tool_name": "get_bond_financial_data",
+        "params": {
+          "question": "查询24附息国债11发债主体2025年的总负债、总资产",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "发行人财务",
+        "2025",
+        "总负债、总资产"
+      ]
+    },
+    {
+      "id": "086",
+      "question": "查询000016.SH最新的最新成交价、今日开盘价、前收盘价",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_price_indicators",
+        "params": {
+          "windcode": "000016.SH",
+          "indexes": "最新成交价,今日开盘价,前收盘价"
+        }
+      },
+      "variation_tags": [
+        "行情快照",
+        "最新成交价",
+        "今日开盘价",
+        "前收盘价"
+      ]
+    },
+    {
+      "id": "087",
+      "question": "查询恒生指数从2025-01-02到2025-12-31的1mo K线，后复权，取20条数据",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_kline",
+        "params": {
+          "windcode": "HSI.HI",
+          "begin_date": "2025-01-02",
+          "end_date": "2025-12-31",
+          "count": 20,
+          "period": "1mo",
+          "aftype": "1",
+          "issusp": "0"
+        }
+      },
+      "variation_tags": [
+        "日期区间",
+        "1mo",
+        "aftype=1"
+      ]
+    },
+    {
+      "id": "088",
+      "question": "HSI.HI目前的20日涨跌幅是什么？",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_technicals",
+        "params": {
+          "question": "HSI.HI目前的20日涨跌幅是什么？",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "HSI.HI",
+        "20日涨跌幅"
+      ]
+    },
+    {
+      "id": "089",
+      "question": "检索宁德时代2026年上半年的财经新闻，最多返回3条",
+      "expected": {
+        "server_type": "financial_docs",
+        "tool_name": "get_financial_news",
+        "params": {
+          "question": "检索宁德时代2026年上半年的财经新闻，最多返回3条",
+          "top_k": 3
+        }
+      },
+      "variation_tags": [
+        "财经新闻",
+        "2026年上半年",
+        "top_k=3"
+      ]
+    },
+    {
+      "id": "090",
+      "question": "查询国债2601当前的利差、估价、久期、溢价",
+      "expected": {
+        "server_type": "bond_data",
+        "tool_name": "get_bond_market_data",
+        "params": {
+          "question": "查询国债2601当前的利差、估价、久期、溢价",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "债券行情估值",
+        "利差、估价、久期、溢价"
+      ]
+    },
+    {
+      "id": "091",
+      "question": "000001.OF目前的基金利润是什么？",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_financials",
+        "params": {
+          "question": "000001.OF目前的基金利润是什么？",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "000001.OF",
+        "基金利润"
+      ]
+    },
+    {
+      "id": "092",
+      "question": "招商银行（600036.SH）目前的股东户数是什么？",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_equity_holders",
+        "params": {
+          "question": "招商银行（600036.SH）目前的股东户数是什么？",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "600036.SH",
+        "股东户数"
+      ]
+    },
+    {
+      "id": "093",
+      "question": "查询NVDA.O最新的今日最高价",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_price_indicators",
+        "params": {
+          "windcode": "NVDA.O",
+          "indexes": "今日最高价"
+        }
+      },
+      "variation_tags": [
+        "行情快照",
+        "今日最高价"
+      ]
+    },
+    {
+      "id": "094",
+      "question": "查询国债2601发债主体2024年的净利润、总资产、营业收入",
+      "expected": {
+        "server_type": "bond_data",
+        "tool_name": "get_bond_financial_data",
+        "params": {
+          "question": "查询国债2601发债主体2024年的净利润、总资产、营业收入",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "发行人财务",
+        "2024",
+        "净利润、总资产、营业收入"
+      ]
+    },
+    {
+      "id": "095",
+      "question": "查看300750.SZ在2026-01-05至2026-06-30的分钟行情走势",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_quote",
+        "params": {
+          "windcode": "300750.SZ",
+          "begin_date": "2026-01-05",
+          "end_date": "2026-06-30"
+        }
+      },
+      "variation_tags": [
+        "分钟行情",
+        "日期区间"
+      ]
+    },
+    {
+      "id": "096",
+      "question": "查询创业板ETF（159915.SZ）从2024-01-02到2024-06-28的1w K线，前复权，取10条数据",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_kline",
+        "params": {
+          "windcode": "159915.SZ",
+          "begin_date": "2024-01-02",
+          "end_date": "2024-06-28",
+          "count": 10,
+          "period": "1w",
+          "aftype": "0",
+          "issusp": "1"
+        }
+      },
+      "variation_tags": [
+        "日期区间",
+        "1w",
+        "aftype=0"
+      ]
+    },
+    {
+      "id": "097",
+      "question": "588200.SH目前的成立日期、基金经理人数、基金公司管理规模是什么？",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_company_info",
+        "params": {
+          "question": "588200.SH目前的成立日期、基金经理人数、基金公司管理规模是什么？",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "588200.SH",
+        "成立日期、基金经理人数、基金公司管理规模"
+      ]
+    },
+    {
+      "id": "098",
+      "question": "查询24附息国债11发债主体2023年的净利润、总资产、营业收入",
+      "expected": {
+        "server_type": "bond_data",
+        "tool_name": "get_bond_financial_data",
+        "params": {
+          "question": "查询24附息国债11发债主体2023年的净利润、总资产、营业收入",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "发行人财务",
+        "2023",
+        "净利润、总资产、营业收入"
+      ]
+    },
+    {
+      "id": "099",
+      "question": "查询英伟达（NVDA.O）最新的今日最高价、今日开盘价",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_price_indicators",
+        "params": {
+          "windcode": "NVDA.O",
+          "indexes": "今日最高价,今日开盘价"
+        }
+      },
+      "variation_tags": [
+        "行情快照",
+        "今日最高价",
+        "今日开盘价"
+      ]
+    },
+    {
+      "id": "100",
+      "question": "请给出英伟达的注册地址、法定代表人、行业分类",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_basicinfo",
+        "params": {
+          "question": "请给出英伟达的注册地址、法定代表人、行业分类",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "NVDA.O",
+        "注册地址、法定代表人、行业分类"
+      ]
+    }
+  ]
+}

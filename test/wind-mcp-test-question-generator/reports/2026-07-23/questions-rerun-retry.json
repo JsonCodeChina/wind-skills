@@ -1,0 +1,183 @@
+{
+  "seed": "run-20260723",
+  "generated_at": "2026-07-23T08:54:15.585Z",
+  "source_skill": "G:\\jhuan.jerry\\GIT\\wind-skills\\skills\\wind-mcp-skill",
+  "summary": {
+    "retry_reason": "NETWORK_ERROR retry plus released probe-skipped cases",
+    "generated_count": 10
+  },
+  "cases": [
+    {
+      "id": "010",
+      "question": "请给出000001.OF的基金经理人数",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_company_info",
+        "params": {
+          "question": "请给出000001.OF的基金经理人数",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "000001.OF",
+        "基金经理人数"
+      ]
+    },
+    {
+      "id": "022",
+      "question": "查看贵州茅台（600519.SH）在2025-01-02至2025-12-31的分钟行情走势",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_quote",
+        "params": {
+          "windcode": "600519.SH",
+          "begin_date": "2025-01-02",
+          "end_date": "2025-12-31"
+        }
+      },
+      "variation_tags": [
+        "分钟行情",
+        "日期区间"
+      ]
+    },
+    {
+      "id": "027",
+      "question": "查询浦发转债发行人的发债主体名称",
+      "expected": {
+        "server_type": "bond_data",
+        "tool_name": "get_bond_issuer_info",
+        "params": {
+          "question": "查询浦发转债发行人的发债主体名称",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "发行人",
+        "发债主体名称"
+      ]
+    },
+    {
+      "id": "050",
+      "question": "查询沪深300最新的前收盘价",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_price_indicators",
+        "params": {
+          "windcode": "000300.SH",
+          "indexes": "前收盘价"
+        }
+      },
+      "variation_tags": [
+        "行情快照",
+        "前收盘价"
+      ]
+    },
+    {
+      "id": "054",
+      "question": "查询创业板ETF（159915.SZ）从2025-01-02到2025-12-31的1d K线，后复权，取20条数据",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_kline",
+        "params": {
+          "windcode": "159915.SZ",
+          "begin_date": "2025-01-02",
+          "end_date": "2025-12-31",
+          "count": -20,
+          "period": "1d",
+          "aftype": "1",
+          "issusp": "0"
+        }
+      },
+      "variation_tags": [
+        "日期区间",
+        "1d",
+        "aftype=1"
+      ]
+    },
+    {
+      "id": "061",
+      "question": "查询588200.SH的旗下基金数量、基金公司管理规模",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_company_info",
+        "params": {
+          "question": "查询588200.SH的旗下基金数量、基金公司管理规模",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "588200.SH",
+        "旗下基金数量、基金公司管理规模"
+      ]
+    },
+    {
+      "id": "077",
+      "question": "查询国债2601发行人的股权结构、行业分类",
+      "expected": {
+        "server_type": "bond_data",
+        "tool_name": "get_bond_issuer_info",
+        "params": {
+          "question": "查询国债2601发行人的股权结构、行业分类",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "发行人",
+        "股权结构、行业分类"
+      ]
+    },
+    {
+      "id": "081",
+      "question": "查询科创芯片ETF（588200.SH）的基金经理人数、旗下基金数量",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_company_info",
+        "params": {
+          "question": "查询科创芯片ETF（588200.SH）的基金经理人数、旗下基金数量",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "588200.SH",
+        "基金经理人数、旗下基金数量"
+      ]
+    },
+    {
+      "id": "095",
+      "question": "查看300750.SZ在2026-01-05至2026-06-30的分钟行情走势",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_quote",
+        "params": {
+          "windcode": "300750.SZ",
+          "begin_date": "2026-01-05",
+          "end_date": "2026-06-30"
+        }
+      },
+      "variation_tags": [
+        "分钟行情",
+        "日期区间"
+      ]
+    },
+    {
+      "id": "097",
+      "question": "588200.SH目前的成立日期、基金经理人数、基金公司管理规模是什么？",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_company_info",
+        "params": {
+          "question": "588200.SH目前的成立日期、基金经理人数、基金公司管理规模是什么？",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "588200.SH",
+        "成立日期、基金经理人数、基金公司管理规模"
+      ]
+    }
+  ]
+}

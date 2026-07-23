@@ -1,0 +1,4 @@
+interface:
+  display_name: "Wind MCP 测试问题生成器"
+  short_description: "依据工具契约参数随机生成批量 Wind MCP 测试问题"
+  default_prompt: "Use $wind-mcp-test-question-generator to generate 100 randomized Chinese questions for testing wind-mcp-skill."

@@ -395,6 +395,7 @@ function writeErrorEnvelope(code, detail, metadata = {}) {
     ok: false,
     error: {
       code,
+      ...(metadata.error_message ? { message: metadata.error_message } : {}),
       details: metadata.details || (detail ? { message: String(detail).slice(0, 500) } : {}),
       retry: metadata.retry || definition.retry,
       circuit_breaker: metadata.circuit_breaker || definition.circuit_breaker,
@@ -407,6 +408,14 @@ function writeErrorEnvelope(code, detail, metadata = {}) {
 
 function die(code, detail = null, exitCode = 1, metadata = {}) {
   writeErrorEnvelope(code, detail, metadata);
+  process.exit(exitCode);
+}
+
+function dieBackendRaw(error, exitCode = 1) {
+  const raw = error && typeof error === 'object'
+    ? error
+    : { message: String(error ?? '') };
+  process.stdout.write(JSON.stringify(raw, null, 2) + '\n');
   process.exit(exitCode);
 }
 
@@ -833,7 +842,7 @@ function validateToolParams(toolName, params) {
   return errors;
 }
 
-export { normalizeCall, normalizeCallSuccess, validateBasicParams, validateToolParams };
+export { fetchWithRetry, isExplicitNoDataResult, normalizeCall, normalizeCallSuccess, validateBasicParams, validateToolParams };
 
 // ───── 认证 ─────
 
@@ -904,6 +913,12 @@ function inferBusinessErrorCode(inner, serverType) {
   return [inferErrorCode(message), message];
 }
 
+function isExplicitNoDataResult(inner) {
+  return inner?.data === null
+    && inner?.error?.code === 'QUERY_FAILED'
+    && inner?.error?.message === '没找到数据';
+}
+
 // detail 只保留短诊断，避免后端长文本淹没 agent_action。
 function buildAgentAction(code, detail) {
   const template = getErrorDefinition(code).agent_action;
@@ -940,6 +955,30 @@ function parseSSE(text) {
   throw new Error(`响应格式无法识别（既非 SSE 也非纯 JSON）。原文前 200 字符：${text.slice(0, 200)}`);
 }
 
+async function fetchWithRetry(fetchFn, url, optionsOrFactory, {
+  attempts = 3,
+  delaysMs = [300, 1000],
+  onAttemptError = null,
+} = {}) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const options = typeof optionsOrFactory === 'function'
+        ? optionsOrFactory(attempt)
+        : optionsOrFactory;
+      return await fetchFn(url, options);
+    } catch (err) {
+      lastError = err;
+      onAttemptError?.(err, attempt, attempts);
+      const delayMs = delaysMs[Math.min(attempt - 1, delaysMs.length - 1)] || 0;
+      if (attempt < attempts && delayMs > 0) {
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+  throw lastError;
+}
+
 const HTTP_ERROR_MAP = {
   401: ['AUTH_ERROR', 'API Key 无效或过期'],
   429: ['RATE_LIMIT_ERROR', '请求过于频繁'],
@@ -967,15 +1006,17 @@ async function mcpRequest(server_type, method, params, {
     method,
     params
   });
-  const dieMcp = (code, detail) => {
+  const dieMcp = (code, detail, { backendError = null } = {}) => {
     if (code !== 'MARKET_TARGET_NOT_FOUND') {
       const backendMessage = String(detail || '').replace(/\s*\(server=[^)]+\)\s*$/, '').slice(0, 2000);
       const callArguments = params?.arguments && typeof params.arguments === 'object' ? params.arguments : null;
       die(code, detail, 1, {
+        ...(backendError?.message ? { error_message: backendError.message } : {}),
         details: {
           server_type,
           tool_name: params?.name || null,
           backend_message: backendMessage,
+          ...(backendError ? { backend_error: backendError } : {}),
           original_params: callArguments,
         },
       });
@@ -1005,14 +1046,28 @@ async function mcpRequest(server_type, method, params, {
   };
   let resp;
   try {
-    resp = await fetch(server.endpoint, {
-      method: 'POST',
-      headers,
-      body,
-      signal: AbortSignal.timeout(timeoutMs),
-    });
+    resp = await fetchWithRetry(
+      fetch,
+      server.endpoint,
+      () => ({
+        method: 'POST',
+        headers,
+        body,
+        signal: AbortSignal.timeout(timeoutMs),
+      }),
+      {
+        attempts: 3,
+        delaysMs: [300, 1000],
+        onAttemptError: process.env.WIND_DEBUG === '1'
+          ? (err, attempt, total) => {
+              const causeCode = err?.cause?.code || err?.code || 'UNKNOWN_CAUSE';
+              process.stderr.write(`[wind-mcp fetch retry ${attempt}/${total}] ${causeCode}: ${err?.message || err}\n`);
+            }
+          : null,
+      },
+    );
   } catch (err) {
-    die('NETWORK_ERROR', `${err.message} (server=${server_type})`);
+    dieBackendRaw({ message: err?.message || String(err) });
   }
 
   if (!resp.ok) {
@@ -1040,7 +1095,7 @@ async function mcpRequest(server_type, method, params, {
         `JSON-RPC protocol conflict: payload.error is present but error message is "OK"; error=${JSON.stringify(payload.error).slice(0, 1000)} (server=${server_type})`,
       );
     }
-    dieMcp(inferErrorCode(msg), `${msg} (server=${server_type})`);
+    dieBackendRaw(payload.error);
   }
 
   if (payload.result?.isError) {
@@ -1051,7 +1106,13 @@ async function mcpRequest(server_type, method, params, {
         `MCP result protocol conflict: isError=true but error text is "OK"; result=${JSON.stringify(payload.result).slice(0, 1000)} (server=${server_type})`,
       );
     }
-    dieMcp(inferErrorCode(msg), `${msg} (server=${server_type})`);
+    let raw;
+    try {
+      raw = JSON.parse(msg);
+    } catch {
+      raw = { message: msg };
+    }
+    dieBackendRaw(raw?.error || raw);
   }
 
   // 部分工具把业务错误包在 content[0].text 的 JSON 字符串里, 必须二次解析
@@ -1066,18 +1127,14 @@ async function mcpRequest(server_type, method, params, {
     if (inner) {
       if (typeof inner.mcp_tool_error_code === 'number' && inner.mcp_tool_error_code !== 0) {
         const msg = inner.mcp_tool_error_msg || JSON.stringify(inner);
-        dieMcp(inferErrorCode(msg), `${msg} (server=${server_type})`);
+        dieBackendRaw({ code: inner.mcp_tool_error_code, message: msg });
       }
-      if (inner.error && (inner.error.code || inner.error.message)) {
-        const errCode = inner.error.code || '';
-        const errMsg = inner.error.message || '';
-        const combined = errCode ? `${errCode}: ${errMsg}` : errMsg;
-        dieMcp(inferErrorCode(combined), `${combined} (server=${server_type})`);
+      if (inner.error && (inner.error.code || inner.error.message) && !isExplicitNoDataResult(inner)) {
+        dieBackendRaw(inner.error);
       }
       const businessError = inferBusinessErrorCode(inner, server_type);
       if (businessError) {
-        const [code, msg] = businessError;
-        dieMcp(code, `${msg} (server=${server_type})`);
+        dieBackendRaw(inner.data);
       }
     }
   }

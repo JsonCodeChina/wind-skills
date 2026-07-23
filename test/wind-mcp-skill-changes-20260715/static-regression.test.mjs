@@ -38,6 +38,33 @@ const validation = callRules;
 const cli = read('scripts/cli.mjs');
 const cliModule = await import(pathToFileURL(resolve(SKILL, 'scripts', 'cli.mjs')).href);
 const errorDefinitions = cliModule.ERROR_DEFINITIONS;
+
+test('explicit QUERY_FAILED no-data payload is a successful empty result', () => {
+  assert.equal(cliModule.isExplicitNoDataResult({
+    data: null,
+    error: { code: 'QUERY_FAILED', message: '没找到数据' },
+  }), true);
+  assert.equal(cliModule.isExplicitNoDataResult({
+    data: null,
+    error: { code: 'QUERY_FAILED', message: '查询执行异常' },
+  }), false);
+});
+
+test('fetch failures retry internally and do not surface when retry succeeds', async () => {
+  let attempts = 0;
+  const optionsSeen = [];
+  const response = { ok: true };
+  const actual = await cliModule.fetchWithRetry(async (_url, options) => {
+    attempts += 1;
+    optionsSeen.push(options);
+    if (attempts < 3) throw new TypeError('fetch failed');
+    return response;
+  }, 'https://example.invalid', attempt => ({ attempt }), { attempts: 3, delaysMs: [0, 0] });
+  assert.equal(actual, response);
+  assert.equal(attempts, 3);
+  assert.deepEqual(optionsSeen, [{ attempt: 1 }, { attempt: 2 }, { attempt: 3 }]);
+});
+
 const runCliCall = (serverType, toolName, params) => {
   const result = spawnSync(process.execPath, ['scripts/cli.mjs', 'call', serverType, toolName, JSON.stringify(params)], {
     cwd: SKILL,
