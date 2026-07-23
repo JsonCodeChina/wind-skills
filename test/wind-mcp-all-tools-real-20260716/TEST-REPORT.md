@@ -1,6 +1,6 @@
 # Wind MCP 全部工具真实后端测试报告
 
-- 测试时间：2026-07-16T03:19:16.951Z 至 2026-07-16T03:20:25.195Z
+- 测试时间：2026-07-17T02:11:39.474Z 至 2026-07-17T02:12:45.291Z
 - 执行方式：串行，默认并发数 1
 - Manifest 工具数：34
 - 实际执行工具数：34
@@ -29,8 +29,8 @@
 ## 重试与异常观察
 
 - 本轮共执行 36 次后端调用尝试。
-- `stock_data.get_stock_quote` 首次返回 `NETWORK_ERROR: fetch failed`，按错误信封原样重试一次后成功。
-- `economic_data.natural_language_get_edb_data` 使用统一日期范围时，后端返回 `UNKNOWN: observation只能是纯数字或者all`；同一工具改用 `observation: "10"` 修正重试后成功。这说明 EDB 日期字段映射已穿过本地校验，但该后端路径仍存在日期范围与 `observation` 契约不一致。
+- `fund_data.get_fund_holders` 首次返回 `NETWORK_ERROR`，重试后成功。
+- `financial_docs.get_financial_news` 首次返回 `NETWORK_ERROR`，重试后成功。
 
 ## 回归覆盖
 

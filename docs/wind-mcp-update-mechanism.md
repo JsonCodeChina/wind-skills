@@ -216,8 +216,9 @@ AI Agent 读取 `notices` 数组，将更新信息告知用户。
 | `~/.agents/.skill-lock.json` | update-check 读取 / cli.mjs 读取 | skill 安装信息（sourceUrl, installedAt, skillFolderHash） |
 | `~/.cache/wind-aifinmarket/update-state.json` | update-check 写入 / cli.mjs 读写 | 统一缓存（schema v3） |
 | `~/.cache/wind-aifinmarket/update-state.json.lock` | update-check | 文件锁（O_EXCL 独占） |
-| `references/tool-manifest.json` | cli.mjs 读取 | server_type + tool_name 合法组合 |
-| `references/error-codes.json` | cli.mjs 参考 | 错误码定义 |
+| `scripts/tool-manifest.json` | cli.mjs 读取 | server_type + tool_name 合法组合 |
+| `scripts/call-rules.json` | cli.mjs 读取 | 调用参数归一化与校验规则 |
+| `scripts/cli.mjs` 中的 `ERROR_DEFINITIONS` | cli.mjs 内置 | 错误文案与默认机器策略的唯一总表 |
 
 ## 6. 边界情况处理
 

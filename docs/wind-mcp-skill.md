@@ -1,4 +1,4 @@
-# wind-mcp-skill
+# Wind MCP Skill 使用说明
 
 > **访问万得 Wind 金融数据** · 股票 / 基金 / 指数 / 债券 / 公告 / 新闻 / 宏观经济
 
@@ -46,18 +46,17 @@ npx skills add https://gitee.com/wind_info/wind-skills.git --skill wind-mcp-skil
 node scripts/cli.mjs open-portal
 ```
 
-如果 CLI 报 `KEY_MISSING`，按 stdout JSON 里的 `error.agent_action` / `error.hint` 配置即可；程序按用户全局配置、当前 Skill 本地配置、环境变量 `WIND_API_KEY` 的顺序读取。
+如果返回 `KEY_MISSING`，按错误信息配置 API Key。
 
 ---
 
 ## 使用注意
 
 - `analytics_data` 只是兜底入口；公告 / 新闻、宏观、行情、财务基本面等明确意图应优先走对应 `server_type`。
-- `references/tool-manifest.json` 是 CLI 校验 `server_type + tool_name` 的权威清单；错误组合会在真正调用后端前被本地拒绝。
-- Windows PowerShell 5.x 中 JSON 转义容易导致 `INVALID_PARAMS_JSON`。如果遇到该错误，请优先看 [SKILL.md](./SKILL.md) 里的 Shell 转义说明。
-- K 线和分钟行情对外统一传 `begin_date` / `end_date`，日期值必须是 ISO 8601 `yyyy-MM-dd`；CLI 在后端调用边界转换字段名和紧凑日期格式。
-- 行情类 `indexes` 建议从 [references/indicators.md](./references/indicators.md) 复制表内字段名。
-- Codex 沙箱中调用 Wind 后端联网时，需要使用 `require_escalated`。
+- 各领域契约是 `server_type + tool_name` 和参数的权威说明；错误组合会返回 `ROUTE_ERROR`。
+- Windows PowerShell 5.x 中 JSON 转义容易导致 `INVALID_PARAMS_JSON`。如果遇到该错误，请优先看 [SKILL.md](../skills/wind-mcp-skill/SKILL.md) 里的参数传递说明。
+- K 线和分钟行情统一传 `begin_date` / `end_date`，日期值必须是 ISO 8601 `yyyy-MM-dd`。
+- 行情类 `indexes` 必须从对应领域契约的「`indexes` 行情指标」复制字段名。
 
 ---
 
@@ -82,14 +81,19 @@ call 命令调用时会触发后台自动更新检查。每天首次使用时异
 
 ```
 wind-mcp-skill/
-├── SKILL.md                     # AI 加载的核心守则（数据范围 / 使用方法 / 工具表 / 注意事项 / 使用技巧 / 出错怎么办）
+├── SKILL.md                     # 核心路由、门禁与直接导航
 ├── references/
-│   ├── indicators.md            # 行情字段 indexes 中文清单（按类别分组）
-│   └── tool-manifest.json       # CLI 前置校验的 server_type / tool_name 权威清单
+│   ├── stock.md                 # 股票工具契约
+│   ├── fund.md                  # 基金工具契约
+│   ├── index.md                 # 指数工具契约
+│   ├── bond.md                  # 债券工具契约
+│   ├── financial-docs.md        # 公告与新闻工具契约
+│   ├── economic.md              # 宏观工具契约
+│   └── analytics.md             # 通用结构化取数契约
 ├── scripts/
 │   ├── cli.mjs                  # MCP 调用主入口
+│   ├── runtime/                 # CLI 使用的清单、校验、归一化和错误码配置
 │   └── update-check.mjs         # 每日一次后台自动更新
-└── README.md
 ```
 
-详细的工具列表 / 入参 schema / 字段说明见 [SKILL.md](./SKILL.md)。
+详细的路由规则见 [SKILL.md](../skills/wind-mcp-skill/SKILL.md)，工具参数见相应领域契约。

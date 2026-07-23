@@ -1,0 +1,214 @@
+{
+  "seed": "run-20260723",
+  "generated_at": "2026-07-23T08:54:15.585Z",
+  "source_skill": "G:\\jhuan.jerry\\GIT\\wind-skills\\skills\\wind-mcp-skill",
+  "summary": {
+    "retry_reason": "NETWORK_ERROR retry.allowed=true plus released skipped cases",
+    "generated_count": 12
+  },
+  "cases": [
+    {
+      "id": "005",
+      "question": "查询AAPL.O的最近20日收盘价、融资余额、RSI",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_technicals",
+        "params": {
+          "question": "查询AAPL.O的最近20日收盘价、融资余额、RSI",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "AAPL.O",
+        "最近20日收盘价、融资余额、RSI"
+      ]
+    },
+    {
+      "id": "012",
+      "question": "查看创业板ETF（159915.SZ）在2024-01-02至2024-06-28的分钟行情走势",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_quote",
+        "params": {
+          "windcode": "159915.SZ",
+          "begin_date": "2024-01-02",
+          "end_date": "2024-06-28"
+        }
+      },
+      "variation_tags": [
+        "分钟行情",
+        "日期区间"
+      ]
+    },
+    {
+      "id": "018",
+      "question": "000300.SH目前的成份股加权营收、PE是什么？",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_fundamentals",
+        "params": {
+          "question": "000300.SH目前的成份股加权营收、PE是什么？",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "000300.SH",
+        "成份股加权营收、PE"
+      ]
+    },
+    {
+      "id": "046",
+      "question": "华夏成长混合目前的投资类型、申购赎回状态是什么？",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_info",
+        "params": {
+          "question": "华夏成长混合目前的投资类型、申购赎回状态是什么？",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "000001.OF",
+        "投资类型、申购赎回状态"
+      ]
+    },
+    {
+      "id": "047",
+      "question": "查询创业板ETF（159915.SZ）的前十大股票持仓、行业配置、重仓股占比",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_holdings",
+        "params": {
+          "question": "查询创业板ETF（159915.SZ）的前十大股票持仓、行业配置、重仓股占比",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "159915.SZ",
+        "前十大股票持仓、行业配置、重仓股占比"
+      ]
+    },
+    {
+      "id": "051",
+      "question": "请给出000905.SH的成份股加权营收、PE、PS",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_fundamentals",
+        "params": {
+          "question": "请给出000905.SH的成份股加权营收、PE、PS",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "000905.SH",
+        "成份股加权营收、PE、PS"
+      ]
+    },
+    {
+      "id": "052",
+      "question": "查看159915.SZ在2025-01-02至2025-12-31的分钟行情走势",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_quote",
+        "params": {
+          "windcode": "159915.SZ",
+          "begin_date": "2025-01-02",
+          "end_date": "2025-12-31"
+        }
+      },
+      "variation_tags": [
+        "分钟行情",
+        "日期区间"
+      ]
+    },
+    {
+      "id": "058",
+      "question": "查看科创芯片ETF（588200.SH）在2024-07-01至2024-12-31的分钟行情走势",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_quote",
+        "params": {
+          "windcode": "588200.SH",
+          "begin_date": "2024-07-01",
+          "end_date": "2024-12-31"
+        }
+      },
+      "variation_tags": [
+        "分钟行情",
+        "日期区间"
+      ]
+    },
+    {
+      "id": "071",
+      "question": "查看159915.SZ在2024-01-02至2024-06-28的分钟行情走势",
+      "expected": {
+        "server_type": "fund_data",
+        "tool_name": "get_fund_quote",
+        "params": {
+          "windcode": "159915.SZ",
+          "begin_date": "2024-01-02",
+          "end_date": "2024-06-28"
+        }
+      },
+      "variation_tags": [
+        "分钟行情",
+        "日期区间"
+      ]
+    },
+    {
+      "id": "079",
+      "question": "查询中证500的成份股加权营收",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_fundamentals",
+        "params": {
+          "question": "查询中证500的成份股加权营收",
+          "lang": "zh-CN"
+        }
+      },
+      "variation_tags": [
+        "自然语言",
+        "000905.SH",
+        "成份股加权营收"
+      ]
+    },
+    {
+      "id": "084",
+      "question": "查看000905.SH在2025-01-02至2025-12-31的分钟行情走势",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_quote",
+        "params": {
+          "windcode": "000905.SH",
+          "begin_date": "2025-01-02",
+          "end_date": "2025-12-31"
+        }
+      },
+      "variation_tags": [
+        "分钟行情",
+        "日期区间"
+      ]
+    },
+    {
+      "id": "093",
+      "question": "查询NVDA.O最新的今日最高价",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_price_indicators",
+        "params": {
+          "windcode": "NVDA.O",
+          "indexes": "今日最高价"
+        }
+      },
+      "variation_tags": [
+        "行情快照",
+        "今日最高价"
+      ]
+    }
+  ]
+}

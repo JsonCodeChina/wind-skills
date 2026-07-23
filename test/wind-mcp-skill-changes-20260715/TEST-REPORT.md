@@ -4,7 +4,7 @@
 - 测试环境：Windows / PowerShell / Node.js v22.22.1
 - 被测对象：`skills/wind-mcp-skill`
 - 后端验证：使用当前已配置的 Wind API Key 调用真实 Wind MCP 后端
-- 最终结果：**33 个自动化测试全部通过**；另完成 3 个 EDB 日期字段真实后端对照用例
+- 最终结果：**37 个自动化测试全部通过**；另完成 3 个 EDB 日期字段真实后端对照用例
 
 ## 测试文件
 
@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | `real-backend.test.mjs` | 真实后端成功、NER 失败、市值口径、多标的、参数错误与熔断 | 10/10 通过 |
 | `ner-observations.test.mjs` | 真实观察 `RUT`、`罗素2000`、`BDTI.HI` | 3/3 通过 |
-| `static-regression.test.mjs` | 错误码、分层合约、日期/lang/question 归一化、`@file` 参数和错误信封回归 | 20/20 通过 |
+| `static-regression.test.mjs` | 错误码、单跳领域合约、日期/lang/question 规范、`@file` 参数和错误信封回归 | 24/24 通过 |
 | `edb-date-mapping-real-20260716/run.mjs` | EDB 统一日期字段、后端原生字段及 observation 对照 | 3 个对照用例完成 |
 
 ## 真实后端验证结果
@@ -129,16 +129,16 @@ params: expected object, actual string
 
 1. `DAILY_LIMIT_ERROR`、`BALANCE_ERROR`、`RATE_LIMIT_ERROR` 三类错误独立，运行时不再产生 `QUOTA_ERROR`。
 2. `search_stocks` 只有一份统一股票筛选契约。
-3. 股票指标示例不再按 A 股/美股拆分。
+3. 股票、基金、指数的 `indexes` 字典分别内嵌在对应领域契约中。
 4. `single_target_keys` 及全局单标的调用建议已删除。
 5. Skill 和 README 不再将外汇/汇率声明为不支持。
 6. 裸词“总市值”不再默认归一化为 `总市值2`。
-7. 错误信封 schema 为 7，包含 `details/retry/circuit_breaker/correction/agent_action`。
+7. 错误信封 schema 为 10，包含 `details/retry/circuit_breaker/correction/agent_action`。
 8. 错误动作不再要求读取 `references/*` 或 `SKILL.md`。
-9. 日期字段统一为公开 snake_case，日期值严格使用 ISO 8601 `yyyy-MM-dd`；CLI 在调用边界按 K 线、Quote、EDB 后端契约转换字段和值，EDB 映射为 `beginDate/endDate`。
-10. `lang` 仅接受统一外部词表，analytics 调用时转换为后端编码。
-11. financial docs 的 `question/query` 可归一化，二者冲突时在调用前拒绝并返回修正信息。
-12. 合约按 `server_type` 拆分，并由 `contracts/tool-index.json` 建立渐进式索引。
+9. 日期字段统一使用 snake_case，日期值严格使用 ISO 8601 `yyyy-MM-dd`。
+10. `lang` 统一使用 `zh-CN` / `en-US`。
+11. financial docs 的自然语言字段统一使用 `question`。
+12. 合约按 `server_type` 单跳拆分；股票、基金和指数的行情指标直接位于各自契约内。
 13. `LAST` 仅允许用于 Quote 工具；成功响应中的 `INVALID` 和不可信声明计数得到规范处理。
 14. CLI 支持 `@file` 读取 UTF-8 JSON 参数，兼容 BOM、中文和含空格路径；文件不可读时返回结构化 `PARAMS_FILE_ERROR`。
 
@@ -152,7 +152,7 @@ params: expected object, actual string
 | `beginDate/endDate`（后端原生格式） | 成功 | 后端日期范围能力可用 |
 | `observation=10` 对照 | 成功 | 后端服务与 observation 路径可用 |
 
-原始响应及独立报告位于 `test/edb-date-mapping-real-20260716/`。统一字段到 `beginDate/endDate` 的转换由静态 CLI 回归确定性覆盖；本轮真实后端首例因网络错误未形成有效业务对照，记录为非阻塞环境波动。
+原始响应及独立报告位于 `test/edb-date-mapping-real-20260716/`。公开日期字段规范由静态 CLI 回归确定性覆盖；本轮真实后端首例因网络错误未形成有效业务对照，记录为非阻塞环境波动。
 
 ## 执行命令
 

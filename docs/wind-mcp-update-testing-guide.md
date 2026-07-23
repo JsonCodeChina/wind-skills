@@ -309,7 +309,7 @@ node tests/cli.test.mjs             # cli.mjs 的 20+ 个测试
 | KEY_INVALID | 1 | 假 key 被后端拒绝 |
 | fallback_allowed | 4 | 客户端错误都不允许 fallback |
 | Tool manifest | 2 | manifest JSON 有效、覆盖全部 server_type |
-| error-codes.json | 1 | 所有错误码含必需字段 |
+| CLI 内置错误定义 | 1 | 所有错误码均含 `agent_action`、`retry`、`circuit_breaker`、`correction` |
 | 成功调用输出 | 2 | 返回 MCP 原始 result、notices 数组存在 |
 | 跨 skill 通知隔离 | 3 | v2 缓存中纯 foreign skill 不泄露、混合时只保留 own |
 | 已升级通知抑制 | 2 | installedHash 匹配时保留通知、不匹配时抑制通知 |
