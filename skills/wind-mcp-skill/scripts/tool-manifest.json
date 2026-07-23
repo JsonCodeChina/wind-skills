@@ -1,5 +1,5 @@
 {
-  "stock_data": [
+    "stock_data": [
     "get_stock_price_indicators",
     "get_risk_metrics",
     "get_stock_events",

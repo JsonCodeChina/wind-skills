@@ -1,9 +1,8 @@
 # `financial_docs` 工具契约
 
-只用于公告和财经新闻。公共字段规则见 `references/contracts/parameter-conventions.md`。
+只用于公告和财经新闻。自然语言统一使用 `question`；其余参数以本文件各工具的契约为准。
 
-- 对外统一传 `question`，CLI 转成后端 `query`。
-- 旧 `query` 继续兼容；与 `question` 同时出现时值必须一致。
+- 自然语言查询统一使用 `question`。
 
 <!-- BEGIN MCP TOOLS/LIST GENERATED CONTRACT -->
 ## 工具契约
@@ -14,7 +13,7 @@
 
 | 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
-| `query` | 是 | string | — | — | 自然语言查询语句，用于检索金融公告文档, 需要指明对象，时间范围。例:贵州茅台最新公告 |
+| `question` | 是 | string | — | — | 自然语言查询语句，用于检索金融公告文档，需要指明对象和时间范围。例：贵州茅台最新公告。 |
 | `top_k` | 否 | integer | — | 5 | 返回的相关文档或片段的最大数量 |
 
 ### `get_financial_news`
@@ -23,6 +22,6 @@
 
 | 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
-| `query` | 是 | string | — | — | 自然语言查询语句，用于检索金融新闻文档, 需要指明对象，时间范围。例:贵州茅台最新一周的新闻 |
+| `question` | 是 | string | — | — | 自然语言查询语句，用于检索金融新闻文档，需要指明对象和时间范围。例：贵州茅台最新一周的新闻。 |
 | `top_k` | 否 | integer | — | 5 | 返回的相关文档或片段的最大数量 |
 <!-- END MCP TOOLS/LIST GENERATED CONTRACT -->

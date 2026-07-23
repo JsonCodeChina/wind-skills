@@ -1,9 +1,15 @@
 # `fund_data` 工具契约
 
-只用于基金、ETF、LOF。公共字段规则见 `references/contracts/parameter-conventions.md`。
+只用于基金、ETF、LOF。参数名称、类型、必填项、默认值和枚举以本文件各工具的契约为准。
 
 - `search_funds` 只用于未指定具体产品的基金筛选。
+- `indexes` 逐字取自本文件的「`indexes` 行情指标」。
 - 场外基金代码如 `005827.OF`；ETF/LOF 代码如 `588200.SH`、`159915.SZ`。
+
+## 目录
+
+- [工具契约](#工具契约)
+- [`indexes` 行情指标](#indexes-行情指标)
 
 <!-- BEGIN MCP TOOLS/LIST GENERATED CONTRACT -->
 ## 工具契约
@@ -15,7 +21,7 @@
 | 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
 | `windcode` | 是 | string | — | — | 基金名称或者基金代码，如588200.SH。 |
-| `indexes` | 否 | string | — | "最新交易日,交易时间,最新成交价,前收盘价,今日开盘价,今日最高价,今日最低价,成交量" | 行情指标字段，多个字段用逗号分隔。可选值：最新交易日,交易时间,最新成交价,前收盘价,今日开盘价,今日最高价,今日最低价,成交量,现额,现量,买一价,买二价,买三价,买四价,买五价,卖一价,卖二价,卖三价,卖四价,卖五价,买一量,买二量,买三量,买四量,买五量,卖一量,卖二量,卖三量,卖四量,卖五量,外盘,内盘,成交额,成交笔数,结算价,前结算价,持仓量,前持仓,最新均价,涨跌,涨跌幅,5分钟涨跌幅,交易状态,中文简称,发行价,上市日期,流通份额,总股本,市净率,市净率(LF),换手率,量比,委比,振幅,5日涨跌幅,10日涨跌幅,20日涨跌幅,60日涨跌幅,120日涨跌幅,250日涨跌幅,年初至今涨跌幅,总市值1,流通市值,52周最高,52周最低,市盈率(TTM),市盈率(LYR),市盈率(预测),日增仓,涨停价,跌停价,回收价,上涨家数,下跌家数,平盘家数,正股换手率,权证价格,最新净值,贴水率,基金最新份额,上期净值,最新净值增长率,年初以来净值增长率,成立以来净值增长率,近一周净值增长率,近一月净值增长率,近一季净值增长率,近半年净值增长率,近一年净值增长率,累计净值,申购状态,最新价(全),最新价(净),最新YTM,麦氏久期,修正久期,凸性,前收(全),转股价格,转股比例,转股价值,转股溢价率,套利空间,债券余额(万元),街货量占比,购沽成交比,理论价格,成交价隐含波动率,行权价格,内在价值,时间价值,溢价率,价内外程度,杠杆比率,实际杠杆倍数,Delta,Gamma,Vega,Theta,Rho,行权类型,行权比例,到期日,正股价格,正股涨跌幅,剩余天数,街货量(千份),纯债溢价率,平价底价溢价率,可转债风格类型(平衡型/偏债型/偏股型),纯债价值,加权平均,上日均价,上日加权YTM,开盘价(YTM),最高价(YTM),最低价(YTM),连红天数,当日主力净流入额,当日主力净流入占比,近5日主力净流入额,近5日主力净流入占比,近5日主力净流入天数,近10日主力净流入额,近10日主力净流入占比,近10日主力净流入天数,近20日主力净流入额,近20日主力净流入占比,近20日主力净流入天数,近60日主力净流入额,近60日主力净流入占比,近60日主力净流入天数,交割月份,指数平滑异同移动平均,DIF快线,随机指标K值,随机指标D值,随机指标J值,6周期相对强弱指标,12周期相对强弱指标,抛物线转向指标,布林中轨,布林上轨,布林下轨,5周期移动平均,10周期移动平均,20周期移动平均,60周期移动平均,120周期移动平均,250日均线,连续上涨天数,5日乖离率,14周期顺势指标,26周期能量指标,12周期心理线指标,36日乖离,近1分钟涨跌幅,近3分钟涨跌幅,期现差,距回收价,开盘价(全),开盘价(净),最高价(全),最高价(净),最低价(全),最低价(净),前收(净),前收(YTM),最新加权YTM,涨跌BP,5日涨跌BP,10日涨跌BP,20日涨跌BP,60日涨跌BP,120日涨跌BP,250日涨跌BP,买一YTM,卖一YTM,整体溢价率,基金综合评级,近两年净值增长率,近三年净值增长率,近五年净值增长率,基金规模,七日年化收益率,万份基金收益,IOPV,最优买YTM,最优卖YTM,K线实体涨跌幅,K线实体涨跌额,日增仓(%),近7日平均成交额,前一交易日涨跌幅,近1分钟成交额,近3分钟成交额,近5分钟成交额,前收价YTC/P,开盘价YTC/P,最新价YTC/P,买一行权,买二价YTC/P,买三价YTC/P,买四价YTC/P,买五价YTC/P,卖一行权,卖二价YTC/P,卖三价YTC/P,卖四价YTC/P,卖五价YTC/P,买一价YCU,买二价YCU,买三价YCU,买四价YCU,买五价YCU,卖一价YCU,卖二价YCU,卖三价YCU,卖四价YCU,卖五价YCU,最高价YTC/P,最低价YTC/P,加权价YTC/P,麦氏久期YTC/P,修正久期YTC/P,凸性YTC/P,最新价YCU,开盘价YCU,最高价YCU,最低价YCU,前收YCU,加权价YCU,麦氏久期YCU,修正久期YCU,凸性YCU,做市商数量,买一隐含波动率,买二隐含波动率,买三隐含波动率,买四隐含波动率,买五隐含波动率,卖一隐含波动率,卖二隐含波动率,卖三隐含波动率,卖四隐含波动率,卖五隐含波动率,期权价值状态,保证金,无风险利率,盘前最新价,盘前涨跌额,盘前涨跌幅,盘后最新价,盘后涨跌幅,成分股贡献点数,近5分钟贡献度,涨停时间,跌停时间,总市值2,股息率,报买方,报卖方,火箭发射,高台跳水,涨停封板,跌停封板,涨停开板,跌停开板,涨幅达到3%,跌幅达到3%,创20日新高,创20日新低,MACD多头金叉信号,MACD空头死叉信号,主力挂单买入,主力挂单卖出,主力撤单买入,主力撤单卖出,盘前成交额,盘前涨速,该日机构资金净流入额,该日大户资金净流入额,该日中户资金净流入额,该日散户资金净流入额,基于Wind算法的量比,昨IV,IV涨跌幅,买卖价差,上市以来涨跌幅,时间价值(标的）,中价隐含波动率,收盘涨跌,收盘涨跌幅(%),近3年涨跌幅,近5年涨跌幅,近10年涨跌幅,近20年涨跌幅,近30年涨跌幅,日成交量,日成交额,认沽期权成交量,认购期权成交量,认沽期权持仓量,认购期权持仓量,认沽期权成交额,认购期权成交额,买YTM-中债(Bp),中债-卖YTM(Bp),买YTE-中债(Bp),中债-卖YTE(Bp),买YTM-中证(Bp),中证-卖YTM(Bp),买YTE-中证(Bp),中证-卖YTE(Bp),买量,卖量,买YTM(参考),买YTE,买(净),卖(净),卖YTE,卖YTM(参考),最新YTE,DeltaCash,1%GammaCash,基差,集合竞价涨跌幅,成交价Vega,成交价Theta,成交价Rho,隐含分红率,涨停封板金额,封单额占成交额比例,买卖相对价差,Gamma1Pct |
+| `indexes` | 否 | string | — | "最新交易日,交易时间,最新成交价,前收盘价,今日开盘价,今日最高价,今日最低价,成交量" | 指标字段，多个字段用英文逗号分隔；可选值见本文件的「`indexes` 行情指标」。 |
 
 ### `get_fund_kline`
 
@@ -24,13 +30,13 @@
 | 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
 | `windcode` | 是 | string | — | — | Wind代码，格式如 华夏成长  或 000001.OF，用于标识具体的基金 |
-| `begin_date` | 是 | string | — | — | 开始日期：必须显式填写绝对日期，格式yyyyMMdd，如20260325。 |
-| `end_date` | 是 | string | — | — | 结束日期：必须显式填写绝对日期，格式yyyyMMdd，如20260325。 |
+| `begin_date` | 是 | string | — | — | 开始日期：必须显式填写绝对日期，格式 yyyy-MM-dd，如 2026-03-25。 |
+| `end_date` | 是 | string | — | — | 结束日期：必须显式填写绝对日期，格式 yyyy-MM-dd，如 2026-03-25。 |
 | `count` | 否 | integer | — | — | 为正数表示从begin_date往后取的数据条数；为负数表示从end_date往前取的数据条数 |
-| `period` | 否 | string | — | — | K线周期：默认10(日K)。可选值：1=1分钟，3=5分钟，4=10分钟，5=15分钟，6=30分钟，7=60分钟，8=120分钟，9=240分钟，10=日K，11=周K，12=月K，13=年K，14=季K，15=半年K。常用：日K=10，周K=11，月K=12 |
+| `period` | 否 | string | 1min / 5min / 10min / 15min / 30min / 60min / 120min / 240min / 1d / 1w / 1mo / 1y / 1q / 6mo | "1d" | K 线周期。 |
 | `aftype` | 否 | string | — | — | 复权类型：0=前复权，1=后复权，默认0。前复权更常用 |
 | `issusp` | 否 | string | — | — | 是否包含停牌数据：0=不包含，1=包含，默认1 |
-| `afdate` | 否 | string | — | — | 复权基准日期，格式yyyyMMdd，如20260325。通常不需要指定 |
+| `afdate` | 否 | string | — | — | 复权基准日期，格式 yyyy-MM-dd，如 2026-03-25。通常不需要指定。 |
 
 ### `get_fund_financials`
 
@@ -39,8 +45,7 @@
 | 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
 | `question` | 是 | string | — | — | This parameter accepts natural language queries about fund financial statement and dividend data. The query should specify: (1) target fund name - Wind code (e.g., '008988.OF') or fund name (e.g., '大成科技创新A', '华夏成长混合', '易方达蓝筹精选'); (2) financial data category - profit metrics (quarterly/aggregate fund profit, per-share profit), asset values (NAV/Net Asset Value, GAV/Gross Asset Value, total asset value, fund share-class AUM), income breakdown (interest income, investment income, fair value change income, other income, total income), expense items (management fee, custodian fee, customer maintenance fee, sales service fee), NAV growth rate (reporting period return), or dividend data (dividend frequency, total dividend amount, per-unit dividend, dividend policy terms). LLM should normalize fund names and infer query scope from context - e.g., '大成科技创新A的费用' implies expense items query; '008988的分红情况' implies dividend data query; 'XX基金的财务数据' implies comprehensive financial statement query. |
-| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文；CLI 在调用边界转换成后端编码。 |
-| `version` | 否 | string | — | — | API version parameter |
+| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文。 |
 
 ### `get_fund_holdings`
 
@@ -49,8 +54,7 @@
 | 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
 | `question` | 是 | string | — | — | This parameter accepts natural language queries about fund portfolio holdings and asset allocation data. The query should specify: (1) target fund name - Wind code (e.g., '008988.OF') or fund name (e.g., '大成科技创新A', '工银产业债A', '华夏行业配置C'); (2) holdings data category - asset class composition (equities, bonds, warrants, deposits, other assets with NAV/GAV ratios and period-over-period changes), top stock holdings with extended metrics (stock code/name, shares held, market value, proportion to NAV/GAV, float proportion, position changes, price performance), sector allocation across multiple standards (SWS/Shenwan, Wind, CITIC industry classifications with sector name, investment value, proportion to NAV), top bond holdings (bond code/name, shares held, market value, proportion to NAV/bond investment), or top fund-of-fund holdings (FOF fund's underlying fund positions with code/name, shares, market value, position changes). LLM should normalize fund names and infer query scope from context - e.g., '大成科技创新A的持仓' implies comprehensive holdings query; '工银产业债A的重仓债券' implies top bond holdings query; 'XX基金的行业配置' implies sector allocation query. |
-| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文；CLI 在调用边界转换成后端编码。 |
-| `version` | 否 | string | — | — | API version parameter |
+| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文。 |
 
 ### `get_fund_company_info`
 
@@ -59,8 +63,7 @@
 | 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
 | `question` | 是 | string | — | — | 基金管理公司基本信息、团队及资产配置数据的自然语言查询 |
-| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文；CLI 在调用边界转换成后端编码。 |
-| `version` | 否 | string | — | — | API version parameter |
+| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文。 |
 
 ### `get_fund_quote`
 
@@ -69,8 +72,8 @@
 | 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
 | `windcode` | 是 | string | — | — | 基金名称或者基金代码，如588200.SH。 |
-| `begin` | 是 | string | — | — | 查询开始日期。必须显式填写绝对日期，如20260325；不支持 `LAST` 或隐式默认值。 |
-| `end` | 是 | string | — | — | 查询结束日期。必须显式填写绝对日期，如20260325；不支持 `LAST` 或隐式默认值。 |
+| `begin_date` | 是 | string | — | — | 查询开始日期，格式 yyyy-MM-dd；不支持隐式默认值。 |
+| `end_date` | 是 | string | — | — | 查询结束日期，格式 yyyy-MM-dd；不支持 `LAST` 或隐式默认值。 |
 
 ### `get_fund_info`
 
@@ -79,8 +82,7 @@
 | 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
 | `question` | 是 | string | — | — | 查询基金基本档案及产品结构信息，涵盖基金身份（代码、简称、全称）、投资类型与风格、业绩比较基准、费率结构（管理费、托管费、申购费、赎回费）、现任基金经理详情（姓名、任职期限、管理规模、管理基金数）、管理人名称与托管人名称、发行数据（成立日、发行规模、发行对象、发行方式）、以及指数跟踪专项信息（跟踪指数、上市日期、封闭运作期）。例如：查询大成科技创新A基金的基金身份、投资类型、业绩比较基准 |
-| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文；CLI 在调用边界转换成后端编码。 |
-| `version` | 否 | string | — | — | API version parameter |
+| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文。 |
 
 ### `get_fund_holders`
 
@@ -89,8 +91,7 @@
 | 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
 | `question` | 是 | string | — | — | This parameter accepts natural language queries about fund shareholder and capital flow data. The query should specify: (1) target fund - full name, abbreviation, or Wind code (e.g., '大成科技创新A', '008988.OF', '华夏成长'); (2) data scope - investor composition (% held by individuals vs. institutions), holder count (number of shareholders), subscription/redemption flows (reporting-period net purchase/redemption volume and single-quarter volume), AUM and share changes (total shares outstanding, period-over-period AUM change with growth rate). LLM should normalize fund names and infer missing context - e.g., 'XX基金的持有人结构' implies investor composition and holder count query; 'XX基金的申购赎回情况' implies subscription/redemption data; 'XX基金规模变动' implies AUM change and growth rate data. |
-| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文；CLI 在调用边界转换成后端编码。 |
-| `version` | 否 | string | — | — | API version parameter |
+| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文。 |
 
 ### `get_fund_performance`
 
@@ -99,8 +100,7 @@
 | 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
 | `question` | 是 | string | — | — | This parameter accepts natural language queries about fund performance, ranking, and secondary market trading data. The query should specify: (1) target fund name - Wind code (e.g., '008988.OF') or fund name (e.g., '大成科技创新A', '华夏成长混合', '易方达蓝筹精选'); (2) performance data category - annualized returns across multiple horizons (1-week, 1-month, 3-month, 6-month, 1-year, 2-year, 3-year, 5-year, 10-year annualized returns), return-based NAV growth (adjusted NAV growth rate, accumulated NAV growth rate, interval NAV growth rate); (3) peer rankings - multi-period return rankings (1-week/1-month/3-month/6-month/1-year/2-year/3-year/5-year/10-year return rankings). NOTE: Size-based ranking and risk-adjusted metric rankings (volatility ranking, tracking error ranking, stock-picking ability ranking, market-timing ability ranking) may require separate queries or are not supported in current API version; (4) ETF/LOF-specific metrics - premium/discount rate (IOPV溢折率), IOPV (Indicative Optimized Portfolio Value), net inflows (区间净流入额), market prices and trading volume (收盘价、成交量); (5) margin trading data - margin balance (融资余额), short balance (融券余额); (6) risk-adjusted performance indicators - annualized Alpha, Beta, annualized Sharpe ratio, annualized Treynor ratio, annualized Information ratio, maximum drawdown. LLM should normalize fund names and infer query scope from context - e.g., '大成科技创新A的业绩' implies comprehensive performance query; 'XX基金的排名' implies multi-period return rankings; 'XX基金的ETF指标' implies ETF/LOF-specific metrics; '008988的风险指标' implies risk-adjusted performance indicators query. IMPORTANT: When user requests '同类排名', focus on multi-period return rankings. If user specifically requests size ranking or risk-adjusted metric rankings (volatility/tracking error/stock-picking/market-timing ability rankings), inform user that these rankings may need separate queries through other tools. |
-| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文；CLI 在调用边界转换成后端编码。 |
-| `version` | 否 | string | — | — | API version parameter |
+| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文。 |
 
 ### `search_funds`
 
@@ -109,6 +109,37 @@
 | 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
 | `question` | 是 | string | — | "筛选股票型基金中近一年收益率超20%的产品" | 自然语言基金筛选问句，描述筛选条件（如基金类型、收益率、管理规模等），返回符合条件的基金代码列表。例：筛选股票型基金中近一年收益率超20%的产品 |
-| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文；CLI 在调用边界转换成后端编码。 |
-| `version` | 否 | string | — | — | version |
+| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文。 |
 <!-- END MCP TOOLS/LIST GENERATED CONTRACT -->
+
+<!-- BEGIN DOMAIN INDICATORS -->
+## `indexes` 行情指标
+
+仅供 `get_fund_price_indicators` 使用。只选择用户明确请求的字段，逐字复制；多个字段用英文逗号连接。表内没有的字段不得猜测。
+
+### 基础行情与元信息
+
+`最新交易日`、`交易时间`、`中文简称`、`最新成交价`、`前收盘价`、`今日开盘价`、`今日最高价`、`今日最低价`、`最新均价`、`涨跌`、`涨跌幅`、`5分钟涨跌幅`、`成交量`、`成交额`、`现量`、`现额`、`交易状态`、`上市日期`、`流通份额`
+
+### 盘口、成交与流动性
+
+`买一价`、`买二价`、`买三价`、`买四价`、`买五价`、`卖一价`、`卖二价`、`卖三价`、`卖四价`、`卖五价`、`买一量`、`买二量`、`买三量`、`买四量`、`买五量`、`卖一量`、`卖二量`、`卖三量`、`卖四量`、`卖五量`、`报买方`、`报卖方`、`外盘`、`内盘`、`成交笔数`、`日成交量`、`日成交额`、`近1分钟成交额`、`近3分钟成交额`、`近5分钟成交额`、`近7日平均成交额`、`换手率`、`量比`、`委比`、`振幅`、`基于Wind算法的量比`
+
+### 净值、规模与状态
+
+`最新净值`、`上期净值`、`累计净值`、`最新净值增长率`、`年初以来净值增长率`、`成立以来净值增长率`、`近一周净值增长率`、`近一月净值增长率`、`近一季净值增长率`、`近半年净值增长率`、`近一年净值增长率`、`近两年净值增长率`、`近三年净值增长率`、`近五年净值增长率`、`贴水率`、`基金最新份额`、`申购状态`、`整体溢价率`、`基金综合评级`、`基金规模`、`七日年化收益率`、`万份基金收益`、`IOPV`
+
+### 多周期与技术指标
+
+`5日涨跌幅`、`10日涨跌幅`、`20日涨跌幅`、`60日涨跌幅`、`120日涨跌幅`、`250日涨跌幅`、`年初至今涨跌幅`、`上市以来涨跌幅`、`收盘涨跌`、`收盘涨跌幅(%)`、`近3年涨跌幅`、`近5年涨跌幅`、`近10年涨跌幅`、`近20年涨跌幅`、`近30年涨跌幅`
+
+`指数平滑异同移动平均`、`DIF快线`、`随机指标K值`、`随机指标D值`、`随机指标J值`、`6周期相对强弱指标`、`12周期相对强弱指标`、`抛物线转向指标`、`布林中轨`、`布林上轨`、`布林下轨`、`5周期移动平均`、`10周期移动平均`、`20周期移动平均`、`60周期移动平均`、`120周期移动平均`、`250日均线`、`连续上涨天数`、`5日乖离率`、`36日乖离`、`14周期顺势指标`、`26周期能量指标`、`12周期心理线指标`、`近1分钟涨跌幅`、`近3分钟涨跌幅`、`MACD多头金叉信号`、`MACD空头死叉信号`
+
+### 资金流向与盘前盘后
+
+`连红天数`、`当日主力净流入额`、`当日主力净流入占比`、`近5日主力净流入额`、`近5日主力净流入占比`、`近5日主力净流入天数`、`近10日主力净流入额`、`近10日主力净流入占比`、`近10日主力净流入天数`、`近20日主力净流入额`、`近20日主力净流入占比`、`近20日主力净流入天数`、`近60日主力净流入额`、`近60日主力净流入占比`、`近60日主力净流入天数`
+
+`火箭发射`、`高台跳水`、`涨停封板`、`跌停封板`、`涨停开板`、`跌停开板`、`涨幅达到3%`、`跌幅达到3%`、`创20日新高`、`创20日新低`、`主力挂单买入`、`主力挂单卖出`、`主力撤单买入`、`主力撤单卖出`
+
+`盘前最新价`、`盘前涨跌额`、`盘前涨跌幅`、`盘前成交额`、`盘前涨速`、`盘后最新价`、`盘后涨跌幅`
+<!-- END DOMAIN INDICATORS -->

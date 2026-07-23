@@ -53,27 +53,25 @@ const SKILL_DIR = dirname(dirname(fileURLToPath(
   import.meta.url)));
 
 const UPDATE_CHECK_PATH = join(SKILL_DIR, 'scripts', 'update-check.mjs');
-const TOOL_MANIFEST_PATH = join(SKILL_DIR, 'references', 'tool-manifest.json');
-const ERROR_CODES_PATH = join(SKILL_DIR, 'references', 'error-codes.json');
-const NORMALIZATION_RULES_PATH = join(SKILL_DIR, 'references', 'normalization-rules.json');
-const TOOL_VALIDATION_RULES_PATH = join(SKILL_DIR, 'references', 'tool-validation-rules.json');
+const TOOL_MANIFEST_PATH = join(SKILL_DIR, 'scripts', 'tool-manifest.json');
+const CALL_RULES_PATH = join(SKILL_DIR, 'scripts', 'call-rules.json');
 const CONTRACT_REFS = {
-  stock_data: 'stock-data.md',
-  fund_data: 'fund-data.md',
-  index_data: 'index-data.md',
-  bond_data: 'bond-data.md',
+  stock_data: 'stock.md',
+  fund_data: 'fund.md',
+  index_data: 'index.md',
+  bond_data: 'bond.md',
   financial_docs: 'financial-docs.md',
-  economic_data: 'economic-data.md',
-  analytics_data: 'analytics-data.md',
+  economic_data: 'economic.md',
+  analytics_data: 'analytics.md',
 };
 const CONTRACT_PREAMBLES = {
-  stock_data: `# \`stock_data\` 工具契约\n\n只用于股票：A 股、港股、美股共用本服务。公共字段规则见 \`references/contracts/parameter-conventions.md\`。\n\n- \`search_stocks\` 只用于未指定具体股票的筛选；已指定具体股票时使用对应行情或领域工具。\n- 行情、K 线、分钟行情和价格指标不得改用 \`analytics_data\` 节省调用次数。\n- 市值口径：\`总市值1\`=不含限售股，\`总市值2\`=含限售股；口径不明确时先询问。`,
-  fund_data: `# \`fund_data\` 工具契约\n\n只用于基金、ETF、LOF。公共字段规则见 \`references/contracts/parameter-conventions.md\`。\n\n- \`search_funds\` 只用于未指定具体产品的基金筛选。\n- 场外基金代码如 \`005827.OF\`；ETF/LOF 代码如 \`588200.SH\`、\`159915.SZ\`。`,
-  index_data: `# \`index_data\` 工具契约\n\n只用于指数和板块。公共字段规则见 \`references/contracts/parameter-conventions.md\`。\n\n- 已确认的标准代码可直接传，例如 \`000300.SH\`、\`HSI.HI\`；不得猜测未知后缀。`,
-  bond_data: `# \`bond_data\` 工具契约\n\n只用于债券；本服务没有行情快照、K 线或 Quote 工具。公共字段规则见 \`references/contracts/parameter-conventions.md\`。`,
-  financial_docs: `# \`financial_docs\` 工具契约\n\n只用于公告和财经新闻。公共字段规则见 \`references/contracts/parameter-conventions.md\`。\n\n- 对外统一传 \`question\`，CLI 转成后端 \`query\`。\n- 旧 \`query\` 继续兼容；与 \`question\` 同时出现时值必须一致。`,
-  economic_data: `# \`economic_data\` 工具契约\n\n只用于宏观和行业 EDB 指标。公共字段规则见 \`references/contracts/parameter-conventions.md\`。\n\n- 对外日期字段使用 \`begin_date\` / \`end_date\`，CLI 转成后端 \`beginDate\` / \`endDate\`。\n- \`仅提数\` / \`搜索并提数\` 必须提供完整日期范围或 \`observation\`，两者互斥。`,
-  analytics_data: `# \`analytics_data\` 工具契约\n\n仅当专项服务无法覆盖结构化取数时使用；不得替代行情、K 线、Quote 或价格指标。公共字段规则见 \`references/contracts/parameter-conventions.md\`。\n\n- 首次调用保持用户原意，不增加筛选条件。\n- 首次失败、空数据或明显不匹配后，才可在同一取数意图内改写或拆分一次。`,
+  stock_data: `# \`stock_data\` 工具契约\n\n只用于股票：A 股、港股、美股共用本服务。参数名称、类型、必填项、默认值和枚举以本文件各工具的契约为准。\n\n- \`search_stocks\` 只用于未指定具体股票的筛选；已指定具体股票时使用对应行情或领域工具。\n- 行情、K 线、分钟行情和价格指标不得改用 \`analytics_data\` 节省调用次数。\n- \`indexes\` 逐字取自本文件的「\`indexes\` 行情指标」。\n- 市值口径：\`总市值1\`=不含限售股，\`总市值2\`=含限售股；口径不明确时先询问。\n\n## 目录\n\n- [工具契约](#工具契约)\n- [\`indexes\` 行情指标](#indexes-行情指标)`,
+  fund_data: `# \`fund_data\` 工具契约\n\n只用于基金、ETF、LOF。参数名称、类型、必填项、默认值和枚举以本文件各工具的契约为准。\n\n- \`search_funds\` 只用于未指定具体产品的基金筛选。\n- \`indexes\` 逐字取自本文件的「\`indexes\` 行情指标」。\n- 场外基金代码如 \`005827.OF\`；ETF/LOF 代码如 \`588200.SH\`、\`159915.SZ\`。\n\n## 目录\n\n- [工具契约](#工具契约)\n- [\`indexes\` 行情指标](#indexes-行情指标)`,
+  index_data: `# \`index_data\` 工具契约\n\n只用于指数和板块。参数名称、类型、必填项、默认值和枚举以本文件各工具的契约为准。\n\n- \`indexes\` 逐字取自本文件的「\`indexes\` 行情指标」。\n- 已确认的标准代码可直接传，例如 \`000300.SH\`、\`HSI.HI\`；不得猜测未知后缀。\n\n## 目录\n\n- [工具契约](#工具契约)\n- [\`indexes\` 行情指标](#indexes-行情指标)`,
+  bond_data: `# \`bond_data\` 工具契约\n\n只用于债券；本服务没有行情快照、K 线或 Quote 工具。参数名称、类型、必填项、默认值和枚举以本文件各工具的契约为准。`,
+  financial_docs: `# \`financial_docs\` 工具契约\n\n只用于公告和财经新闻。自然语言统一使用 \`question\`；其余参数以本文件各工具的契约为准。`,
+  economic_data: `# \`economic_data\` 工具契约\n\n只用于宏观和行业 EDB 指标。自然语言统一使用 \`question\`；日期统一使用 \`begin_date\` / \`end_date\`。\n\n- \`仅提数\` / \`搜索并提数\` 必须提供完整日期范围或 \`observation\`，两者互斥。\n- 后端将合法日期误报为 observation 格式错误时，视为后端问题：停止自动修正并透传错误。\n- 不得把日期范围擅自改成 \`observation\`。`,
+  analytics_data: `# \`analytics_data\` 工具契约\n\n仅当专项服务无法覆盖结构化取数时使用；不得替代行情、K 线、Quote 或价格指标。自然语言统一使用 \`question\`。\n\n- 首次调用保持用户原意，不增加筛选条件。\n- 首次失败、空数据或明显不匹配后，才可在同一取数意图内改写或拆分一次。`,
 };
 const GENERATED_CONTRACT_START = '<!-- BEGIN MCP TOOLS/LIST GENERATED CONTRACT -->';
 const GENERATED_CONTRACT_END = '<!-- END MCP TOOLS/LIST GENERATED CONTRACT -->';
@@ -268,47 +266,139 @@ function loadParamsInput(paramsInput) {
 
 export { loadParamsInput };
 
-function defaultRetryPolicy(code) {
-  if (code === 'RATE_LIMIT_ERROR') return { allowed: true, mode: 'same_request_after_wait', max_attempts: 1, after_ms: 5000 };
-  if (code === 'CONCURRENCY_LIMIT_ERROR') return { allowed: true, mode: 'same_request_after_wait', max_attempts: 1, after_ms: 3000 };
-  if (code === 'TEMPORARILY_UNAVAILABLE' || code === 'NETWORK_ERROR') return { allowed: true, mode: 'same_request', max_attempts: 1 };
-  return { allowed: false, mode: 'after_correction', max_attempts: 0 };
+const RETRY_AFTER_CORRECTION = Object.freeze({ allowed: false, mode: 'after_correction', max_attempts: 0 });
+const RETRY_SAME_REQUEST = Object.freeze({ allowed: true, mode: 'same_request', max_attempts: 1 });
+const RETRY_AFTER_WAIT_3S = Object.freeze({ allowed: true, mode: 'same_request_after_wait', max_attempts: 1, after_ms: 3000 });
+const RETRY_AFTER_WAIT_5S = Object.freeze({ allowed: true, mode: 'same_request_after_wait', max_attempts: 1, after_ms: 5000 });
+const KEEP_CURRENT_CALL = Object.freeze({ tripped: false, scope: 'current_call', action: 'none' });
+const ABORT_REMAINING_BATCH = Object.freeze({ tripped: true, scope: 'remaining_batch', action: 'abort_remaining_calls' });
+const NO_CORRECTION = Object.freeze({});
+const REDUCE_CONCURRENCY = Object.freeze({
+  strategy: 'reduce_concurrency',
+  change_only: ['concurrency'],
+  recommended_concurrency: DEFAULT_TOOL_CONCURRENCY,
+  recommended_max_concurrency: MAX_TOOL_CONCURRENCY,
+  preserve_server_type: true,
+  preserve_tool_name: true,
+  preserve_params: true,
+});
+
+function defineError(agentAction, {
+  retry = RETRY_AFTER_CORRECTION,
+  circuitBreaker = KEEP_CURRENT_CALL,
+  correction = NO_CORRECTION,
+} = {}) {
+  return Object.freeze({
+    agent_action: agentAction,
+    retry,
+    circuit_breaker: circuitBreaker,
+    correction,
+  });
 }
 
-function defaultCircuitBreaker(code) {
-  const trips = new Set(['MARKET_TARGET_NOT_FOUND', 'PARAMS_FILE_ERROR', 'PARAM_TYPE_ERROR', 'PARAM_VALIDATION_ERROR', 'PARAM_CONFLICT_ERROR', 'INVALID_PARAM_NAME', 'INVALID_PARAM_VALUE', 'CONCURRENCY_LIMIT_ERROR']);
-  return {
-    tripped: trips.has(code),
-    scope: trips.has(code) ? 'remaining_batch' : 'current_call',
-    action: trips.has(code) ? 'abort_remaining_calls' : 'none',
-  };
-}
+// 错误文案与默认机器策略的唯一总表。调用点可用 metadata 补充本次请求的精确诊断。
+export const ERROR_DEFINITIONS = Object.freeze({
+  TEMPORARILY_UNAVAILABLE: defineError(
+    '原因：后端临时不可用。处理：保持当前 server_type、tool_name 和参数不变。重试：仅允许原样重试一次，仍失败则停止并告知用户稍后再试。',
+    { retry: RETRY_SAME_REQUEST },
+  ),
+  INVALID_PARAM_NAME: defineError(
+    '原因：参数名错误或缺少必填字段。处理：按 error.details 内联的 allowed_fields 或 required_fields 修正。重试：禁止原样重试；修正后最多重试一次。',
+    { circuitBreaker: ABORT_REMAINING_BATCH },
+  ),
+  INVALID_PARAM_VALUE: defineError(
+    '原因：参数值不合法。处理：按 error.details 内联的 expected_format、allowed_values 或其它期望值修正。重试：禁止原样重试；修正后最多重试一次。',
+    { circuitBreaker: ABORT_REMAINING_BATCH },
+  ),
+  EDB_INDICATOR_NOT_FOUND: defineError(
+    '原因：EDB 未找到用户想查询的经济指标。处理：保持 economic_data.natural_language_get_edb_data，只将 question 改成更短、更标准、更明确的单个指标名；优先补充官方口径、地区、来源或常见英文名，去掉年份、预测、市场规模、CAGR 或多个指标拼接等非指标名成分。重试：禁止原样重试；改写后最多重试一次。若改写后仍未找到，停止自动尝试并提示用户提供更明确的指标名称、来源或口径。',
+  ),
+  MARKET_TARGET_NOT_FOUND: defineError(
+    '原因：行情类金融标的未识别，通常是 windcode 中的标的名称、简称或代码无法被 Wind NER 匹配。处理：保持当前行情工具；若用户输入的是中文名、简称或自然语言标的，优先原样传入更明确的单个名称，不得自行补交易所后缀或把名称猜成代码；若原始 windcode 是 1-5 位纯大写英文字母，且用户问题明确是美股/美国上市公司语境，允许仅在本错误后改为 <ticker>.O 重试一次；台股、日股、韩股、欧股等超出本 skill 覆盖范围的请求不得套用 .O 重试，应停止并说明不在支持范围；只有用户明确给出标准代码且明确市场时，才可修正为用户确认的其它 Wind 标准代码。重试：禁止原样重试；修正后最多重试一次。若仍未识别，停止自动尝试并提示用户提供更明确的标的全称、交易所或 Wind 标准代码。',
+    { circuitBreaker: ABORT_REMAINING_BATCH },
+  ),
+  PARAM_TYPE_ERROR: defineError(
+    '原因：参数类型错误，实际值与工具接受的类型不匹配。处理：按 error.details 中的 expected_type 修正对应字段；indexes 使用英文逗号分隔字符串。重试：禁止原样重试；修正后最多重试一次。',
+    { circuitBreaker: ABORT_REMAINING_BATCH },
+  ),
+  PERIOD_PARSE_ERROR: defineError(
+    "原因：K 线周期值无法解析。处理：保持当前 K 线工具，只修 period；日线用 '1d'，周线用 '1w'，月线用 '1mo'。重试：禁止原样重试；修正后最多重试一次。",
+  ),
+  USAGE_ERROR: defineError(
+    "原因：调用命令格式错误。处理：修正为 cli.mjs call <server_type> <tool_name> '<params_json>|@params_file'。重试：禁止原样重试；修正命令形态后最多重试一次。",
+  ),
+  PARAMS_FILE_ERROR: defineError(
+    '原因：@file 参数文件路径为空、文件不存在、无权限或无法读取。处理：只修文件路径或权限，不改 server_type、tool_name 和业务参数。重试：文件可读后最多重试一次。',
+    { circuitBreaker: ABORT_REMAINING_BATCH },
+  ),
+  INVALID_PARAMS_JSON: defineError(
+    '原因：内联参数或 @file 文件内容不是可解析的 JSON。处理：只修 shell 引号、JSON 转义或文件内容，不改字段、日期、indexes、question 或工具。重试：禁止原样重试；修正 JSON 后最多重试一次。',
+  ),
+  ROUTE_ERROR: defineError(
+    '原因：server_type 或 tool_name 不合法。处理：按 error.details 内联的合法 server_type、tool_name 或候选路由修正。重试：禁止原样重试；修正路由后最多重试一次。',
+  ),
+  PARAM_VALIDATION_ERROR: defineError(
+    '原因：本地或后端参数校验未通过。处理：按 error.details 内联的 field、issue、expected_format、allowed_values、allowed_fields 或 required_fields 修正。重试：禁止原样重试；修正后最多重试一次。',
+    { circuitBreaker: ABORT_REMAINING_BATCH },
+  ),
+  PARAM_CONFLICT_ERROR: defineError(
+    '原因：同时传入的同义参数值不一致。处理：按 error.details 中的 fields 和 actual_values 保留一个字段，或将两个字段改为相同值；不得静默覆盖。重试：修正冲突后最多重试一次。',
+    { circuitBreaker: ABORT_REMAINING_BATCH },
+  ),
+  AUTH_ERROR: defineError(
+    '原因：认证失败或 API Key 缺失/无效。处理：按 detail 配置或更换有效 Key；不要换工具绕过。重试：Key 修复前禁止重试；Key 修复后最多原样重试一次。',
+  ),
+  DAILY_LIMIT_ERROR: defineError(
+    '原因：当前 Key 的单日请求次数已达上限，不是账户余额不足。处理：等待次日额度刷新，或更换仍有当日额度的 Key。重试：额度刷新或更换 Key 前禁止重试。',
+  ),
+  BALANCE_ERROR: defineError(
+    '原因：当前 Key 对应账户余额不足，不是单日请求次数超限。处理：充值，或更换余额充足的 Key。重试：余额恢复或更换 Key 前禁止重试。',
+  ),
+  RATE_LIMIT_ERROR: defineError(
+    '原因：请求过于频繁，触发 QPS 限流，不代表日额度或余额不足。处理：等待 3-5 秒，并降低请求频率。重试：等待后仅允许原样重试一次。',
+    { retry: RETRY_AFTER_WAIT_5S },
+  ),
+  CONCURRENCY_LIMIT_ERROR: defineError(
+    '原因：当前同时执行的工具请求数超过后端并发上限，不是参数、标的或额度错误。处理：立即停止发起剩余同批请求，等待 3 秒并恢复串行调用；如用户明确要求并发，并发数不得超过 10。重试：降低并发后仅允许原样重试一次。',
+    {
+      retry: RETRY_AFTER_WAIT_3S,
+      circuitBreaker: ABORT_REMAINING_BATCH,
+      correction: REDUCE_CONCURRENCY,
+    },
+  ),
+  NETWORK_ERROR: defineError(
+    '原因：网络连接或后端 HTTP 5xx 异常。处理：若 detail 暴露参数问题，先修参数；否则稍后再试。重试：仅允许原样重试一次，仍失败则停止并告知用户。',
+    { retry: RETRY_SAME_REQUEST },
+  ),
+  TOOL_RUNTIME_ERROR: defineError(
+    '原因：后端工具运行失败。处理：优先根据 detail 判断是否为请求过大、字段不支持或数据未覆盖；能定位则只修对应项。重试：禁止盲目原样重试；修正后最多重试一次，无法定位则停止。',
+  ),
+  NO_RESULTS: defineError(
+    '原因：工具执行成功但没有匹配结果。处理：保持同一 server_type、tool_name 和用户意图，只调整一个直接相关的关键词、时间范围或粒度。重试：禁止原样重试；调整后最多重试一次。若第二次仍无结果，停止自动尝试并提示用户提供更明确的指标名称、来源或口径。',
+  ),
+  SETUP_ERROR: defineError(
+    '原因：本地配置或环境操作失败。处理：按 detail 修正 scope、权限、路径或让用户手动打开 URL。重试：禁止原样重试；修正本地问题后最多重试一次。',
+  ),
+  UNKNOWN: defineError(
+    '原因：未归类的后端或本地错误；不代表参数、工具或标的可修复。处理：保留 detail 原文，不要猜测参数、切换工具或扩大查询；仅当能明确判断属于本地命令、参数、认证或网络问题时，才修正对应项。重试：禁止原样重试；有确定修正项时最多重试一次，无法明确定位则停止并将 detail 原文告知用户。',
+  ),
+});
 
-function defaultCorrection(code) {
-  if (code === 'CONCURRENCY_LIMIT_ERROR') {
-    return {
-      strategy: 'reduce_concurrency',
-      change_only: ['concurrency'],
-      recommended_concurrency: DEFAULT_TOOL_CONCURRENCY,
-      recommended_max_concurrency: MAX_TOOL_CONCURRENCY,
-      preserve_server_type: true,
-      preserve_tool_name: true,
-      preserve_params: true,
-    };
-  }
-  return {};
+function getErrorDefinition(code) {
+  return ERROR_DEFINITIONS[code] || ERROR_DEFINITIONS.UNKNOWN;
 }
 
 // 失败 envelope 保留 agent_action 向后兼容，同时提供机器可读的诊断与重试策略。
 function writeErrorEnvelope(code, detail, metadata = {}) {
+  const definition = getErrorDefinition(code);
   const envelope = {
     ok: false,
     error: {
       code,
       details: metadata.details || (detail ? { message: String(detail).slice(0, 500) } : {}),
-      retry: metadata.retry || defaultRetryPolicy(code),
-      circuit_breaker: metadata.circuit_breaker || defaultCircuitBreaker(code),
-      correction: metadata.correction || defaultCorrection(code),
+      retry: metadata.retry || definition.retry,
+      circuit_breaker: metadata.circuit_breaker || definition.circuit_breaker,
+      correction: metadata.correction || definition.correction,
       agent_action: buildAgentAction(code, detail),
     },
   };
@@ -410,49 +500,44 @@ const EDB_EXECUTION_MODE_ALIASES = new Map([
   ['搜索并提数', 'searchFetch'],
 ]);
 
-function readNormalizationRules() {
-  const rules = JSON.parse(readFileSync(NORMALIZATION_RULES_PATH, 'utf8'));
+function readCallRules() {
+  try {
+    return JSON.parse(readFileSync(CALL_RULES_PATH, 'utf8'));
+  } catch (err) {
+    die('UNKNOWN', `调用规则读取失败: ${err.message}`);
+  }
+}
+
+function prepareNormalizationRules(rules) {
   return {
     dateNormalization: rules.date_normalization || {},
     langAliases: new Map(Object.entries(rules.lang_aliases || {})),
     langBackendValuesDefault: rules.lang_backend_values_default || {},
     langBackendValuesByTool: rules.lang_backend_values_by_tool || {},
     parameterMappingsByTool: rules.parameter_mappings_by_tool || {},
-    klinePeriods: new Set(rules.kline_periods || []),
-    periodAliases: new Map(Object.entries(rules.period_aliases || {})),
-    indicatorAliases: new Map(Object.entries(rules.indicator_aliases || {})),
-    indexCodeAliases: new Map(Object.entries(rules.index_code_aliases || {})),
+    klinePeriodMap: new Map(Object.entries(rules.kline_period_map || {})),
     legacyToolAliases: new Map(Object.entries(rules.legacy_tool_aliases || {})),
     toolByDomain: rules.tool_by_domain || {},
   };
 }
 
-const NORMALIZATION_RULES = readNormalizationRules();
+const CALL_RULES = readCallRules();
+const NORMALIZATION_RULES = prepareNormalizationRules(CALL_RULES);
 const DATE_NORMALIZATION = NORMALIZATION_RULES.dateNormalization;
 const LANG_ALIASES = NORMALIZATION_RULES.langAliases;
 const LANG_BACKEND_VALUES_DEFAULT = NORMALIZATION_RULES.langBackendValuesDefault;
 const LANG_BACKEND_VALUES_BY_TOOL = NORMALIZATION_RULES.langBackendValuesByTool;
 const PARAMETER_MAPPINGS_BY_TOOL = NORMALIZATION_RULES.parameterMappingsByTool;
-const KLINE_PERIODS = NORMALIZATION_RULES.klinePeriods;
-const PERIOD_ALIASES = NORMALIZATION_RULES.periodAliases;
-const INDICATOR_ALIASES = NORMALIZATION_RULES.indicatorAliases;
-const INDEX_CODE_ALIASES = NORMALIZATION_RULES.indexCodeAliases;
+const KLINE_PERIOD_MAP = NORMALIZATION_RULES.klinePeriodMap;
+const PUBLIC_KLINE_PERIODS = new Set(KLINE_PERIOD_MAP.keys());
+const KLINE_PERIODS = new Set(KLINE_PERIOD_MAP.values());
 const LEGACY_TOOL_ALIASES = NORMALIZATION_RULES.legacyToolAliases;
 const TOOL_BY_DOMAIN = NORMALIZATION_RULES.toolByDomain;
 
-function readToolValidationRules() {
-  try {
-    const rules = JSON.parse(readFileSync(TOOL_VALIDATION_RULES_PATH, 'utf8'));
-    return {
-      basic: rules.basic || {},
-      toolRules: Array.isArray(rules.tool_rules) ? rules.tool_rules : [],
-    };
-  } catch (err) {
-    die('UNKNOWN', `工具参数校验规则读取失败: ${err.message}`);
-  }
-}
-
-const TOOL_VALIDATION_RULES = readToolValidationRules();
+const TOOL_VALIDATION_RULES = {
+  basic: CALL_RULES.basic || {},
+  toolRules: Array.isArray(CALL_RULES.tool_rules) ? CALL_RULES.tool_rules : [],
+};
 const KLINE_TOOLS = new Set(TOOL_VALIDATION_RULES.toolRules.find(rule => rule.name === 'kline')?.tools || []);
 
 function isValidBasicDate(value) {
@@ -547,21 +632,15 @@ function applyToolParameterMappings(toolName, args) {
   return { args: normalizedArgs, errors };
 }
 
-function normalizeIndicatorKey(value) {
-  return String(value || '').trim().replace(/\s+/g, '').replace(/[（]/g, '(').replace(/[）]/g, ')').toLowerCase();
-}
-
 function normalizeIndexes(indexes) {
   if (typeof indexes !== 'string') return indexes;
-  return indexes.split(',').map((item) => INDICATOR_ALIASES.get(normalizeIndicatorKey(item)) || item.trim()).filter(Boolean).join(',');
+  return indexes.split(',').map((item) => item.trim()).filter(Boolean).join(',');
 }
 
 function normalizeWindcode(windcode) {
   if (typeof windcode !== 'string') return windcode;
   const raw = windcode.trim();
   const upper = raw.toUpperCase();
-  const alias = INDEX_CODE_ALIASES.get(upper);
-  if (alias) return alias;
   // Keep natural-language names untouched. Wind's backend NER is responsible
   // for resolving names/aliases; the CLI must not guess exchange suffixes.
   if (/[\u4e00-\u9fff]/.test(raw)) return raw;
@@ -597,9 +676,20 @@ function normalizeCall(server_type, toolName, args) {
   }
   if (typeof normalizedArgs.indexes === 'string') normalizedArgs.indexes = normalizeIndexes(normalizedArgs.indexes);
   if (typeof normalizedArgs.windcode === 'string') normalizedArgs.windcode = normalizeWindcode(normalizedArgs.windcode);
+  if (KLINE_TOOLS.has(toolName) && normalizedArgs.period === undefined) normalizedArgs.period = '1d';
   if (typeof normalizedArgs.period === 'string') {
-    const key = normalizedArgs.period.trim().toLowerCase();
-    normalizedArgs.period = PERIOD_ALIASES.get(key) || normalizedArgs.period.trim();
+    const key = normalizedArgs.period.trim();
+    const backendPeriod = KLINE_PERIOD_MAP.get(key);
+    normalizedArgs.period = backendPeriod || key;
+    if (!backendPeriod && KLINE_PERIODS.has(key)) {
+      normalizationErrors.push({
+        message: `字段 'period' 只能是 ${Array.from(PUBLIC_KLINE_PERIODS).join('/')}，日 K 请传 '1d'`,
+        field: 'period',
+        issue: 'invalid_enum',
+        actual: key,
+        allowed_values: Array.from(PUBLIC_KLINE_PERIODS),
+      });
+    }
   }
   return { server_type, toolName, args: normalizedArgs, normalizationErrors };
 }
@@ -652,8 +742,13 @@ function hasParamValue(params, key) {
 
 function resolveValidationValues(fieldRule) {
   if (Array.isArray(fieldRule.values)) return fieldRule.values.map(String);
-  if (fieldRule.values_from === 'normalization.kline_periods') return Array.from(KLINE_PERIODS).map(String);
+  if (fieldRule.values_from === 'kline_period_map') return Array.from(KLINE_PERIODS).map(String);
   return [];
+}
+
+function resolveValidationDisplayValues(fieldRule) {
+  if (fieldRule.values_from === 'kline_period_map') return Array.from(PUBLIC_KLINE_PERIODS).map(String);
+  return resolveValidationValues(fieldRule);
 }
 
 function renderValidationMessage(template, values) {
@@ -696,7 +791,8 @@ function validateToolParams(toolName, params) {
       if (!(field in params)) continue;
       const values = resolveValidationValues(fieldRule);
       if (!values.includes(String(params[field]))) {
-        errors.push({ message: renderValidationMessage(fieldRule.message, values), field, issue: 'invalid_enum', actual: params[field], allowed_values: values });
+        const displayValues = resolveValidationDisplayValues(fieldRule);
+        errors.push({ message: renderValidationMessage(fieldRule.message, displayValues), field, issue: 'invalid_enum', actual: params[field], allowed_values: displayValues });
       }
     }
 
@@ -789,6 +885,7 @@ const ERROR_PATTERNS = [
 
 function inferErrorCode(msg) {
   if (!msg) return 'UNKNOWN';
+  if (/^\s*"?OK"?\s*$/i.test(String(msg))) return 'TOOL_RUNTIME_ERROR';
   for (const [code, pat] of ERROR_PATTERNS) {
     if (pat.test(msg)) return code;
   }
@@ -798,37 +895,18 @@ function inferErrorCode(msg) {
 function inferBusinessErrorCode(inner, serverType) {
   const body = inner && typeof inner === 'object' ? inner.data : null;
   if (!body || typeof body !== 'object') return null;
-  if (typeof body.code !== 'number' || body.code === 0) return null;
+  if (typeof body.code !== 'number') return null;
+  const isSuccessCode = body.code === 0
+    || (body.code >= 200 && body.code < 300 && /^OK$/i.test(String(body.message || '').trim()));
+  if (isSuccessCode) return null;
   const message = typeof body.message === 'string' ? body.message : JSON.stringify(body);
   if (serverType === 'economic_data' && body.code === 1003) return ['EDB_INDICATOR_NOT_FOUND', message];
   return [inferErrorCode(message), message];
 }
 
-// agent_action = 诊断 + 行动 一体的 NL 处方; 唯一总表在 references/error-codes.json
-function loadAgentActions() {
-  const fallback = {
-    UNKNOWN: '未归类错误，不代表参数、工具或标的可修复。禁止原样重试、猜测参数、切换工具或扩大查询；先保留 detail 原文并判断是否属于本地命令/参数/认证/网络问题。只有能明确定位且有确定修正项时才允许修正后重试一次；无法明确定位则停止并将 detail 原文告知用户。',
-  };
-  try {
-    const doc = JSON.parse(readFileSync(ERROR_CODES_PATH, 'utf8'));
-    const codes = doc && typeof doc.codes === 'object' ? doc.codes : null;
-    if (!codes) return fallback;
-    return {
-      ...fallback,
-      ...Object.fromEntries(
-        Object.entries(codes).filter(([, action]) => typeof action === 'string' && action.trim()),
-      ),
-    };
-  } catch {
-    return fallback;
-  }
-}
-
-const AGENT_ACTIONS = loadAgentActions();
-
 // detail 只保留短诊断，避免后端长文本淹没 agent_action。
 function buildAgentAction(code, detail) {
-  const template = AGENT_ACTIONS[code] || AGENT_ACTIONS.UNKNOWN;
+  const template = getErrorDefinition(code).agent_action;
   if (code === 'USAGE_ERROR') return template;
   if (detail && typeof detail === 'string' && detail.trim()) {
     const d = detail.trim().slice(0, 500);
@@ -953,12 +1031,26 @@ async function mcpRequest(server_type, method, params, {
   }
 
   if (payload.error) {
-    const msg = payload.error.message || JSON.stringify(payload.error);
+    const msg = typeof payload.error === 'string'
+      ? payload.error
+      : (payload.error.message || JSON.stringify(payload.error));
+    if (/^\s*OK\s*$/i.test(msg)) {
+      dieMcp(
+        'TOOL_RUNTIME_ERROR',
+        `JSON-RPC protocol conflict: payload.error is present but error message is "OK"; error=${JSON.stringify(payload.error).slice(0, 1000)} (server=${server_type})`,
+      );
+    }
     dieMcp(inferErrorCode(msg), `${msg} (server=${server_type})`);
   }
 
   if (payload.result?.isError) {
     const msg = payload.result.content?.[0]?.text || JSON.stringify(payload.result);
+    if (/^\s*OK\s*$/i.test(msg)) {
+      dieMcp(
+        'TOOL_RUNTIME_ERROR',
+        `MCP result protocol conflict: isError=true but error text is "OK"; result=${JSON.stringify(payload.result).slice(0, 1000)} (server=${server_type})`,
+      );
+    }
     dieMcp(inferErrorCode(msg), `${msg} (server=${server_type})`);
   }
 
@@ -1143,22 +1235,77 @@ function renderOfficialContract(serverType, tools) {
     const schema = tool.inputSchema || {};
     const properties = schema.properties || {};
     const required = new Set(schema.required || []);
-    const rows = Object.entries(properties).map(([name, property]) => {
-      const publicProperty = name === 'lang'
-        ? { ...property, enum: ['zh-CN', 'en-US'], default: 'zh-CN', description: '返回语言：zh-CN=简体中文，en-US=英文；CLI 在调用边界转换成后端编码。' }
-        : property;
+    const rows = Object.entries(properties)
+      .filter(([name]) => name !== 'version')
+      .map(([name, property]) => {
+      const publicName = serverType === 'financial_docs' && name === 'query'
+        ? 'question'
+        : serverType === 'economic_data' && name === 'beginDate'
+          ? 'begin_date'
+          : serverType === 'economic_data' && name === 'endDate'
+            ? 'end_date'
+            : tool.name.endsWith('_quote') && name === 'begin'
+              ? 'begin_date'
+              : tool.name.endsWith('_quote') && name === 'end'
+                ? 'end_date'
+                : name;
+      let publicProperty = name === 'period' && tool.name.endsWith('_kline')
+        ? { ...property, enum: Array.from(PUBLIC_KLINE_PERIODS), default: '1d', description: 'K 线周期。' }
+        : name === 'lang'
+          ? { ...property, enum: ['zh-CN', 'en-US'], default: 'zh-CN', description: '返回语言：zh-CN=简体中文，en-US=英文。' }
+        : name === 'indexes'
+          ? { ...property, description: '指标字段，多个字段用英文逗号分隔；可选值见本文件的「`indexes` 行情指标」。' }
+          : property;
+      if (['begin_date', 'end_date', 'afdate'].includes(publicName)) {
+        publicProperty = {
+          ...publicProperty,
+          description: String(publicProperty.description || '')
+            .replaceAll('beginDate', 'begin_date')
+            .replaceAll('endDate', 'end_date')
+            .replaceAll('yyyyMMdd', 'yyyy-MM-dd')
+            .replaceAll('20260325', '2026-03-25')
+            .replaceAll('20260326', '2026-03-26'),
+        };
+      }
+      if (tool.name.endsWith('_quote') && publicName === 'begin_date') {
+        publicProperty = { ...publicProperty, description: '查询开始日期，格式 yyyy-MM-dd；不支持隐式默认值。' };
+      }
+      if (tool.name.endsWith('_quote') && publicName === 'end_date') {
+        publicProperty = { ...publicProperty, description: '查询结束日期，格式 yyyy-MM-dd；不支持 `LAST` 或隐式默认值。' };
+      }
+      if (serverType === 'economic_data') {
+        publicProperty = {
+          ...publicProperty,
+          description: String(publicProperty.description || '')
+            .replaceAll('beginDate', 'begin_date')
+            .replaceAll('endDate', 'end_date')
+            .replaceAll('yyyyMMdd', 'yyyy-MM-dd'),
+        };
+      }
       const enums = Array.isArray(publicProperty.enum) ? publicProperty.enum.map(String).join(' / ') : '—';
       const defaultValue = Object.hasOwn(publicProperty, 'default') ? JSON.stringify(publicProperty.default) : '—';
-      return `| \`${name}\` | ${required.has(name) ? '是' : '否'} | ${markdownCell(publicProperty.type)} | ${markdownCell(enums)} | ${markdownCell(defaultValue)} | ${markdownCell(publicProperty.description)} |`;
-    });
+      return `| \`${publicName}\` | ${required.has(name) ? '是' : '否'} | ${markdownCell(publicProperty.type)} | ${markdownCell(enums)} | ${markdownCell(defaultValue)} | ${markdownCell(publicProperty.description)} |`;
+      });
     return `### \`${tool.name}\`\n\n${tool.description || '—'}\n\n| 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |\n| --- | --- | --- | --- | --- | --- |\n${rows.length ? rows.join('\n') : '| — | — | — | — | — | 无参数 |'}`;
   });
   return `${GENERATED_CONTRACT_START}\n## 工具契约\n\n${sections.join('\n\n')}\n${GENERATED_CONTRACT_END}`;
 }
 
 function mergeGeneratedContract(filePath, preamble, generated) {
-  writeFileSync(filePath, `${preamble.trim()}\n\n${generated}\n`, 'utf8');
+  let suffix = '';
+  try {
+    const existing = readFileSync(filePath, 'utf8');
+    const generatedEnd = existing.indexOf(GENERATED_CONTRACT_END);
+    if (generatedEnd >= 0) {
+      suffix = existing.slice(generatedEnd + GENERATED_CONTRACT_END.length).trim();
+    }
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  const preservedSuffix = suffix ? `\n\n${suffix}` : '';
+  writeFileSync(filePath, `${preamble.trim()}\n\n${generated}${preservedSuffix}\n`, 'utf8');
 }
+export { mergeGeneratedContract };
 
 async function cmdSyncContracts() {
   const manifest = {};
@@ -1175,14 +1322,14 @@ async function cmdSyncContracts() {
 
   // Only mutate local contracts after every server returned a valid tools/list response.
   for (const [serverType, tools] of Object.entries(contracts)) {
-    const contractPath = join(SKILL_DIR, 'references', 'contracts', CONTRACT_REFS[serverType]);
+    const contractPath = join(SKILL_DIR, 'references', CONTRACT_REFS[serverType]);
     mergeGeneratedContract(contractPath, CONTRACT_PREAMBLES[serverType], renderOfficialContract(serverType, tools));
   }
   writeFileSync(TOOL_MANIFEST_PATH, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
   return {
     updated: true,
     source: 'MCP tools/list',
-    contracts_dir: join(SKILL_DIR, 'references', 'contracts'),
+    contracts_dir: join(SKILL_DIR, 'references'),
     tool_counts: Object.fromEntries(Object.entries(manifest).map(([key, tools]) => [key, tools.length])),
   };
 }
