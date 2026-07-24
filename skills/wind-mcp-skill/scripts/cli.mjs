@@ -6,7 +6,7 @@ import { join, dirname, basename, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 
-const SKILL_VERSION = '1.10.10';
+const SKILL_VERSION = '1.11.11';
 const DEFAULT_TOOL_CONCURRENCY = 1;
 const MAX_TOOL_CONCURRENCY = 10;
 
@@ -75,6 +75,7 @@ const CONTRACT_PREAMBLES = {
 };
 const GENERATED_CONTRACT_START = '<!-- BEGIN MCP TOOLS/LIST GENERATED CONTRACT -->';
 const GENERATED_CONTRACT_END = '<!-- END MCP TOOLS/LIST GENERATED CONTRACT -->';
+const INTERNAL_WARNINGS_KEY = '__wind_cli_warnings';
 const SKILL_NAME = basename(SKILL_DIR);
 
 const CALL_EXAMPLES = [
@@ -197,6 +198,10 @@ function normalizeSuccessPayload(value, path = '$', state = { warnings: [], tabl
 function normalizeCallSuccess(result, context = {}) {
   const output = result && typeof result === 'object' ? structuredClone(result) : result;
   const state = { warnings: [], tables: [], invalidPaths: [] };
+  if (output && typeof output === 'object' && Array.isArray(output[INTERNAL_WARNINGS_KEY])) {
+    state.warnings.push(...output[INTERNAL_WARNINGS_KEY]);
+    delete output[INTERNAL_WARNINGS_KEY];
+  }
   if (output && Array.isArray(output.content)) {
     for (const item of output.content) {
       if (item?.type !== 'text' || typeof item.text !== 'string') continue;
@@ -834,7 +839,17 @@ function validateToolParams(toolName, params) {
   return errors;
 }
 
-export { fetchWithRetry, isExplicitNoDataResult, normalizeCall, normalizeCallSuccess, validateBasicParams, validateToolParams };
+export {
+  businessPayloadHasUsableData,
+  classifyBusinessResponse,
+  fetchWithRetry,
+  hasUsableData,
+  isExplicitNoDataResult,
+  normalizeCall,
+  normalizeCallSuccess,
+  validateBasicParams,
+  validateToolParams,
+};
 
 // ───── 认证 ─────
 
@@ -893,16 +908,50 @@ function inferErrorCode(msg) {
   return 'UNKNOWN';
 }
 
-function inferBusinessErrorCode(inner, serverType) {
+function hasUsableData(value) {
+  if (value === null || value === undefined) return false;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (typeof value === 'object') return Object.keys(value).length > 0;
+  return true;
+}
+
+function businessPayloadHasUsableData(inner) {
+  const body = inner && typeof inner === 'object' ? inner.data : null;
+  if (!body || typeof body !== 'object') return hasUsableData(body);
+  return Object.hasOwn(body, 'data') ? hasUsableData(body.data) : hasUsableData(body);
+}
+
+function classifyBusinessResponse(inner, serverType) {
   const body = inner && typeof inner === 'object' ? inner.data : null;
   if (!body || typeof body !== 'object') return null;
-  if (typeof body.code !== 'number') return null;
-  const isSuccessCode = body.code === 0
-    || (body.code >= 200 && body.code < 300 && /^OK$/i.test(String(body.message || '').trim()));
-  if (isSuccessCode) return null;
+  const numericCode = typeof body.code === 'number'
+    ? body.code
+    : (typeof body.code === 'string' && /^\d+$/.test(body.code.trim()) ? Number(body.code) : null);
+  if (numericCode === null) return null;
   const message = typeof body.message === 'string' ? body.message : JSON.stringify(body);
-  if (serverType === 'economic_data' && body.code === 1003) return ['EDB_INDICATOR_NOT_FOUND', message];
-  return [inferErrorCode(message), message];
+  const isSuccessCode = numericCode === 0
+    || (numericCode >= 200 && numericCode < 300 && /^(OK|SUCCESS)$/i.test(String(body.message || '').trim()));
+  if (isSuccessCode) return null;
+  if (serverType === 'economic_data' && numericCode === 1003) {
+    return { error: ['EDB_INDICATOR_NOT_FOUND', message] };
+  }
+  const inferredCode = inferErrorCode(message);
+  if (businessPayloadHasUsableData(inner) && inferredCode === 'UNKNOWN') {
+    return {
+      warning: {
+        code: 'UNKNOWN_BACKEND_STATUS_WITH_DATA',
+        backend_code: body.code,
+        backend_message: body.message ?? null,
+        message: '后端返回未知业务状态码，但响应中包含可用数据；已保留数据并降级为成功警告。',
+      },
+    };
+  }
+  return { error: [inferredCode, message] };
+}
+
+function inferBusinessErrorCode(inner, serverType) {
+  return classifyBusinessResponse(inner, serverType)?.error || null;
 }
 
 function isExplicitNoDataResult(inner) {
@@ -985,6 +1034,7 @@ async function mcpRequest(server_type, method, params, {
   diagnosticContext = null,
 } = {}) {
   const server = getServer(server_type);
+  const responseWarnings = [];
   const apiKey = getApiKey();
   const headers = {
     Authorization: `Bearer ${apiKey}`,
@@ -1141,16 +1191,30 @@ async function mcpRequest(server_type, method, params, {
         dieBackend({ code: inner.mcp_tool_error_code, message: msg }, 'TOOL_RUNTIME_ERROR');
       }
       if (inner.error && (inner.error.code || inner.error.message) && !isExplicitNoDataResult(inner)) {
-        dieBackend(inner.error, 'TOOL_RUNTIME_ERROR');
+        const errorMessage = inner.error.message || JSON.stringify(inner.error);
+        const inferredCode = inferErrorCode(errorMessage);
+        if (businessPayloadHasUsableData(inner) && inferredCode === 'UNKNOWN') {
+          responseWarnings.push({
+            code: 'BACKEND_ERROR_WITH_DATA',
+            backend_error: inner.error,
+            message: '后端同时返回错误信息和可用数据；已保留数据并标记为部分成功，请勿忽略该警告。',
+          });
+        } else {
+          dieBackend(inner.error, 'TOOL_RUNTIME_ERROR');
+        }
       }
-      const businessError = inferBusinessErrorCode(inner, server_type);
-      if (businessError) {
-        const [code, message] = businessError;
+      const businessClassification = classifyBusinessResponse(inner, server_type);
+      if (businessClassification?.error) {
+        const [code, message] = businessClassification.error;
         dieMcp(code, message, { backendError: inner.data });
       }
+      if (businessClassification?.warning) responseWarnings.push(businessClassification.warning);
     }
   }
 
+  if (responseWarnings.length && payload.result && typeof payload.result === 'object') {
+    payload.result[INTERNAL_WARNINGS_KEY] = responseWarnings;
+  }
   return payload.result;
 }
 
