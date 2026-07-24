@@ -39,6 +39,20 @@ const cli = read('scripts/cli.mjs');
 const cliModule = await import(pathToFileURL(resolve(SKILL, 'scripts', 'cli.mjs')).href);
 const errorDefinitions = cliModule.ERROR_DEFINITIONS;
 
+test('temporary request files are ignored and the repository contains only a safe example', () => {
+  const ignore = readRepo('skills/.gitignore');
+  assert.match(ignore, /\*\*\/scripts\/request\.json/);
+  assert.match(ignore, /\*\*\/scripts\/request-\*\.json/);
+  assert.equal(existsSync(resolve(SKILL, 'scripts', 'request.json')), false);
+  assert.equal(existsSync(resolve(SKILL, 'scripts', 'request.example.json')), true);
+});
+
+test('backend failures use the structured error envelope', () => {
+  assert.doesNotMatch(cli, /dieBackendRaw/);
+  assert.match(cli, /dieMcp\(code, message, \{ backendError \}\)/);
+  assert.match(cli, /dieBackend\([\s\S]*?'NETWORK_ERROR'\)/);
+});
+
 test('explicit QUERY_FAILED no-data payload is a successful empty result', () => {
   assert.equal(cliModule.isExplicitNoDataResult({
     data: null,
@@ -397,6 +411,11 @@ test('lang uses one public vocabulary and analytics backend encoding', () => {
 test('financial docs accept question, preserve query and reject conflicts', () => {
   assert.deepEqual(cliModule.normalizeCall('financial_docs', 'get_financial_news', { question: '美联储政策' }).args, { query: '美联储政策' });
   assert.deepEqual(cliModule.normalizeCall('financial_docs', 'get_financial_news', { query: '美联储政策' }).args, { query: '美联储政策' });
+  const spaced = cliModule.normalizeCall('financial_docs', 'get_financial_news', { question: 'VLCC油轮 运价 航运 2026' });
+  assert.deepEqual(spaced.args, { query: 'VLCC油轮 运价 航运 2026' });
+  assert.deepEqual(cliModule.validateBasicParams(spaced.args, spaced.toolName), []);
+  const blankErrors = cliModule.validateBasicParams({ query: '   ' }, 'get_financial_news');
+  assert.equal(blankErrors[0].issue, 'empty_value');
   const conflict = cliModule.normalizeCall('financial_docs', 'get_financial_news', { question: 'A', query: 'B' });
   assert.equal(conflict.normalizationErrors[0].code, 'PARAM_CONFLICT_ERROR');
   assert.deepEqual(conflict.normalizationErrors[0].fields, ['question', 'query']);

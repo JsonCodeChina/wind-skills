@@ -14,3 +14,7 @@ skills-zipped/
 
 # 技能管理状态文件
 **/update-state.json
+
+# Wind MCP 临时请求参数（可能包含用户查询）
+**/scripts/request.json
+**/scripts/request-*.json
