@@ -1,0 +1,117 @@
+{
+  "generated_at": "2026-07-24",
+  "summary": {
+    "requested_count": 8,
+    "generated_count": 8,
+    "unique_questions": 8,
+    "contract_tool_count": 8,
+    "covered_tool_count": 8,
+    "missing_tools": []
+  },
+  "cases": [
+    {
+      "id": "RS001",
+      "question": "查询上证指数2026-07-07日K线",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_kline",
+        "params": {
+          "windcode": "000001.SH",
+          "begin_date": "2026-07-07",
+          "end_date": "2026-07-07",
+          "period": "1d"
+        }
+      }
+    },
+    {
+      "id": "RS002",
+      "question": "查询道琼斯指数2026-07-08日K线",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_kline",
+        "params": {
+          "windcode": "DJI",
+          "begin_date": "2026-07-08",
+          "end_date": "2026-07-08",
+          "period": "1d"
+        }
+      }
+    },
+    {
+      "id": "RS003",
+      "question": "查询BDTI指数周K线",
+      "expected": {
+        "server_type": "index_data",
+        "tool_name": "get_index_kline",
+        "params": {
+          "windcode": "BDTI.HI",
+          "begin_date": "2025-01-01",
+          "end_date": "2026-07-09",
+          "period": "1w"
+        }
+      }
+    },
+    {
+      "id": "RS004",
+      "question": "查询中远海能估值和明确口径市值",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "get_stock_price_indicators",
+        "params": {
+          "windcode": "600026.SH",
+          "indexes": "市盈率(TTM),市净率,总市值2"
+        }
+      }
+    },
+    {
+      "id": "RS005",
+      "question": "搜索VLCC超大型油轮航运相关的A股上市公司",
+      "expected": {
+        "server_type": "stock_data",
+        "tool_name": "search_stocks",
+        "params": {
+          "question": "搜索VLCC超大型油轮航运相关的A股上市公司",
+          "lang": "zh-CN"
+        }
+      }
+    },
+    {
+      "id": "RS006",
+      "question": "查询VLCC油轮运价航运新闻",
+      "expected": {
+        "server_type": "financial_docs",
+        "tool_name": "get_financial_news",
+        "params": {
+          "question": "VLCC油轮运价航运2026",
+          "top_k": 10
+        }
+      }
+    },
+    {
+      "id": "RS007",
+      "question": "查询OPEC原油产量",
+      "expected": {
+        "server_type": "economic_data",
+        "tool_name": "natural_language_get_edb_data",
+        "params": {
+          "executionMode": "searchFetch",
+          "question": "OPEC原油产量 百万桶/天",
+          "begin_date": "2020-01-01",
+          "end_date": "2026-07-09"
+        }
+      }
+    },
+    {
+      "id": "RS008",
+      "question": "查询A股申万一级行业板块涨跌幅排名",
+      "expected": {
+        "server_type": "analytics_data",
+        "tool_name": "get_financial_data",
+        "params": {
+          "question": "2026-07-09 A股申万一级行业板块涨跌幅排名",
+          "lang": "zh-CN"
+        }
+      }
+    }
+  ]
+}

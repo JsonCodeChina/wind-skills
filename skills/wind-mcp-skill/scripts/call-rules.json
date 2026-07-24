@@ -86,8 +86,7 @@
       "date",
       "tradeDate",
       "afdate"
-    ],
-    "no_whitespace_keys": ["query"]
+    ]
   },
   "tool_rules": [
     {

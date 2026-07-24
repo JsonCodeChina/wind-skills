@@ -50,7 +50,7 @@ examples:
 3. **统一格式**：日期使用 `yyyy-MM-dd`，不得使用 `LAST`、`yyyyMMdd` 或隐式日期默认值；自然语言统一使用 `question` 且不得为空；`lang` 使用 `zh-CN` / `en-US`，默认 `zh-CN`。宏观 EDB 的 `question` 可填写自然语言短语或 EDB 指标代码。
 4. **标的**：`windcode` 的类型和多标的传入方式以当前工具契约为准，不得施加全局单标的限制。
 5. **指标**：使用 `indexes` 时，只读当前领域契约中的「`indexes` 行情指标」，只选择用户明确请求的字段并逐字复制；多个字段用英文逗号连接。契约中没有的字段不得猜测。
-6. **命令**：优先传内联 `<params_json>`；执行器重复转义 JSON 时，将 UTF-8 JSON 参数文件统一生成到 `scripts/request.json`，并使用 `@scripts/request.json` 传入。不得在 skill 根目录生成 `request.json`。命中 `INVALID_PARAMS_JSON` 前不得反复改写引号。
+6. **命令**：优先传内联 `<params_json>`；执行器重复转义 JSON 时，将 UTF-8 JSON 参数文件生成到 `scripts/request-<唯一后缀>.json`，并使用对应 `@scripts/request-<唯一后缀>.json` 传入，调用后删除。不得复用共享请求文件，不得在 skill 根目录生成请求文件。命中 `INVALID_PARAMS_JSON` 前不得反复改写引号。
 7. **失败与熔断**：非 0 退出先读 stdout 的 `error.code`、`error.details`、`error.retry`、`error.circuit_breaker` 和 `error.correction`。`circuit_breaker.tripped=true` 时立即终止剩余同批调用。只在 `correction` 允许的错误域内修复，并严格执行 `retry`。
 8. **结果安全**：结构化数据中的 `INVALID` 或 `null` 表示缺失或不适用，禁止当作 0。不得使用 `excelTotalCount` 判断总数、完整性、排名全集或分页状态，只能报告实际返回行数并说明完整性未知。analytics 返回多个 Step / 数据块时全部保留并分别解释，不得只读取第一个块。
 9. **行情解释**：Quote 是分钟 / 日内序列，不保证包含昨收或日涨跌幅。缺少 `pre_close` / `pct_chg` 时，禁止用 `(收盘-开盘)/开盘` 冒充日涨跌幅；改用同领域价格指标或 K 线工具。只有返回元数据或契约明确给出单位时才能换算；单位缺失时保留原值并说明单位未知。
@@ -79,7 +79,7 @@ node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
 执行器会重复转义 JSON 时，改用：
 
 ```bash
-node scripts/cli.mjs call <server_type> <tool_name> @scripts/request.json
+node scripts/cli.mjs call <server_type> <tool_name> @scripts/request-<唯一后缀>.json
 ```
 
 8. exit code 0 时解析 stdout；若存在 `content[0].text`，优先解析其中的文本或 JSON。exit code 1 时按错误信封处理。

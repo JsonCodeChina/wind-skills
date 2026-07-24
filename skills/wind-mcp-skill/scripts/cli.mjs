@@ -411,14 +411,6 @@ function die(code, detail = null, exitCode = 1, metadata = {}) {
   process.exit(exitCode);
 }
 
-function dieBackendRaw(error, exitCode = 1) {
-  const raw = error && typeof error === 'object'
-    ? error
-    : { message: String(error ?? '') };
-  process.stdout.write(JSON.stringify(raw, null, 2) + '\n');
-  process.exit(exitCode);
-}
-
 function exitWithUsage(usage, exitCode = 0) {
   die('USAGE_ERROR', `USAGE:\n${usage}`, exitCode);
 }
@@ -1044,6 +1036,15 @@ async function mcpRequest(server_type, method, params, {
       },
     });
   };
+  const dieBackend = (error, fallbackCode = 'UNKNOWN') => {
+    const backendError = error && typeof error === 'object'
+      ? error
+      : { message: String(error ?? '') };
+    const message = backendError.message || JSON.stringify(backendError);
+    const inferredCode = inferErrorCode(message);
+    const code = inferredCode === 'UNKNOWN' ? fallbackCode : inferredCode;
+    dieMcp(code, message, { backendError });
+  };
   let resp;
   try {
     resp = await fetchWithRetry(
@@ -1067,14 +1068,24 @@ async function mcpRequest(server_type, method, params, {
       },
     );
   } catch (err) {
-    dieBackendRaw({ message: err?.message || String(err) });
+    dieBackend({
+      message: err?.message || String(err),
+      ...(err?.code ? { code: err.code } : {}),
+      ...(err?.cause?.code ? { cause_code: err.cause.code } : {}),
+    }, 'NETWORK_ERROR');
   }
 
   if (!resp.ok) {
     const bodyText = await resp.text().catch(() => '');
     const code = HTTP_ERROR_MAP[resp.status]?.[0] || 'UNKNOWN';
     const detail = `HTTP ${resp.status} ${resp.statusText} (server=${server_type})` + (bodyText ? ` | body: ${bodyText.slice(0, 200)}` : '');
-    die(code, detail);
+    let backendError = null;
+    try {
+      backendError = bodyText ? JSON.parse(bodyText) : null;
+    } catch {
+      backendError = bodyText ? { message: bodyText.slice(0, 2000) } : null;
+    }
+    dieMcp(code, detail, { backendError });
   }
 
   const text = await resp.text();
@@ -1095,7 +1106,7 @@ async function mcpRequest(server_type, method, params, {
         `JSON-RPC protocol conflict: payload.error is present but error message is "OK"; error=${JSON.stringify(payload.error).slice(0, 1000)} (server=${server_type})`,
       );
     }
-    dieBackendRaw(payload.error);
+    dieBackend(payload.error, 'TOOL_RUNTIME_ERROR');
   }
 
   if (payload.result?.isError) {
@@ -1112,7 +1123,7 @@ async function mcpRequest(server_type, method, params, {
     } catch {
       raw = { message: msg };
     }
-    dieBackendRaw(raw?.error || raw);
+    dieBackend(raw?.error || raw, 'TOOL_RUNTIME_ERROR');
   }
 
   // 部分工具把业务错误包在 content[0].text 的 JSON 字符串里, 必须二次解析
@@ -1127,14 +1138,15 @@ async function mcpRequest(server_type, method, params, {
     if (inner) {
       if (typeof inner.mcp_tool_error_code === 'number' && inner.mcp_tool_error_code !== 0) {
         const msg = inner.mcp_tool_error_msg || JSON.stringify(inner);
-        dieBackendRaw({ code: inner.mcp_tool_error_code, message: msg });
+        dieBackend({ code: inner.mcp_tool_error_code, message: msg }, 'TOOL_RUNTIME_ERROR');
       }
       if (inner.error && (inner.error.code || inner.error.message) && !isExplicitNoDataResult(inner)) {
-        dieBackendRaw(inner.error);
+        dieBackend(inner.error, 'TOOL_RUNTIME_ERROR');
       }
       const businessError = inferBusinessErrorCode(inner, server_type);
       if (businessError) {
-        dieBackendRaw(inner.data);
+        const [code, message] = businessError;
+        dieMcp(code, message, { backendError: inner.data });
       }
     }
   }

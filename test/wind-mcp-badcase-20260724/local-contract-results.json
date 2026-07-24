@@ -1,0 +1,706 @@
+{
+  "generated_at": "2026-07-24T01:39:14.547Z",
+  "source": "G:\\jhuan.jerry\\GIT\\wind-skills\\test\\wind-mcp-badcase-20260724\\badcases.json",
+  "skill": "G:\\jhuan.jerry\\GIT\\wind-skills\\skills\\wind-mcp-skill",
+  "summary": {
+    "total": 24,
+    "passed": 24,
+    "failed": 0,
+    "by_status": {
+      "accepted": 10,
+      "validation_error": 8,
+      "accepted_gap": 4,
+      "route_error": 2
+    },
+    "by_category": {
+      "analytics_routing": {
+        "total": 1,
+        "passed": 1
+      },
+      "legacy_date_fields": {
+        "total": 1,
+        "passed": 1
+      },
+      "legacy_date_format": {
+        "total": 1,
+        "passed": 1
+      },
+      "bare_index_ticker": {
+        "total": 1,
+        "passed": 1
+      },
+      "indexes_type": {
+        "total": 1,
+        "passed": 1
+      },
+      "indexes_vocabulary": {
+        "total": 1,
+        "passed": 1
+      },
+      "search_params": {
+        "total": 1,
+        "passed": 1
+      },
+      "question_query": {
+        "total": 1,
+        "passed": 1
+      },
+      "unknown_tool": {
+        "total": 1,
+        "passed": 1
+      },
+      "server_tool_mismatch": {
+        "total": 1,
+        "passed": 1
+      },
+      "period_magic_value": {
+        "total": 1,
+        "passed": 1
+      },
+      "edb_legacy_params": {
+        "total": 1,
+        "passed": 1
+      },
+      "docs_legacy_query": {
+        "total": 1,
+        "passed": 1
+      },
+      "legacy_lang": {
+        "total": 1,
+        "passed": 1
+      },
+      "params_double_encoded": {
+        "total": 1,
+        "passed": 1
+      },
+      "search_query_topk": {
+        "total": 1,
+        "passed": 1
+      },
+      "market_cap_ambiguity": {
+        "total": 1,
+        "passed": 1
+      },
+      "instrument_domain_mismatch": {
+        "total": 1,
+        "passed": 1
+      },
+      "instrument_alias_mismatch": {
+        "total": 1,
+        "passed": 1
+      },
+      "canonical_kline": {
+        "total": 1,
+        "passed": 1
+      },
+      "analytics_lang_alias": {
+        "total": 1,
+        "passed": 1
+      },
+      "canonical_docs_question": {
+        "total": 1,
+        "passed": 1
+      },
+      "canonical_edb": {
+        "total": 1,
+        "passed": 1
+      },
+      "canonical_search": {
+        "total": 1,
+        "passed": 1
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "BC001",
+      "category": "analytics_routing",
+      "server_type": "analytics_data",
+      "tool_name": "get_financial_data",
+      "params": {
+        "question": "2026-07-09 A股申万一级行业板块涨跌幅排名"
+      },
+      "expected_status": "accepted",
+      "note": "专项工具没有全行业筛选入口时可使用 Analytics，但不得在未审查专项路径前直接兜底。",
+      "actual_status": "accepted",
+      "normalized": {
+        "question": "2026-07-09 A股申万一级行业板块涨跌幅排名"
+      },
+      "errors": [],
+      "passed": true
+    },
+    {
+      "id": "BC002",
+      "category": "legacy_date_fields",
+      "server_type": "index_data",
+      "tool_name": "get_index_quote",
+      "params": {
+        "windcode": "000001.SH",
+        "begin": "2026-07-09",
+        "end": "2026-07-09"
+      },
+      "expected_status": "accepted",
+      "note": "后端旧字段仍兼容；新生成调用应使用 begin_date/end_date。",
+      "actual_status": "accepted",
+      "normalized": {
+        "windcode": "000001.SH",
+        "begin": "20260709",
+        "end": "20260709"
+      },
+      "errors": [],
+      "passed": true
+    },
+    {
+      "id": "BC003",
+      "category": "legacy_date_format",
+      "server_type": "index_data",
+      "tool_name": "get_index_kline",
+      "params": {
+        "windcode": "000001.SH",
+        "begin_date": "20260707",
+        "end_date": "20260707"
+      },
+      "expected_status": "validation_error",
+      "actual_status": "validation_error",
+      "normalized": {
+        "windcode": "000001.SH",
+        "begin_date": "20260707",
+        "end_date": "20260707",
+        "period": "10"
+      },
+      "errors": [
+        {
+          "code": "INVALID_PARAM_VALUE",
+          "message": "字段 'begin_date' 日期格式错误，对外统一要求 yyyy-MM-dd",
+          "field": "begin_date",
+          "issue": "invalid_format",
+          "actual": "20260707",
+          "expected_format": "yyyy-MM-dd",
+          "accepted_input_formats": [
+            "yyyy-MM-dd"
+          ],
+          "allowed_special_values": [],
+          "example": "2026-07-08"
+        },
+        {
+          "code": "INVALID_PARAM_VALUE",
+          "message": "字段 'end_date' 日期格式错误，对外统一要求 yyyy-MM-dd",
+          "field": "end_date",
+          "issue": "invalid_format",
+          "actual": "20260707",
+          "expected_format": "yyyy-MM-dd",
+          "accepted_input_formats": [
+            "yyyy-MM-dd"
+          ],
+          "allowed_special_values": [],
+          "example": "2026-07-08"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "BC004",
+      "category": "bare_index_ticker",
+      "server_type": "index_data",
+      "tool_name": "get_index_kline",
+      "params": {
+        "windcode": "DJI",
+        "begin_date": "2026-07-08",
+        "end_date": "2026-07-08",
+        "period": "1d"
+      },
+      "expected_status": "accepted",
+      "note": "本地契约合法，最终标的识别由后端 NER 决定。",
+      "actual_status": "accepted",
+      "normalized": {
+        "windcode": "DJI",
+        "begin_date": "20260708",
+        "end_date": "20260708",
+        "period": "10"
+      },
+      "errors": [],
+      "passed": true
+    },
+    {
+      "id": "BC005",
+      "category": "indexes_type",
+      "server_type": "index_data",
+      "tool_name": "get_index_price_indicators",
+      "params": {
+        "windcode": "BDTI.HI",
+        "indexes": [
+          "close",
+          "pct_chg",
+          "ma5",
+          "ma20"
+        ]
+      },
+      "expected_status": "validation_error",
+      "actual_status": "validation_error",
+      "normalized": {
+        "windcode": "BDTI.HI",
+        "indexes": [
+          "close",
+          "pct_chg",
+          "ma5",
+          "ma20"
+        ]
+      },
+      "errors": [
+        {
+          "message": "字段 'indexes' 必须是字符串",
+          "field": "indexes",
+          "issue": "invalid_type",
+          "expected_type": "string",
+          "actual_type": "array"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "BC006",
+      "category": "indexes_vocabulary",
+      "server_type": "index_data",
+      "tool_name": "get_index_price_indicators",
+      "params": {
+        "windcode": "BDTI.HI",
+        "indexes": "close,pct_chg,ma5,ma20,volume"
+      },
+      "expected_status": "accepted_gap",
+      "note": "类型合法，但 CLI 尚未逐项校验 indexes 是否来自中文契约字典。",
+      "actual_status": "accepted_gap",
+      "normalized": {
+        "windcode": "BDTI.HI",
+        "indexes": "close,pct_chg,ma5,ma20,volume"
+      },
+      "errors": [],
+      "passed": true
+    },
+    {
+      "id": "BC007",
+      "category": "search_params",
+      "server_type": "stock_data",
+      "tool_name": "search_stocks",
+      "params": {
+        "trade_date": "20260708",
+        "exchange": "SSE, SZSE",
+        "return_fields": "wind_code,sec_name,close"
+      },
+      "expected_status": "validation_error",
+      "actual_status": "validation_error",
+      "normalized": {
+        "trade_date": "20260708",
+        "exchange": "SSE, SZSE",
+        "return_fields": "wind_code,sec_name,close"
+      },
+      "errors": [
+        {
+          "message": "自然语言 工具缺少必填字段 'question'",
+          "field": "question",
+          "issue": "missing_required",
+          "required_fields": [
+            "question"
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "BC008",
+      "category": "question_query",
+      "server_type": "stock_data",
+      "tool_name": "search_stocks",
+      "params": {
+        "query": "航运 油轮 VLCC 运输 公司 A股",
+        "market": "A"
+      },
+      "expected_status": "validation_error",
+      "actual_status": "validation_error",
+      "normalized": {
+        "query": "航运 油轮 VLCC 运输 公司 A股",
+        "market": "A"
+      },
+      "errors": [
+        {
+          "message": "自然语言 工具缺少必填字段 'question'",
+          "field": "question",
+          "issue": "missing_required",
+          "required_fields": [
+            "question"
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "BC009",
+      "category": "unknown_tool",
+      "server_type": "stock_data",
+      "tool_name": "get_stock_performance",
+      "params": {
+        "windcode": "000001.SH",
+        "begin_date": "2026-07-08",
+        "end_date": "2026-07-08"
+      },
+      "expected_status": "route_error",
+      "actual_status": "route_error",
+      "normalized": null,
+      "errors": [
+        {
+          "code": "ROUTE_ERROR",
+          "message": "server_type + tool_name 不在当前 manifest"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "BC010",
+      "category": "server_tool_mismatch",
+      "server_type": "stock_data",
+      "tool_name": "get_index_kline",
+      "params": {
+        "windcode": "HSI.HI",
+        "begin_date": "2026-07-08",
+        "end_date": "2026-07-08"
+      },
+      "expected_status": "route_error",
+      "actual_status": "route_error",
+      "normalized": null,
+      "errors": [
+        {
+          "code": "ROUTE_ERROR",
+          "message": "server_type + tool_name 不在当前 manifest"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "BC011",
+      "category": "period_magic_value",
+      "server_type": "index_data",
+      "tool_name": "get_index_kline",
+      "params": {
+        "windcode": "BDTI.HI",
+        "begin_date": "2025-01-01",
+        "end_date": "2026-07-09",
+        "period": "W"
+      },
+      "expected_status": "validation_error",
+      "actual_status": "validation_error",
+      "normalized": {
+        "windcode": "BDTI.HI",
+        "begin_date": "20250101",
+        "end_date": "20260709",
+        "period": "W"
+      },
+      "errors": [
+        {
+          "message": "字段 'period' 只能是 1min/5min/10min/15min/30min/60min/120min/240min/1d/1w/1mo/1y/1q/6mo，日 K 请传 '1d'",
+          "field": "period",
+          "issue": "invalid_enum",
+          "actual": "W",
+          "allowed_values": [
+            "1min",
+            "5min",
+            "10min",
+            "15min",
+            "30min",
+            "60min",
+            "120min",
+            "240min",
+            "1d",
+            "1w",
+            "1mo",
+            "1y",
+            "1q",
+            "6mo"
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "BC012",
+      "category": "edb_legacy_params",
+      "server_type": "economic_data",
+      "tool_name": "natural_language_get_edb_data",
+      "params": {
+        "executionMode": "retrieve",
+        "question": "全球原油需求与供给数据 百万桶/天",
+        "beginDate": "2020-01-01",
+        "endDate": "2026-07-09"
+      },
+      "expected_status": "validation_error",
+      "actual_status": "validation_error",
+      "normalized": {
+        "executionMode": "retrieve",
+        "question": "全球原油需求与供给数据 百万桶/天",
+        "beginDate": "20200101",
+        "endDate": "20260709"
+      },
+      "errors": [
+        {
+          "message": "字段 'executionMode' 只能是 search/fetch/searchFetch 或 仅搜索/仅提数/搜索并提数",
+          "field": "executionMode",
+          "issue": "invalid_enum",
+          "actual": "retrieve",
+          "allowed_values": [
+            "search",
+            "fetch",
+            "searchFetch",
+            "仅搜索",
+            "仅提数",
+            "搜索并提数"
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "BC013",
+      "category": "docs_legacy_query",
+      "server_type": "financial_docs",
+      "tool_name": "get_financial_news",
+      "params": {
+        "query": "VLCC油轮 运价 航运 2026",
+        "top_k": 10
+      },
+      "expected_status": "accepted",
+      "note": "CLI 保留后端 query 的兼容性；新调用统一使用 question。",
+      "actual_status": "accepted",
+      "normalized": {
+        "query": "VLCC油轮 运价 航运 2026",
+        "top_k": 10
+      },
+      "errors": [],
+      "passed": true
+    },
+    {
+      "id": "BC014",
+      "category": "legacy_lang",
+      "server_type": "stock_data",
+      "tool_name": "search_stocks",
+      "params": {
+        "question": "芯片设计龙头上市公司",
+        "lang": "中文"
+      },
+      "expected_status": "accepted",
+      "actual_status": "accepted",
+      "normalized": {
+        "question": "芯片设计龙头上市公司",
+        "lang": "中文"
+      },
+      "errors": [],
+      "passed": true
+    },
+    {
+      "id": "BC015",
+      "category": "params_double_encoded",
+      "server_type": "analytics_data",
+      "tool_name": "get_financial_data",
+      "params": "{\"question\":\"VLCC超大型原油运输船产业链结构\"}",
+      "expected_status": "validation_error",
+      "actual_status": "validation_error",
+      "normalized": "{\"question\":\"VLCC超大型原油运输船产业链结构\"}",
+      "errors": [
+        {
+          "code": "PARAM_TYPE_ERROR",
+          "message": "params 必须是 JSON object",
+          "field": "params",
+          "issue": "invalid_type",
+          "expected_type": "object",
+          "actual_type": "string"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "BC016",
+      "category": "search_query_topk",
+      "server_type": "stock_data",
+      "tool_name": "search_stocks",
+      "params": {
+        "query": "VLCC超大型油轮航运",
+        "top_k": 20
+      },
+      "expected_status": "validation_error",
+      "actual_status": "validation_error",
+      "normalized": {
+        "query": "VLCC超大型油轮航运",
+        "top_k": 20
+      },
+      "errors": [
+        {
+          "message": "自然语言 工具缺少必填字段 'question'",
+          "field": "question",
+          "issue": "missing_required",
+          "required_fields": [
+            "question"
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "BC017",
+      "category": "market_cap_ambiguity",
+      "server_type": "stock_data",
+      "tool_name": "get_stock_price_indicators",
+      "params": {
+        "windcode": "600026.SH",
+        "indexes": "市盈率,市净率,总市值"
+      },
+      "expected_status": "accepted_gap",
+      "note": "CLI 尚未把含糊的总市值口径或非契约指标拦截下来，依赖 Skill 调用前审查。",
+      "actual_status": "accepted_gap",
+      "normalized": {
+        "windcode": "600026.SH",
+        "indexes": "市盈率,市净率,总市值"
+      },
+      "errors": [],
+      "passed": true
+    },
+    {
+      "id": "BC018",
+      "category": "instrument_domain_mismatch",
+      "server_type": "stock_data",
+      "tool_name": "get_stock_kline",
+      "params": {
+        "windcode": "000001.SH",
+        "begin_date": "2026-07-08",
+        "end_date": "2026-07-08"
+      },
+      "expected_status": "accepted_gap",
+      "note": "000001.SH 是指数代码，但 CLI 仅做格式校验，不能本地识别标的领域。",
+      "actual_status": "accepted_gap",
+      "normalized": {
+        "windcode": "000001.SH",
+        "begin_date": "20260708",
+        "end_date": "20260708",
+        "period": "10"
+      },
+      "errors": [],
+      "passed": true
+    },
+    {
+      "id": "BC019",
+      "category": "instrument_alias_mismatch",
+      "server_type": "stock_data",
+      "tool_name": "get_stock_kline",
+      "params": {
+        "windcode": "HKHSI",
+        "begin_date": "2026-07-08",
+        "end_date": "2026-07-08"
+      },
+      "expected_status": "accepted_gap",
+      "note": "错误标的别名需由后端 NER 或更强的本地代码字典识别。",
+      "actual_status": "accepted_gap",
+      "normalized": {
+        "windcode": "HKHSI",
+        "begin_date": "20260708",
+        "end_date": "20260708",
+        "period": "10"
+      },
+      "errors": [],
+      "passed": true
+    },
+    {
+      "id": "BC020",
+      "category": "canonical_kline",
+      "server_type": "index_data",
+      "tool_name": "get_index_kline",
+      "params": {
+        "windcode": "000001.SH",
+        "begin_date": "2026-07-07",
+        "end_date": "2026-07-07",
+        "period": "1d"
+      },
+      "expected_status": "accepted",
+      "actual_status": "accepted",
+      "normalized": {
+        "windcode": "000001.SH",
+        "begin_date": "20260707",
+        "end_date": "20260707",
+        "period": "10"
+      },
+      "errors": [],
+      "passed": true
+    },
+    {
+      "id": "BC021",
+      "category": "analytics_lang_alias",
+      "server_type": "analytics_data",
+      "tool_name": "get_financial_data",
+      "params": {
+        "question": "2026-07-08美股各行业板块涨跌幅排名",
+        "lang": "CNS"
+      },
+      "expected_status": "accepted",
+      "actual_status": "accepted",
+      "normalized": {
+        "question": "2026-07-08美股各行业板块涨跌幅排名",
+        "lang": "CNS"
+      },
+      "errors": [],
+      "passed": true
+    },
+    {
+      "id": "BC022",
+      "category": "canonical_docs_question",
+      "server_type": "financial_docs",
+      "tool_name": "get_financial_news",
+      "params": {
+        "question": "VLCC油轮运价航运2026",
+        "top_k": 10
+      },
+      "expected_status": "accepted",
+      "actual_status": "accepted",
+      "normalized": {
+        "top_k": 10,
+        "query": "VLCC油轮运价航运2026"
+      },
+      "errors": [],
+      "passed": true
+    },
+    {
+      "id": "BC023",
+      "category": "canonical_edb",
+      "server_type": "economic_data",
+      "tool_name": "natural_language_get_edb_data",
+      "params": {
+        "executionMode": "searchFetch",
+        "question": "OPEC原油产量 百万桶/天",
+        "begin_date": "2020-01-01",
+        "end_date": "2026-07-09"
+      },
+      "expected_status": "accepted",
+      "actual_status": "accepted",
+      "normalized": {
+        "executionMode": "searchFetch",
+        "question": "OPEC原油产量 百万桶/天",
+        "beginDate": "20200101",
+        "endDate": "20260709"
+      },
+      "errors": [],
+      "passed": true
+    },
+    {
+      "id": "BC024",
+      "category": "canonical_search",
+      "server_type": "stock_data",
+      "tool_name": "search_stocks",
+      "params": {
+        "question": "搜索VLCC超大型油轮航运相关的A股上市公司",
+        "lang": "zh-CN"
+      },
+      "expected_status": "accepted",
+      "actual_status": "accepted",
+      "normalized": {
+        "question": "搜索VLCC超大型油轮航运相关的A股上市公司",
+        "lang": "中文"
+      },
+      "errors": [],
+      "passed": true
+    }
+  ]
+}
