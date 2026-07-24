@@ -39,6 +39,46 @@ const cli = read('scripts/cli.mjs');
 const cliModule = await import(pathToFileURL(resolve(SKILL, 'scripts', 'cli.mjs')).href);
 const errorDefinitions = cliModule.ERROR_DEFINITIONS;
 
+test('business responses preserve usable data across backend status-code changes', () => {
+  for (const code of [0, 200, '200']) {
+    assert.equal(cliModule.classifyBusinessResponse({
+      data: { code, message: 'OK', data: [{ value: 1 }] },
+    }, 'economic_data'), null);
+  }
+  assert.equal(cliModule.classifyBusinessResponse({
+    data: { code: 299, message: 'SUCCESS', data: [{ value: 1 }] },
+  }, 'economic_data'), null);
+
+  const unknownWithData = cliModule.classifyBusinessResponse({
+    data: { code: 777, message: 'new backend status', data: [{ value: 1 }] },
+  }, 'economic_data');
+  assert.equal(unknownWithData.warning.code, 'UNKNOWN_BACKEND_STATUS_WITH_DATA');
+  assert.equal(unknownWithData.error, undefined);
+
+  const unknownWithoutData = cliModule.classifyBusinessResponse({
+    data: { code: 777, message: 'new backend status', data: [] },
+  }, 'economic_data');
+  assert.equal(unknownWithoutData.error[0], 'UNKNOWN');
+
+  const knownFatalWithData = cliModule.classifyBusinessResponse({
+    data: { code: 1003, message: '指标未找到', data: [{ stale: true }] },
+  }, 'economic_data');
+  assert.equal(knownFatalWithData.error[0], 'EDB_INDICATOR_NOT_FOUND');
+
+  assert.equal(cliModule.hasUsableData(0), true);
+  assert.equal(cliModule.hasUsableData([]), false);
+  assert.equal(cliModule.hasUsableData({}), false);
+});
+
+test('internal response warnings are promoted to cli_meta and not leaked', () => {
+  const result = cliModule.normalizeCallSuccess({
+    content: [{ type: 'text', text: '{"data":[1]}' }],
+    __wind_cli_warnings: [{ code: 'UNKNOWN_BACKEND_STATUS_WITH_DATA' }],
+  }, { server_type: 'economic_data', tool_name: 'natural_language_get_edb_data' });
+  assert.equal(result.__wind_cli_warnings, undefined);
+  assert.equal(result.cli_meta.warnings[0].code, 'UNKNOWN_BACKEND_STATUS_WITH_DATA');
+});
+
 test('temporary request files are ignored and the repository contains only a safe example', () => {
   const ignore = readRepo('skills/.gitignore');
   assert.match(ignore, /\*\*\/scripts\/request\.json/);
@@ -301,6 +341,16 @@ test('no blanket single-target validator or calling recommendation remains', () 
   assert.doesNotMatch(cli, /single_target_keys/);
   assert.doesNotMatch(skill, /单次工具调用只允许一个标的/);
   assert.doesNotMatch(readme, /只支持单标的/);
+});
+
+test('price indicators and fund info describe native multi-target support', () => {
+  assert.match(contractBodies.stock_data, /获取一个或多个股票指定价格指标/);
+  assert.match(contractBodies.stock_data, /一个或多个股票名称或者股票代码/);
+  assert.match(contractBodies.fund_data, /一只或多只基金的当前\/最新价格/);
+  assert.match(contractBodies.fund_data, /一个或多个基金名称或者基金代码/);
+  assert.match(contractBodies.fund_data, /获取单只或多只基金的基础档案/);
+  assert.match(contractBodies.index_data, /获取一个或多个指数的某一具体价格指标/);
+  assert.match(contractBodies.index_data, /一个或多个指数名称或者指数代码/);
 });
 
 test('foreign exchange is not declared unsupported', () => {
