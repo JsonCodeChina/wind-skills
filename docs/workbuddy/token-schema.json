@@ -1,0 +1,18 @@
+{
+  "title": "Wind Financial Data MCP Configuration",
+  "title_en": "Wind Financial Data MCP Configuration",
+  "description": "Enter your Wind API Key. It is stored locally and sent only as an Authorization header while connecting to the Wind MCP server.",
+  "description_en": "Enter your Wind API Key. It is stored locally and sent only as an Authorization header while connecting to the Wind MCP server.",
+  "fields": [
+    {
+      "key": "WIND_API_KEY",
+      "label": "Wind API Key",
+      "placeholder": "Enter your personal Wind API Key",
+      "placeholder_en": "Enter your personal Wind API Key",
+      "type": "password",
+      "required": true,
+      "description": "Your personal API Key is not written into Connector configuration files.",
+      "description_en": "Your personal API Key is not written into Connector configuration files."
+    }
+  ]
+}
