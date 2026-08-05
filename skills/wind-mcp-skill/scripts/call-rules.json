@@ -1,5 +1,5 @@
 {
-  "schema_version": 10,
+  "schema_version": 13,
   "description": "Runtime normalization and validation rules for Wind MCP tool calls.",
   "kline_period_map": {
     "1min": "1",
@@ -42,7 +42,6 @@
       "indexes",
       "executionMode",
       "observation",
-      "lang",
       "begin_date",
       "end_date",
       "begin",
@@ -117,50 +116,6 @@
       "required": ["windcode", "begin", "end"],
       "paired": [["begin", "end"]],
       "ordered_dates": [["begin", "end"]]
-    },
-    {
-      "name": "standard_lang",
-      "label": "语言参数",
-      "tools": [
-        "search_stocks",
-        "get_stock_basicinfo",
-        "get_stock_fundamentals",
-        "get_stock_equity_holders",
-        "get_stock_events",
-        "get_stock_technicals",
-        "get_risk_metrics",
-        "search_funds",
-        "get_fund_info",
-        "get_fund_financials",
-        "get_fund_holdings",
-        "get_fund_performance",
-        "get_fund_holders",
-        "get_fund_company_info",
-        "get_index_basicinfo",
-        "get_index_fundamentals",
-        "get_index_technicals",
-        "get_bond_basicinfo",
-        "get_bond_issuer_info",
-        "get_bond_market_data",
-        "get_bond_financial_data"
-      ],
-      "enum_fields": {
-        "lang": {
-          "values": ["中文", "English"],
-          "message": "字段 'lang' 只能是 中文 或 English"
-        }
-      }
-    },
-    {
-      "name": "analytics_lang",
-      "label": "analytics 语言参数",
-      "tools": ["get_financial_data"],
-      "enum_fields": {
-        "lang": {
-          "values": ["CNS", "ENS"],
-          "message": "字段 'lang' 只能表示中文或英文"
-        }
-      }
     },
     {
       "name": "economic_edb",

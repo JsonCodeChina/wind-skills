@@ -1432,7 +1432,7 @@ function runMain() {
     `用法:\n` +
     `  cli.mjs call <server_type> <tool_name> '<params_json>|@params_file'\n` +
     `  cli.mjs list-tools <server_type>                    # 获取后端官方工具描述和 inputSchema\n` +
-    `  cli.mjs sync-contracts                             # 将七个后端的 tools/list 合并进原有契约\n` +
+
     `  cli.mjs open-portal                                # 打开万得开发者中心拿 API Key\n` +
     `  cli.mjs setup-key <KEY> --scope <global|skill>     # 配置 API Key（先问用户存放位置）\n\n` +
     `可用 server_type:\n` +
@@ -1443,7 +1443,6 @@ function runMain() {
   const commands = {
     call: () => cmdCall(args[0], args[1], args[2]),
     'list-tools': () => cmdListTools(args[0]),
-    'sync-contracts': () => cmdSyncContracts(),
     'open-portal': () => cmdOpenPortal(),
     'setup-key': () => cmdSetupKey(...args),
     diagnose: () => cmdDiagnose(),
