@@ -4,7 +4,6 @@
 
 - 自然语言检索统一使用 `query`。
 
-<!-- BEGIN MCP TOOLS/LIST GENERATED CONTRACT -->
 ## 工具契约
 
 ### `get_company_announcements`
@@ -24,4 +23,3 @@
 | --- | --- | --- | --- | --- | --- |
 | `query` | 是 | string | — | 示例："近一周关于宁德时代固态电池的新闻" | 自然语言检索要求，应包含主题或相关实体、日期（或时间范围）等检索要素。|
 | `top_k` | 否 | integer | — | 默认：5 | 返回的相关文档或片段的最大数量 |
-<!-- END MCP TOOLS/LIST GENERATED CONTRACT -->

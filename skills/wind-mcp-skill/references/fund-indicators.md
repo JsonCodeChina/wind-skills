@@ -1,4 +1,3 @@
-<!-- BEGIN DOMAIN INDICATORS -->
 ## `indexes` 行情指标
 
 仅供 `get_fund_price_indicators` 使用。下列字段全部经过真实调用验证，可直接使用；只选择用户明确请求的字段，逐字复制，多个字段用英文逗号连接。表内没有的字段不得猜测。
@@ -46,4 +45,3 @@
 - `IOPV` 仅部分场内基金返回；货币 ETF 不返回该字段。
 - 行情价格、`IOPV`、`贴水率` 是判断 ETF 日内交易的一组核心指标，通常配合使用。
 
-<!-- END DOMAIN INDICATORS -->

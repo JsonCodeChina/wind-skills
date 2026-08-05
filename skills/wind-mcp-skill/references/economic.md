@@ -7,7 +7,6 @@
 - 后端将合法日期误报为 observation 格式错误时，视为后端问题：停止自动修正并透传错误。
 - 不得把日期范围擅自改成 `observation`。
 
-<!-- BEGIN MCP TOOLS/LIST GENERATED CONTRACT -->
 ## 工具契约
 
 ### `natural_language_get_edb_data`
@@ -23,7 +22,7 @@ executionMode：执行模式，可选值为 search、fetch、searchFetch。
 question：
 当 executionMode=search 或 searchFetch 时，为自然语言查询字符串，例如“中国GDP”“美国CPI”。
 当 executionMode=fetch 时，为一个或多个 EDB 指标代码，多个代码使用英文逗号分隔，例如 G0000069,G8411182。
-begin_date、end_date：查询时间范围，格式为 yyyy-MM-dd。
+beginDate、endDate：查询时间范围，格式为 yyyy-MM-dd。
 observation：观测区间类型，例如 3，表示最近3期数据，与时间范围参数二选一。
 
 调用约束：
@@ -44,4 +43,3 @@ observation：观测区间类型，例如 3，表示最近3期数据，与时间
 | `beginDate` | 否 | string | — | — | 数据提取开始日期，格式为 yyyy-MM-dd。与 observation 互斥；仅在【仅提数、搜索并提数】时生效。 |
 | `endDate` | 否 | string | — | — | 数据提取结束日期，格式为 yyyy-MM-dd。与 observation 互斥；仅在【仅提数、搜索并提数】时生效。 |
 | `observation` | 否 | string | — | — | 观测期数。近 N 期填写数字字符串，如“近10期”填 `10`；全量数据填 `all`。与 beginDate/endDate 互斥；仅在【仅提数、搜索并提数】时生效。 |
-<!-- END MCP TOOLS/LIST GENERATED CONTRACT -->

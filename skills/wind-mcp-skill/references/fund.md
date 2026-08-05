@@ -11,7 +11,6 @@
 - [工具契约](#工具契约)
 - 行情指标集：`references/fund-indicators.md`（仅 `get_fund_price_indicators` 需要）
 
-<!-- BEGIN MCP TOOLS/LIST GENERATED CONTRACT -->
 ## 工具契约
 
 ### `get_fund_price_indicators`
@@ -103,6 +102,5 @@
 | 参数 | 必填 | 类型 | 枚举 | 示例 / 默认 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
 | `question` | 是 | string | — | 示例："筛选股票型基金中近一年收益率超20%的产品" | 自然语言筛选条件，为指标与指标参数（运算条件、阈值）的组合，无需指定实体。 |
-<!-- END MCP TOOLS/LIST GENERATED CONTRACT -->
 
 行情指标集已独立为 `references/fund-indicators.md`，仅构造 `get_fund_price_indicators` 的 `indexes` 参数时读取。

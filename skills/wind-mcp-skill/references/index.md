@@ -10,7 +10,6 @@
 - [工具契约](#工具契约)
 - 行情指标集：`references/index-indicators.md`（仅 `get_index_price_indicators` 需要）
 
-<!-- BEGIN MCP TOOLS/LIST GENERATED CONTRACT -->
 ## 工具契约
 
 ### `get_index_technicals`
@@ -69,6 +68,5 @@
 | 参数 | 必填 | 类型 | 枚举 | 示例 / 默认 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
 | `question` | 是 | string | — | 示例："查询沪深300指数的基本信息，包括发布机构、基日和成份股数量" | 自然语言查询要求，为"实体 + 指标 + 指标参数"三要素的组合超集，应包含指数或板块实体、指标名称、日期等查询要素。 |
-<!-- END MCP TOOLS/LIST GENERATED CONTRACT -->
 
 行情指标集已独立为 `references/index-indicators.md`，仅构造 `get_index_price_indicators` 的 `indexes` 参数时读取。
