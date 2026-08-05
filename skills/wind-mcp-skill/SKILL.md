@@ -46,12 +46,10 @@ examples:
 
 ## 不可协商门禁
 
-1. **路由**：按上表选择一个 `server_type`，只读其对应的领域契约。`server_type + tool_name` 必须存在于该契约。股票行情、K 线、分钟行情和价格指标必须使用 `stock_data`，不得为减少调用改用 `analytics_data`。
-2. **参数**：参数名、类型、必填项、枚举、示例与默认值、`windcode` 传入方式和 `indexes` 可选字段只以当前领域契约为准，不得读取或猜测其它领域；`indexes` 逐字复制，多个字段用英文逗号连接。
-3. **命令**：POSIX shell 优先传内联 `<params_json>`；非 POSIX 环境（PowerShell / cmd / 经 workbuddy、Codex 等执行器包装）一律将 UTF-8 JSON 参数文件生成到 `scripts/request-<唯一后缀>.json`，并用 `@scripts/request-<唯一后缀>.json` 传入，调用后删除。不得复用共享请求文件，不得在 skill 根目录生成请求文件。
-4. **失败与熔断**：非 0 退出先读 stdout 的 `error.code`、`error.details`、`error.retry`、`error.circuit_breaker` 和 `error.correction`。`circuit_breaker.tripped=true` 时立即终止剩余同批调用。只在 `correction` 允许的错误域内修复，并严格执行 `retry`。
-5. **结果安全**：`null` 表示缺失或不适用，禁止当作 0（`INVALID` 已由执行器转为 `null`）。总数与完整性只按实际返回行数报告并说明完整性未知，不得依据 `excelTotalCount`。analytics 返回多个 Step / 数据块时全部保留并分别解释。`cli_meta.warnings` 每一条必须保留数据并体现在回答里；`UNKNOWN_BACKEND_STATUS_WITH_DATA` 或 `BACKEND_ERROR_WITH_DATA` 按部分成功处理，不得丢弃已返回数据。
-6. **行情解释**：Quote 是分钟 / 日内序列，不保证包含昨收或日涨跌幅。缺少 `pre_close` / `pct_chg` 时禁止用 `(收盘-开盘)/开盘` 冒充日涨跌幅，改用同领域价格指标或 K 线工具。只有返回元数据或契约明确给出单位时才能换算；单位缺失时保留原值并说明单位未知。
+1. **路由与参数**：按上表选择一个 `server_type`，只读其对应的领域契约。`server_type + tool_name` 必须存在于该契约，参数只按该契约构造，不得读取或借用其它领域。股票行情、K 线、分钟行情和价格指标必须使用 `stock_data`，不得为减少调用改用 `analytics_data`。
+2. **命令**：POSIX shell 优先传内联 `<params_json>`；非 POSIX 环境（PowerShell / cmd / 经 workbuddy、Codex 等执行器包装）一律将 UTF-8 JSON 参数文件生成到 `scripts/request-<唯一后缀>.json`，并用 `@scripts/request-<唯一后缀>.json` 传入，调用后删除。不得复用共享请求文件，不得在 skill 根目录生成请求文件。
+3. **失败与熔断**：非 0 退出先读 stdout 的 `error.code`、`error.details`、`error.retry`、`error.circuit_breaker` 和 `error.correction`。`circuit_breaker.tripped=true` 时立即终止剩余同批调用。只在 `correction` 允许的错误域内修复，并严格执行 `retry`。
+4. **结果安全**：`null` 表示缺失或不适用，禁止当作 0（`INVALID` 已由执行器转为 `null`）。总数与完整性只按实际返回行数报告并说明完整性未知，不得依据 `excelTotalCount`。analytics 返回多个 Step / 数据块时全部保留并分别解释。`cli_meta.warnings` 每一条必须保留数据并体现在回答里；`UNKNOWN_BACKEND_STATUS_WITH_DATA` 或 `BACKEND_ERROR_WITH_DATA` 按部分成功处理，不得丢弃已返回数据。单位以返回元数据或契约为准，未给出时保留原值并说明。
 
 **并发**：默认串行调用 Wind 工具。只有用户明确要求时才允许并发，最大并发数 10，超过则排队分批；命中 `CONCURRENCY_LIMIT_ERROR` 后停止新请求并恢复串行。
 
@@ -82,16 +80,13 @@ node scripts/cli.mjs call <server_type> <tool_name> @scripts/request-<唯一后�
 - 除非错误是 `PARAM_VALIDATION_ERROR`、`NO_RESULTS`，或 `agent_action` 明确要求缩小范围 / 减少字段，否则不得修改业务参数；`PARAM_CONFLICT_ERROR` 只消除 `details.fields` 指出的同义字段冲突。
 - 除非错误是 `INVALID_PARAMS_JSON`，不得修改命令引号或 JSON 转义。
 
-## 路由优先级
+## 路由优先级（撞车规则）
 
-1. 公告、年报、季报、招股书、监管披露 → `financial_docs.get_company_announcements`
-2. 新闻、媒体、快讯、报道、评论、消息 → `financial_docs.get_financial_news`
-3. 宏观或行业 EDB 指标 → `economic_data.natural_language_get_edb_data`
-4. 未指定具体股票的选股请求 → `stock_data.search_stocks`
-5. 未指定具体基金的筛选请求 → `fund_data.search_funds`
-6. 最新价、涨跌幅、成交量、K 线、分钟线、最近 N 天、区间或走势 → 对应领域价格指标、Quote 或 K 线工具；历史区间走 K 线
-7. 财务、股本、股东、事件、技术、风险、持仓、业绩、主体财务 → 对应领域自然语言工具
-8. 专项路由无法覆盖的结构化取数 → `analytics_data.get_financial_data`
+导航表能直接判断的不在此列；仅当多个领域都可能命中时按以下规则：
+
+1. 公告文本、年报、季报、招股书、监管披露 → `financial_docs.get_company_announcements`，优先于股票事件与档案工具。
+2. 宏观或行业指标序列（产销量、CPI、利率、汇率指标等，即使未出现“宏观”字样）→ `economic_data.natural_language_get_edb_data`。
+3. 未指定具体股票 / 基金的筛选请求 → `stock_data.search_stocks` / `fund_data.search_funds`；`analytics_data` 返回计算结果，不返回实体列表。
 
 `analytics_data` 不是复杂问句入口或批量行情入口。专项工具因字段、口径或无结果而无法覆盖剩余结构化数据时，才可用它补取。不得将一次 analytics 兜底成功视为专项行情工具长期不可用。
 
