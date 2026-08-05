@@ -42,11 +42,6 @@ const SERVERS = {
   },
 };
 
-// Backend tools intentionally not exposed by this skill.
-const EXCLUDED_TOOLS = {
-  economic_data: new Set(['get_economic_data']),
-};
-
 const PORTAL_URL = 'https://aifinmarket.wind.com.cn/#/user/overview';
 
 const SKILL_DIR = dirname(dirname(fileURLToPath(
@@ -55,26 +50,7 @@ const SKILL_DIR = dirname(dirname(fileURLToPath(
 const UPDATE_CHECK_PATH = join(SKILL_DIR, 'scripts', 'update-check.mjs');
 const TOOL_MANIFEST_PATH = join(SKILL_DIR, 'scripts', 'tool-manifest.json');
 const CALL_RULES_PATH = join(SKILL_DIR, 'scripts', 'call-rules.json');
-const CONTRACT_REFS = {
-  stock_data: 'stock.md',
-  fund_data: 'fund.md',
-  index_data: 'index.md',
-  bond_data: 'bond.md',
-  financial_docs: 'financial-docs.md',
-  economic_data: 'economic.md',
-  analytics_data: 'analytics.md',
-};
-const CONTRACT_PREAMBLES = {
-  stock_data: `# \`stock_data\` 工具契约\n\n只用于股票：A 股、港股、美股共用本服务。参数名称、类型、必填项、默认值和枚举以本文件各工具的契约为准。\n\n- \`search_stocks\` 只用于未指定具体股票的筛选；已指定具体股票时使用对应行情或领域工具。\n- 行情、K 线、分钟行情和价格指标不得改用 \`analytics_data\` 节省调用次数。\n- \`indexes\` 逐字取自本文件的「\`indexes\` 行情指标」。\n- 市值口径：\`总市值1\`=不含限售股，\`总市值2\`=含限售股；口径不明确时先询问。\n\n## 目录\n\n- [工具契约](#工具契约)\n- [\`indexes\` 行情指标](#indexes-行情指标)`,
-  fund_data: `# \`fund_data\` 工具契约\n\n只用于基金、ETF、LOF。参数名称、类型、必填项、默认值和枚举以本文件各工具的契约为准。\n\n- \`search_funds\` 只用于未指定具体产品的基金筛选。\n- \`indexes\` 逐字取自本文件的「\`indexes\` 行情指标」。\n- 场外基金代码如 \`005827.OF\`；ETF/LOF 代码如 \`588200.SH\`、\`159915.SZ\`。\n\n## 目录\n\n- [工具契约](#工具契约)\n- [\`indexes\` 行情指标](#indexes-行情指标)`,
-  index_data: `# \`index_data\` 工具契约\n\n只用于指数和板块。参数名称、类型、必填项、默认值和枚举以本文件各工具的契约为准。\n\n- \`indexes\` 逐字取自本文件的「\`indexes\` 行情指标」。\n- 已确认的标准代码可直接传，例如 \`000300.SH\`、\`HSI.HI\`；不得猜测未知后缀。\n\n## 目录\n\n- [工具契约](#工具契约)\n- [\`indexes\` 行情指标](#indexes-行情指标)`,
-  bond_data: `# \`bond_data\` 工具契约\n\n只用于债券；本服务没有行情快照、K 线或 Quote 工具。参数名称、类型、必填项、默认值和枚举以本文件各工具的契约为准。`,
-  financial_docs: `# \`financial_docs\` 工具契约\n\n只用于公告和财经新闻。自然语言统一使用 \`question\`；其余参数以本文件各工具的契约为准。`,
-  economic_data: `# \`economic_data\` 工具契约\n\n只用于宏观和行业 EDB 指标。自然语言统一使用 \`question\`；日期统一使用 \`begin_date\` / \`end_date\`。\n\n- \`仅提数\` / \`搜索并提数\` 必须提供完整日期范围或 \`observation\`，两者互斥。\n- 后端将合法日期误报为 observation 格式错误时，视为后端问题：停止自动修正并透传错误。\n- 不得把日期范围擅自改成 \`observation\`。`,
-  analytics_data: `# \`analytics_data\` 工具契约\n\n仅当专项服务无法覆盖结构化取数时使用；不得替代行情、K 线、Quote 或价格指标。自然语言统一使用 \`question\`。\n\n- 首次调用保持用户原意，不增加筛选条件。\n- 首次失败、空数据或明显不匹配后，才可在同一取数意图内改写或拆分一次。`,
-};
-const GENERATED_CONTRACT_START = '<!-- BEGIN MCP TOOLS/LIST GENERATED CONTRACT -->';
-const GENERATED_CONTRACT_END = '<!-- END MCP TOOLS/LIST GENERATED CONTRACT -->';
+
 const INTERNAL_WARNINGS_KEY = '__wind_cli_warnings';
 const SKILL_NAME = basename(SKILL_DIR);
 
@@ -838,9 +814,6 @@ function classifyBusinessResponse(inner, serverType) {
   return { error: [inferredCode, message] };
 }
 
-function inferBusinessErrorCode(inner, serverType) {
-  return classifyBusinessResponse(inner, serverType)?.error || null;
-}
 
 function isExplicitNoDataResult(inner) {
   return inner?.data === null
@@ -1233,58 +1206,6 @@ async function cmdListTools(server_type) {
   return { server_type, ...result };
 }
 
-function validateToolsList(serverType, result) {
-  if (!result || !Array.isArray(result.tools)) {
-    throw new Error(`${serverType} 的 tools/list 响应缺少 tools 数组`);
-  }
-  for (const tool of result.tools) {
-    if (!tool || typeof tool.name !== 'string' || !tool.name.trim()) {
-      throw new Error(`${serverType} 的 tools/list 包含无效工具名`);
-    }
-    if (!tool.inputSchema || typeof tool.inputSchema !== 'object' || Array.isArray(tool.inputSchema)) {
-      throw new Error(`${serverType}.${tool.name} 缺少有效 inputSchema`);
-    }
-  }
-}
-
-
-function mergeGeneratedContract(filePath, preamble, generated) {
-  let suffix = '';
-  try {
-    const existing = readFileSync(filePath, 'utf8');
-    const generatedEnd = existing.indexOf(GENERATED_CONTRACT_END);
-    if (generatedEnd >= 0) {
-      suffix = existing.slice(generatedEnd + GENERATED_CONTRACT_END.length).trim();
-    }
-  } catch (error) {
-    if (error?.code !== 'ENOENT') throw error;
-  }
-  const preservedSuffix = suffix ? `\n\n${suffix}` : '';
-  writeFileSync(filePath, `${preamble.trim()}\n\n${generated}${preservedSuffix}\n`, 'utf8');
-}
-export { mergeGeneratedContract };
-
-async function cmdSyncContracts() {
-  const manifest = {};
-  const contracts = {};
-
-  for (const serverType of Object.keys(SERVERS)) {
-    const result = await mcpInitializeAndCall(serverType, 'tools/list', {});
-    validateToolsList(serverType, result);
-    const excluded = EXCLUDED_TOOLS[serverType] || new Set();
-    const tools = result.tools.filter(tool => !excluded.has(tool.name));
-    contracts[serverType] = tools;
-    manifest[serverType] = tools.map(tool => tool.name);
-  }
-
-  return {
-    updated: true,
-    source: 'MCP tools/list',
-    contracts_dir: join(SKILL_DIR, 'references'),
-    tool_counts: Object.fromEntries(Object.entries(manifest).map(([key, tools]) => [key, tools.length])),
-  };
-}
-
 async function cmdSetupKey(...rawArgs) {
   const key = rawArgs[0];
 
@@ -1432,7 +1353,6 @@ function runMain() {
     `用法:\n` +
     `  cli.mjs call <server_type> <tool_name> '<params_json>|@params_file'\n` +
     `  cli.mjs list-tools <server_type>                    # 获取后端官方工具描述和 inputSchema\n` +
-
     `  cli.mjs open-portal                                # 打开万得开发者中心拿 API Key\n` +
     `  cli.mjs setup-key <KEY> --scope <global|skill>     # 配置 API Key（先问用户存放位置）\n\n` +
     `可用 server_type:\n` +
