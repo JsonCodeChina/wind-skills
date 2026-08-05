@@ -80,7 +80,7 @@ node scripts/cli.mjs call stock_data get_stock_price_indicators '{"windcode":"60
 
 **Key**：不得只检查部分配置来源就声称没有 API Key。必须先实跑一次；只有返回 `AUTH_ERROR` 且明确为未配置，才能判定缺失，并按信封中的指引处理。
 
-**批量与并发**：默认串行（并发 1）。需要对 2 个及以上标的逐项调用时，先只发第一个作为探针，探针以 exit 0 完成且无错误信封，才继续其余；探针失败立即终止该批次。不同 `server_type + tool_name` 或不同参数结构分别分组，每组各发一次探针。用户明确要求并发时上限 10，命中 `CONCURRENCY_LIMIT_ERROR` 后停止新请求并恢复串行。
+**批量与并发**：默认串行（并发 1）。需要对 2 个及以上标的逐项调用时，先只发第一个作为探针，探针以 exit 0 完成且无错误信封，才继续其余；探针失败立即终止该批次，不得把相同调用扩散到其它标的。不同 `server_type + tool_name` 或不同参数结构分别分组，每组各发一次探针。用户明确要求并发时上限 10，命中 `CONCURRENCY_LIMIT_ERROR` 后停止新请求并恢复串行。
 
 ## 3. 读回执
 
@@ -99,7 +99,7 @@ node scripts/cli.mjs call stock_data get_stock_price_indicators '{"windcode":"60
 - 明确上一次的 `error.code`；本次修改必须落在 `error.correction` 允许的字段内。
 - 保持同一 `server_type` 和 `tool_name`；只有当前契约证明该工具无法表达所需字段或口径时，才可在同业务域切换。
 - 除非错误是 `INVALID_PARAMS_JSON`，不得修改命令引号或 JSON 转义。
-- 除非错误是 `PARAM_VALIDATION_ERROR`、`NO_RESULTS`，或指引明确要求缩小范围，不得改动业务参数；`PARAM_CONFLICT_ERROR` 只消除 `details.fields` 指出的同义字段冲突。
+- 除非错误是 `PARAM_VALIDATION_ERROR`、`NO_RESULTS`，或 `agent_action` 明确要求缩小范围 / 减少字段，不得改动业务参数；`PARAM_CONFLICT_ERROR` 只消除 `details.fields` 指出的同义字段冲突。
 - 参数名和字段值必须来自当前领域契约。
 
 ## 4. 收口
@@ -108,7 +108,7 @@ node scripts/cli.mjs call stock_data get_stock_price_indicators '{"windcode":"60
 
 认证、额度、网络、后端不可用、命令传递、路由错误：直接报告，**不得切 `analytics_data` 或 `wind-alice`**。
 
-只有所有允许的专项 Wind 路径，以及当前问题允许使用的 `analytics_data`，都因数据覆盖、字段不可用、口径不匹配或无结果失败后，才进入 `wind-alice` 最终兜底：先说明已尝试路径与失败摘要并征得用户同意，不得自动切换；同意后把用户原始问题原封不动作为 prompt，只有用户明确点名 Alice 子 skill 时才传子 skill；客户端未安装时说明需先安装（`npx skills add Wind-Information-Co-Ltd/wind-skills --skill wind-alice -g -y`，国内镜像 `npx skills add https://gitee.com/wind_info/wind-skills.git --skill wind-alice -g -y`，仅装到当前项目去掉 `-g`）；用户拒绝时立即停止，仅返回已尝试路径、关键错误码和后端原文或无结果摘要。`wind-alice` 同样可能无解，转交不等于会有答案。
+`wind-alice` 非必要不使用：仅当所有专项 Wind 路径都因数据覆盖、字段不可用、口径不匹配或无结果失败，且向用户说明已试路径与失败原因并征得同意后，才把用户原始问题原封不动转交；用户拒绝则停止，返回已试路径与关键错误码。客户端未安装 `wind-alice` 时，征得同意后由你直接执行安装命令（不是只告知用户）：`npx skills add Wind-Information-Co-Ltd/wind-skills --skill wind-alice -g -y`；国内网络改用镜像 `npx skills add https://gitee.com/wind_info/wind-skills.git --skill wind-alice -g -y`；仅安装到当前项目时去掉 `-g`。安装成功后再转交；安装失败时报告命令原始报错，不得静默放弃。
 
 成功返回数据时末尾附上：
 
