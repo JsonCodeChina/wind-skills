@@ -1,7 +1,8 @@
 ---
 name: wind-mcp-skill
 description: >-
-  用户查询金融数据时触发：股票选股筛选、行情快照、K 线、分钟行情、财务基本面、股东、事件、技术和风险；基金/ETF/LOF 基金筛选、行情、净值、规模、档案、持仓和业绩；指数/板块行情与基本面；债券档案与估值；上市公司公告、财经新闻、宏观经济和行业指标。不用于台股、日股、韩股、欧股、期货盘口、加密货币或非金融数据。
+  用户问 A股/港股/美股 的最新价、涨跌幅、K线、分钟行情、财务、估值、股东、事件、风险；基金/ETF/LOF 的净值、规模、持仓、业绩；指数/板块行情与基本面；债券档案与估值；上市公司公告、财经新闻、宏观与行业指标；或需要选股、选基筛选。
+  不用于台股、日股、韩股、欧股、期货盘口、加密货币或非金融数据。
 author: Wind
 homepage: https://aifinmarket.wind.com.cn
 auto_invoke: true
@@ -27,11 +28,11 @@ examples:
 
 # Wind 万得金融数据
 
-将用户问题映射到 Wind 支持的 `server_type + tool_name`。先选领域，只读该领域的一份契约；股票、基金和指数的 `indexes` 字典已内嵌在对应契约中。调用后只基于 Wind 返回结果回答。
+将用户问题映射到 Wind 支持的 `server_type + tool_name`。先选领域，只读该领域的一份契约；股票、基金和指数的 `indexes` 字典已内嵌在对应契约中。只报告 Wind 返回值和必要限制，不补常识、不补点评。
 
 ## 领域导航
 
-| `server_type` | 覆盖范围 | 必读契约 |
+| `server_type` | 覆盖范围 | 领域契约 |
 | --- | --- | --- |
 | `stock_data` | 股票筛选、行情、K 线、分钟行情、档案、财务、股东、事件、技术、风险 | `references/stock.md` |
 | `fund_data` | 基金 / ETF / LOF 筛选、行情、净值、规模、档案、持仓、业绩 | `references/fund.md` |
@@ -45,54 +46,41 @@ examples:
 
 ## 不可协商门禁
 
-1. **路由**：按上表选择一个 `server_type`，只读其对应契约。`server_type + tool_name` 必须存在于该契约。股票行情、K 线、分钟行情和价格指标必须使用 `stock_data`，不得为减少调用改用 `analytics_data`。
-2. **参数**：参数名、类型、必填项、默认值和枚举只以当前领域契约为准，不得读取或猜测其它领域的参数。
-3. **统一格式**：日期使用 `yyyy-MM-dd`，不得使用 `LAST`、`yyyyMMdd` 或隐式日期默认值；自然语言统一使用 `question` 且不得为空；`lang` 使用 `zh-CN` / `en-US`，默认 `zh-CN`。宏观 EDB 的 `question` 可填写自然语言短语或 EDB 指标代码。
-4. **标的**：`windcode` 的类型和多标的传入方式以当前工具契约为准，不得施加全局单标的限制。
-5. **指标**：使用 `indexes` 时，只读当前领域契约中的「`indexes` 行情指标」，只选择用户明确请求的字段并逐字复制；多个字段用英文逗号连接。契约中没有的字段不得猜测。
-6. **命令**：优先传内联 `<params_json>`；执行器重复转义 JSON 时，将 UTF-8 JSON 参数文件生成到 `scripts/request-<唯一后缀>.json`，并使用对应 `@scripts/request-<唯一后缀>.json` 传入，调用后删除。不得复用共享请求文件，不得在 skill 根目录生成请求文件。命中 `INVALID_PARAMS_JSON` 前不得反复改写引号。
-7. **失败与熔断**：非 0 退出先读 stdout 的 `error.code`、`error.details`、`error.retry`、`error.circuit_breaker` 和 `error.correction`。`circuit_breaker.tripped=true` 时立即终止剩余同批调用。只在 `correction` 允许的错误域内修复，并严格执行 `retry`。
-8. **结果安全**：结构化数据中的 `INVALID` 或 `null` 表示缺失或不适用，禁止当作 0。不得使用 `excelTotalCount` 判断总数、完整性、排名全集或分页状态，只能报告实际返回行数并说明完整性未知。analytics 返回多个 Step / 数据块时全部保留并分别解释，不得只读取第一个块。成功结果若包含 `cli_meta.warnings`，必须保留数据并说明警告；`UNKNOWN_BACKEND_STATUS_WITH_DATA` 或 `BACKEND_ERROR_WITH_DATA` 按部分成功处理，不得丢弃已返回数据。
-9. **行情解释**：Quote 是分钟 / 日内序列，不保证包含昨收或日涨跌幅。缺少 `pre_close` / `pct_chg` 时，禁止用 `(收盘-开盘)/开盘` 冒充日涨跌幅；改用同领域价格指标或 K 线工具。只有返回元数据或契约明确给出单位时才能换算；单位缺失时保留原值并说明单位未知。
-10. **回答**：只报告 Wind 返回值和必要限制，不补常识、不补点评。
+1. **路由**：按上表选择一个 `server_type`，只读其对应的领域契约。`server_type + tool_name` 必须存在于该契约。股票行情、K 线、分钟行情和价格指标必须使用 `stock_data`，不得为减少调用改用 `analytics_data`。
+2. **参数**：参数名、类型、必填项、枚举、示例与默认值、`windcode` 传入方式和 `indexes` 可选字段只以当前领域契约为准，不得读取或猜测其它领域；`indexes` 逐字复制，多个字段用英文逗号连接。
+3. **命令**：POSIX shell 优先传内联 `<params_json>`；非 POSIX 环境（PowerShell / cmd / 经 workbuddy、Codex 等执行器包装）一律将 UTF-8 JSON 参数文件生成到 `scripts/request-<唯一后缀>.json`，并用 `@scripts/request-<唯一后缀>.json` 传入，调用后删除。不得复用共享请求文件，不得在 skill 根目录生成请求文件。
+4. **失败与熔断**：非 0 退出先读 stdout 的 `error.code`、`error.details`、`error.retry`、`error.circuit_breaker` 和 `error.correction`。`circuit_breaker.tripped=true` 时立即终止剩余同批调用。只在 `correction` 允许的错误域内修复，并严格执行 `retry`。
+5. **结果安全**：`null` 表示缺失或不适用，禁止当作 0（`INVALID` 已由执行器转为 `null`）。总数与完整性只按实际返回行数报告并说明完整性未知，不得依据 `excelTotalCount`。analytics 返回多个 Step / 数据块时全部保留并分别解释。`cli_meta.warnings` 每一条必须保留数据并体现在回答里；`UNKNOWN_BACKEND_STATUS_WITH_DATA` 或 `BACKEND_ERROR_WITH_DATA` 按部分成功处理，不得丢弃已返回数据。
+6. **行情解释**：Quote 是分钟 / 日内序列，不保证包含昨收或日涨跌幅。缺少 `pre_close` / `pct_chg` 时禁止用 `(收盘-开盘)/开盘` 冒充日涨跌幅，改用同领域价格指标或 K 线工具。只有返回元数据或契约明确给出单位时才能换算；单位缺失时保留原值并说明单位未知。
 
-**调用并发规则**：默认串行调用 Wind 工具（并发数 1）。只有用户明确要求并发时才可并发，最大并发数为 10；超过 10 的请求必须排队分批执行。命中 `CONCURRENCY_LIMIT_ERROR` 后停止新请求并恢复串行。
+**并发**：默认串行调用 Wind 工具。只有用户明确要求时才允许并发，最大并发数 10，超过则排队分批；命中 `CONCURRENCY_LIMIT_ERROR` 后停止新请求并恢复串行。
 
-**批量探针规则**：当任务需要对 2 个及以上标的或子请求逐项调用 Wind 工具时，先只执行该批次的第一个请求作为探针；探针完成前禁止预先启动、排队或并发发送其余请求。只有探针以 exit code 0 完成且未返回错误信封，才可按并发规则继续处理剩余请求。探针失败时立即终止该批次，执行错误信封中的熔断、修正和重试策略，不得把相同调用扩散到其它标的。若任务包含不同 `server_type + tool_name` 或不同参数结构，应分别分组，并为每组执行一次探针。
+**批量探针**：同一批次 2 个及以上逐项调用时，先只执行第一个请求作为探针，探针完成前不得启动其余请求；探针以 exit code 0 完成且无错误信封，才可按并发规则继续。探针失败立即终止该批次，执行信封中的熔断、修正与重试，不得把相同调用扩散到其它标的。`server_type + tool_name` 或参数结构不同的请求分组，每组各探一次。
 
-**Key 判定规则**：不得手动检查部分配置来源后声称没有 API Key。必须先执行一次实际调用；只有返回 `AUTH_ERROR` 且 detail 明确为“未配置”，才能判定 Key 缺失。
+**Key 判定**：不得手动检查部分配置来源后声称没有 API Key。必须先执行一次实际调用；只有返回 `AUTH_ERROR` 且 detail 明确为“未配置”，才能判定 Key 缺失。
 
 ## 工作流
 
 1. 判断请求是否在支持范围内，并识别股票、基金、指数、债券、文档或宏观指标。
 2. 按“领域导航”选择 `server_type`，只读取该行的一份契约。
 3. 根据契约中的工具描述和本地路由约束选择 `tool_name`。
-4. 按该工具的 `inputSchema` 构造参数。涉及行业且用户未指定分类体系时，默认使用 Wind 行业分类。
-5. 若参数包含 `indexes`，在当前领域契约的「`indexes` 行情指标」中逐项核对并逐字复制。
-6. 调用前核对门禁和批量探针规则。
-7. `cd` 到本 skill 目录后执行：
+4. 按该工具的 `inputSchema` 构造参数。涉及行业且用户未指定分类体系时，默认使用 Wind 行业分类；参数含 `indexes` 时在当前领域契约的「`indexes` 行情指标」中逐项核对。
+5. 调用前核对门禁和批量探针规则。
+6. `cd` 到本 skill 目录后执行（内联或 @file 的选择见门禁 3）：
 
 ```bash
 node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'
-```
-
-执行器会重复转义 JSON 时，改用：
-
-```bash
 node scripts/cli.mjs call <server_type> <tool_name> @scripts/request-<唯一后缀>.json
 ```
 
-8. exit code 0 时解析 stdout；若存在 `content[0].text`，优先解析其中的文本或 JSON。exit code 1 时按错误信封处理。
+7. exit code 0 时解析 stdout；若存在 `content[0].text`，优先解析其中的文本或 JSON。exit code 1 时按错误信封处理。
 
 ### 重试前审计
 
-- 明确上一次 `error.code`。
-- 计划修改项必须属于 `error.correction` 允许的错误域。
+- 明确上一次 `error.code`；计划修改项必须属于 `error.correction` 允许的错误域。
 - 保持同一 `server_type` 和 `tool_name`；只有当前契约证明工具无法表达所需字段或口径时，才可在同业务域切换。
+- 除非错误是 `PARAM_VALIDATION_ERROR`、`NO_RESULTS`，或 `agent_action` 明确要求缩小范围 / 减少字段，否则不得修改业务参数；`PARAM_CONFLICT_ERROR` 只消除 `details.fields` 指出的同义字段冲突。
 - 除非错误是 `INVALID_PARAMS_JSON`，不得修改命令引号或 JSON 转义。
-- 除非错误是 `PARAM_VALIDATION_ERROR`、`NO_RESULTS`，或 `agent_action` 明确要求缩小范围 / 减少字段，否则不得修改业务参数。
-- `PARAM_CONFLICT_ERROR` 只消除 `details.fields` 指出的同义字段冲突。
-- 参数 key 和 `indexes` 必须来自当前领域契约。
 
 ## 路由优先级
 
@@ -101,7 +89,7 @@ node scripts/cli.mjs call <server_type> <tool_name> @scripts/request-<唯一后�
 3. 宏观或行业 EDB 指标 → `economic_data.natural_language_get_edb_data`
 4. 未指定具体股票的选股请求 → `stock_data.search_stocks`
 5. 未指定具体基金的筛选请求 → `fund_data.search_funds`
-6. 最新价、涨跌幅、成交量、K 线、分钟线、最近 N 天、区间或走势 → 对应领域行情工具；历史区间走 K 线
+6. 最新价、涨跌幅、成交量、K 线、分钟线、最近 N 天、区间或走势 → 对应领域价格指标、Quote 或 K 线工具；历史区间走 K 线
 7. 财务、股本、股东、事件、技术、风险、持仓、业绩、主体财务 → 对应领域自然语言工具
 8. 专项路由无法覆盖的结构化取数 → `analytics_data.get_financial_data`
 

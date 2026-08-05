@@ -1,6 +1,6 @@
 # `fund_data` 工具契约
 
-只用于基金、ETF、LOF。参数名称、类型、必填项、默认值和枚举以本文件各工具的契约为准。
+只用于基金、ETF、LOF。参数名称、类型、必填项、示例与默认值和枚举以本文件各工具的契约为准。
 
 - `search_funds` 只用于未指定具体产品的基金筛选。
 - `indexes` 逐字取自本文件的「`indexes` 行情指标」。
@@ -16,100 +16,93 @@
 
 ### `get_fund_price_indicators`
 
-获取指定场内交易基金（ETF/LOF）某一具体价格指标的最新快照值。需要提供场内交易基金代码和指标名称（如：开盘价、最高价、最低价、收盘价、成交量）。返回单一当前值，而非时间序列。当用户询问一只或多只基金的当前/最新价格或任何单一指标值时，使用此工具。
+返回指定场内交易基金（ETF/LOF）当前时刻的截面状态，为时点数据，包括最新价、今日开高低、涨跌幅、成交量、成交额、换手率等行情指标的最新值。仅返回时点截面，不含过程序列；场外基金的净值查询不在本工具范围。
 
-| 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
+| 参数 | 必填 | 类型 | 枚举 | 示例 / 默认 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
 | `windcode` | 是 | string | — | — | 一个或多个基金名称或者基金代码，如588200.SH。 |
-| `indexes` | 否 | string | — | "最新交易日,交易时间,最新成交价,前收盘价,今日开盘价,今日最高价,今日最低价,成交量" | 指标字段，多个字段用英文逗号分隔；可选值见本文件的「`indexes` 行情指标」。 |
+| `indexes` | 否 | string | — | 默认："最新交易日,交易时间,最新成交价,前收盘价,今日开盘价,今日最高价,今日最低价,成交量" | 指标字段，多个字段用英文逗号分隔；可选值见本文件的「`indexes` 行情指标」。 |
 
 ### `get_fund_kline`
 
-获取指定场内交易基金（ETF/LOF）在指定日期范围内的日级行情时间序列。每条记录代表一个交易日，包含：开盘价、收盘价、最高价、最低价、成交量、换手率、涨跌幅、均价。当用户需要多日价格历史时，使用此工具。
+返回指定场内交易基金（ETF/LOF）在给定时间范围内的聚合价格序列（K 线），时间范围由参数指定，聚合频率支持日、周、月及分钟级。每条记录代表一个周期，包含开盘价、收盘价、最高价、最低价、成交量、换手率、涨跌幅与均价。不含当日分钟级走势；场外基金净值序列不在本工具范围。
 
-| 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
+| 参数 | 必填 | 类型 | 枚举 | 示例 / 默认 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
 | `windcode` | 是 | string | — | — | Wind代码，格式如 华夏成长  或 000001.OF，用于标识具体的基金 |
 | `begin_date` | 是 | string | — | — | 开始日期：必须显式填写绝对日期，格式 yyyy-MM-dd，如 2026-03-25。 |
 | `end_date` | 是 | string | — | — | 结束日期：必须显式填写绝对日期，格式 yyyy-MM-dd，如 2026-03-25。 |
-| `count` | 否 | integer | — | — | 为正数表示从begin_date往后取的数据条数；为负数表示从end_date往前取的数据条数 |
-| `period` | 否 | string | 1min / 5min / 10min / 15min / 30min / 60min / 120min / 240min / 1d / 1w / 1mo / 1y / 1q / 6mo | "1d" | K 线周期。 |
-| `aftype` | 否 | string | — | — | 复权类型：0=前复权，1=后复权，默认0。前复权更常用 |
-| `issusp` | 否 | string | — | — | 是否包含停牌数据：0=不包含，1=包含，默认1 |
+| `period` | 否 | string | 1min / 5min / 10min / 15min / 30min / 60min / 120min / 240min / 1d / 1w / 1mo / 1y / 1q / 6mo | 默认："1d" | K 线周期。 |
+| `aftype` | 否 | string | — | 默认 0 | 复权类型：0=前复权，1=后复权。前复权更常用 |
+| `issusp` | 否 | string | — | 默认 1 | 是否包含停牌数据：0=不包含，1=包含 |
 | `afdate` | 否 | string | — | — | 复权基准日期，格式 yyyy-MM-dd，如 2026-03-25。通常不需要指定。 |
 
 ### `get_fund_financials`
 
-获取基金财务报表及分红数据，涵盖利润指标（单季度及合计基金利润、份额利润）、资产价值（净值及总值）、收入明细（利息、投资、公允价值变动）、费用项目（管理费、托管费、销售服务费）、来自财务报表的报告期净值增长率、以及分红数据（分红次数、分红总额、单位分红、分红条款）
+返回指定基金的财务报表与分红数据，时间维度为报告期，包括：利润指标（如基金利润、份额利润）；收入与费用（如利息收入、投资收益、公允价值变动、管理费、托管费）；报告期口径的资产净值；分红记录（如分红次数、单位分红、分红总额、分红条款）。不含净值序列与业绩评价数据。
 
-| 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
+| 参数 | 必填 | 类型 | 枚举 | 示例 / 默认 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
-| `question` | 是 | string | — | — | This parameter accepts natural language queries about fund financial statement and dividend data. The query should specify: (1) target fund name - Wind code (e.g., '008988.OF') or fund name (e.g., '大成科技创新A', '华夏成长混合', '易方达蓝筹精选'); (2) financial data category - profit metrics (quarterly/aggregate fund profit, per-share profit), asset values (NAV/Net Asset Value, GAV/Gross Asset Value, total asset value, fund share-class AUM), income breakdown (interest income, investment income, fair value change income, other income, total income), expense items (management fee, custodian fee, customer maintenance fee, sales service fee), NAV growth rate (reporting period return), or dividend data (dividend frequency, total dividend amount, per-unit dividend, dividend policy terms). LLM should normalize fund names and infer query scope from context - e.g., '大成科技创新A的费用' implies expense items query; '008988的分红情况' implies dividend data query; 'XX基金的财务数据' implies comprehensive financial statement query. |
-| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文。 |
+| `question` | 是 | string | — | — | 自然语言查询要求，为"实体 + 指标 + 指标参数"三要素的组合超集，应包含基金实体、指标名称、日期（或报告期）等查询要素。|
 
 ### `get_fund_holdings`
 
-获取基金持仓及资产配置明细，涵盖各资产类别构成（股票、债券、权证、存款、其他）及其占净值/总值比例与期间变动、重仓股及扩展指标（占流通股比例、持仓变动、涨跌幅）、多标准行业配置（申万、Wind、中信）、重仓债券持仓、以及重仓基金（FOF）持仓。
+返回指定基金的投资组合数据，随定期报告披露更新，包含两族。披露持仓族：资产类别构成（如股票、债券、存款占净值比例及期间变动）；重仓资产（如重仓股票、重仓债券、FOF 的重仓基金，及占流通股比例、持仓变动等指标）；行业配置（如申万、Wind、中信口径）。组合派生特征族：由持仓计算的组合层面指标（如持股集中度、组合估值、基金换手率等）。仅返回基金组合层面的数据，个券的详细属性需以对应代码查询相应实体的数据。
 
-| 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
+| 参数 | 必填 | 类型 | 枚举 | 示例 / 默认 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
-| `question` | 是 | string | — | — | This parameter accepts natural language queries about fund portfolio holdings and asset allocation data. The query should specify: (1) target fund name - Wind code (e.g., '008988.OF') or fund name (e.g., '大成科技创新A', '工银产业债A', '华夏行业配置C'); (2) holdings data category - asset class composition (equities, bonds, warrants, deposits, other assets with NAV/GAV ratios and period-over-period changes), top stock holdings with extended metrics (stock code/name, shares held, market value, proportion to NAV/GAV, float proportion, position changes, price performance), sector allocation across multiple standards (SWS/Shenwan, Wind, CITIC industry classifications with sector name, investment value, proportion to NAV), top bond holdings (bond code/name, shares held, market value, proportion to NAV/bond investment), or top fund-of-fund holdings (FOF fund's underlying fund positions with code/name, shares, market value, position changes). LLM should normalize fund names and infer query scope from context - e.g., '大成科技创新A的持仓' implies comprehensive holdings query; '工银产业债A的重仓债券' implies top bond holdings query; 'XX基金的行业配置' implies sector allocation query. |
-| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文。 |
+| `question` | 是 | string | — | — | 自然语言查询要求，为"实体 + 指标 + 指标参数"三要素的组合超集，应包含基金实体、指标名称、日期（或报告期）等查询要素。|
 
 ### `get_fund_company_info`
 
-获取基金管理公司档案、团队及资产配置数据，涵盖公司基本信息（名称、成立日期、注册资本、地址、管理层）、基金经理团队指标（人数、人均管理产品数、任职年限统计、团队成熟度）、公司旗下全部基金的合计管理规模（基金数量、在管规模合计及排名与增长率、非货币规模）、以及公司层面资产配置含股票、债券、基金、权证、存款、其他资产的投资市值及占净值/总值比例。
+返回指定基金的管理人（基金管理公司）档案，为以基金为入口的引用实体查询，包括：公司基本信息（如名称、成立日期、注册资本、管理层）；基金经理团队（如人数、人均管理产品数、任职年限统计）；在管规模（如合计规模及排名、非货币规模、旗下基金数量）；公司层面资产配置。注意本工具返回的是管理人公司而非基金产品本身的数据，基金产品属性请使用其他基金属性查询工具。
 
-| 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
+| 参数 | 必填 | 类型 | 枚举 | 示例 / 默认 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
-| `question` | 是 | string | — | — | 基金管理公司基本信息、团队及资产配置数据的自然语言查询 |
-| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文。 |
+| `question` | 是 | string | — | — | 自然语言查询要求，为"实体 + 指标 + 指标参数"三要素的组合超集，应包含基金实体、指标名称、日期等查询要素。|
 
 ### `get_fund_quote`
 
-获取指定场内交易基金（ETF/LOF）在显式日期范围内的分钟级行情时间序列。每条记录代表一分钟，包含：价格、均价、成交量、换手率。当用户需要日内价格走势、逐分钟交易数据或任何日内时间序列数据时，使用此工具。
+返回指定场内交易基金（ETF/LOF）当日的分钟级价格序列，时间窗口固定为当日或指定的单个交易日，不支持跨日区间。每条记录代表一分钟，包含价格、均价、成交量与换手率。不含跨日的指定时间范围与当前时刻截面状态。场外基金无场内行情，其价格口径数据为净值（属业绩与评价数据）。
 
-| 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
+| 参数 | 必填 | 类型 | 枚举 | 示例 / 默认 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
-| `windcode` | 是 | string | — | — | 基金名称或者基金代码，如588200.SH。 |
-| `begin_date` | 是 | string | — | — | 查询开始日期，格式 yyyy-MM-dd；不支持隐式默认值。 |
-| `end_date` | 是 | string | — | — | 查询结束日期，格式 yyyy-MM-dd；不支持 `LAST` 或隐式默认值。 |
+| `windcode` | 是 | string | — | — | 基金名称或者基金代码，如588200.SH。|
+| `begin_date` | 是 | string | — | — | 查询开始日期，格式 yyyy-MM-dd。|
+| `end_date` | 是 | string | — | — | 查询结束日期，格式 yyyy-MM-dd。|
 
 ### `get_fund_info`
 
-获取单只或多只基金的基础档案，包含产品识别、分类、成立日期、管理人、基金经理、业绩比较基准等字段。
+返回指定基金的产品档案，为静态或准静态数据，包括：代码、简称、全称；投资类型与风格；业绩比较基准与风险等级；费率结构（如管理费、托管费、申购赎回费）；基金经理（现任与历任，如任职期限、管理规模）；生命周期记录（如成立、转型、清盘、更名）；运作状态（如申购赎回状态）；管理人与托管人；发行信息（如成立日期、发行规模）；指数跟踪信息（如跟踪指数、上市日期、封闭运作期）。不含规模与变动、业绩数据与持仓明细。
 
-| 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
+
+| 参数 | 必填 | 类型 | 枚举 | 示例 / 默认 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
-| `question` | 是 | string | — | — | 查询基金基本档案及产品结构信息，涵盖基金身份（代码、简称、全称）、投资类型与风格、业绩比较基准、费率结构（管理费、托管费、申购费、赎回费）、现任基金经理详情（姓名、任职期限、管理规模、管理基金数）、管理人名称与托管人名称、发行数据（成立日、发行规模、发行对象、发行方式）、以及指数跟踪专项信息（跟踪指数、上市日期、封闭运作期）。例如：查询大成科技创新A基金的基金身份、投资类型、业绩比较基准 |
-| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文。 |
+| `question` | 是 | string | — | — | 自然语言查询要求，为"实体 + 指标 + 指标参数"三要素的组合超集，应包含基金实体、指标名称、日期等查询要素。|
 
 ### `get_fund_holders`
 
-获取基金持有人结构及资金流动数据，涵盖投资者构成（个人与机构持有比例）、持有人户数、申购赎回情况（报告期及单季度份额）、以及持有人口径下的份额总数与期间份额变动率。
+返回指定基金的份额、规模与持有人结构，包括：最新规模（资产净值、份额总数）及期间变动；持有人结构（如个人与机构持有比例、持有人户数）；申购赎回情况（如报告期及单季度份额变动）。不含静态产品档案。
 
-| 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
+| 参数 | 必填 | 类型 | 枚举 | 示例 / 默认 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
-| `question` | 是 | string | — | — | This parameter accepts natural language queries about fund shareholder and capital flow data. The query should specify: (1) target fund - full name, abbreviation, or Wind code (e.g., '大成科技创新A', '008988.OF', '华夏成长'); (2) data scope - investor composition (% held by individuals vs. institutions), holder count (number of shareholders), subscription/redemption flows (reporting-period net purchase/redemption volume and single-quarter volume), AUM and share changes (total shares outstanding, period-over-period AUM change with growth rate). LLM should normalize fund names and infer missing context - e.g., 'XX基金的持有人结构' implies investor composition and holder count query; 'XX基金的申购赎回情况' implies subscription/redemption data; 'XX基金规模变动' implies AUM change and growth rate data. |
-| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文。 |
+| `question` | 是 | string | — | — | 自然语言查询要求，为"实体 + 指标 + 指标参数"三要素的组合超集，应包含基金实体、指标名称、日期（或报告期）等查询要素。|
 
 ### `get_fund_performance`
 
-获取基金业绩表现、排名及二级市场交易数据，涵盖多时间维度年化收益率、基于回报的净值增长（复权、累计、区间）、同类排名（按规模、多周期回报、风险调整指标含波动率/跟踪误差/选股能力/选时能力）、ETF/LOF专项指标（折溢价率、IOPV、净流入额、行情价格及成交量）、融资融券余额、以及风险调整业绩指标（年化Alpha、Beta、年化夏普、年化特雷诺、年化信息比率、最大回撤）。
+返回指定基金的净值、业绩度量与评价数据，覆盖三族。净值族：单位净值、累计净值与复权净值的序列及净值增长，净值是基金资产的单位估值，为场外基金的唯一价格口径，场内基金亦适用。业绩度量族：收益率（如区间收益率、年化收益率、绝对收益口径）与同类排名（如按多周期回报、按规模）；货币基金以万份收益、7 日年化收益率为专项业绩口径。评价族：风险调整指标（如 Alpha、Beta、夏普比率、最大回撤、波动率、跟踪误差）；能力归因指标（如选股能力、选时能力）；风格分析（如风格箱、风格暴露）；基金评级（为第三方评价结果，非净值派生指标）；ETF/LOF 专项指标（如折溢价率、IOPV、净流入额）。不含基金财务报表数据。
 
-| 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
+| 参数 | 必填 | 类型 | 枚举 | 示例 / 默认 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
-| `question` | 是 | string | — | — | This parameter accepts natural language queries about fund performance, ranking, and secondary market trading data. The query should specify: (1) target fund name - Wind code (e.g., '008988.OF') or fund name (e.g., '大成科技创新A', '华夏成长混合', '易方达蓝筹精选'); (2) performance data category - annualized returns across multiple horizons (1-week, 1-month, 3-month, 6-month, 1-year, 2-year, 3-year, 5-year, 10-year annualized returns), return-based NAV growth (adjusted NAV growth rate, accumulated NAV growth rate, interval NAV growth rate); (3) peer rankings - multi-period return rankings (1-week/1-month/3-month/6-month/1-year/2-year/3-year/5-year/10-year return rankings). NOTE: Size-based ranking and risk-adjusted metric rankings (volatility ranking, tracking error ranking, stock-picking ability ranking, market-timing ability ranking) may require separate queries or are not supported in current API version; (4) ETF/LOF-specific metrics - premium/discount rate (IOPV溢折率), IOPV (Indicative Optimized Portfolio Value), net inflows (区间净流入额), market prices and trading volume (收盘价、成交量); (5) margin trading data - margin balance (融资余额), short balance (融券余额); (6) risk-adjusted performance indicators - annualized Alpha, Beta, annualized Sharpe ratio, annualized Treynor ratio, annualized Information ratio, maximum drawdown. LLM should normalize fund names and infer query scope from context - e.g., '大成科技创新A的业绩' implies comprehensive performance query; 'XX基金的排名' implies multi-period return rankings; 'XX基金的ETF指标' implies ETF/LOF-specific metrics; '008988的风险指标' implies risk-adjusted performance indicators query. IMPORTANT: When user requests '同类排名', focus on multi-period return rankings. If user specifically requests size ranking or risk-adjusted metric rankings (volatility/tracking error/stock-picking/market-timing ability rankings), inform user that these rankings may need separate queries through other tools. |
-| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文。 |
+| `question` | 是 | string | — | — | 自然语言查询要求，为"实体 + 指标 + 指标参数"三要素的组合超集，应包含基金实体、指标名称、日期（或时间范围）等查询要素。 |
 
 ### `search_funds`
 
-从全市场基金中筛选符合条件的基金产品，返回基金代码列表。适用于用户未指定具体基金、而是描述筛选条件的场景。
+根据自然语言筛选条件从全市场基金反查产品，返回符合条件的基金代码列表。支持按指标数值（业绩、规模、费率、持仓特征等）与产品分类（投资类型、风格、指数跟踪、管理公司等）组合条件，返回的代码可传入各属性查询工具获取具体数据。已指定具体基金时不要调用本工具。
 
-| 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
+| 参数 | 必填 | 类型 | 枚举 | 示例 / 默认 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
-| `question` | 是 | string | — | "筛选股票型基金中近一年收益率超20%的产品" | 自然语言基金筛选问句，描述筛选条件（如基金类型、收益率、管理规模等），返回符合条件的基金代码列表。例：筛选股票型基金中近一年收益率超20%的产品 |
-| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文。 |
+| `question` | 是 | string | — | 示例："筛选股票型基金中近一年收益率超20%的产品" | 自然语言筛选条件，为指标与指标参数（运算条件、阈值）的组合，无需指定实体。 |
 <!-- END MCP TOOLS/LIST GENERATED CONTRACT -->
 
 <!-- BEGIN DOMAIN INDICATORS -->

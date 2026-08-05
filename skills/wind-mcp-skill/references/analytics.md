@@ -10,10 +10,9 @@
 
 ### `get_financial_data`
 
-对金融指标进行聚合、计算及跨品种的数据处理。处理任务包括：从单个公司数据汇总行业或板块级别的合计值（如某行业的总市场份额）、计算多实体间的加权平均或排名、从多个数据点推导复合指标、以及其他需要算术运算或AI辅助处理的数据变换。返回结构化的计算结果。
+根据自然语言描述执行结构化数据的计算与提取，支持自定义指标组合、跨实体聚合与灵活的数据加工。仅当所需结果不能由任何预定义数据工具直接返回时使用本工具：单一实体的属性数据、指数与板块的预定义加权指标、宏观指标均调用相应数据服务；按条件筛选并返回实体列表使用各服务的筛选工具（本工具返回计算结果而非实体列表）。
 
-| 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |
+| 参数 | 必填 | 类型 | 枚举 | 示例 / 默认 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
-| `question` | 是 | string | — | "查询中国A股市场过去一年的平均成交量" | This parameter is used to input a query that specifies the desired market, company, or macroeconomic data. Ensure the query is clear, specific, and concise so that the model can accurately interpret it. Examples might include asking for historical data, average values, or trends over a specific time period. LLM should infer and fill in missing information (like timeframe or metric type) based on user context if poorly specified. |
-| `lang` | 否 | string | zh-CN / en-US | "zh-CN" | 返回语言：zh-CN=简体中文，en-US=英文。 |
+| `question` | 是 | string | — | 示例："查询中国A股市场过去一年的平均成交量" | 自然语言计算与取数要求，为"实体 + 指标 + 指标参数"三要素的组合超集，应包含实体范围、指标或计算逻辑、日期（或时间范围、报告期）等要素。|
 <!-- END MCP TOOLS/LIST GENERATED CONTRACT -->
