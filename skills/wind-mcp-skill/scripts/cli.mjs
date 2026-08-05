@@ -6,7 +6,7 @@ import { join, dirname, basename, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 
-const SKILL_VERSION = '1.11.11';
+const SKILL_VERSION = '2.0.0';
 const DEFAULT_TOOL_CONCURRENCY = 1;
 const MAX_TOOL_CONCURRENCY = 10;
 
@@ -85,7 +85,7 @@ const CALL_EXAMPLES = [
   `cli.mjs call stock_data get_stock_basicinfo '{"question":"600519.SH公司基本档案"}'`,
   `cli.mjs call stock_data get_stock_price_indicators '{"windcode":"600519.SH","indexes":"中文简称,最新成交价,涨跌幅"}'`,
   `cli.mjs call fund_data get_fund_kline '{"windcode":"588200.SH","begin_date":"2026-04-01","end_date":"2026-04-30"}'`,
-  `cli.mjs call stock_data get_stock_quote '{"windcode":"AAPL.O","begin_date":"2026-04-30","end_date":"2026-04-30"}'`,
+  `cli.mjs call stock_data get_stock_quote '{"windcode":"AAPL.O"}'`,
   `cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","begin_date":"2026-04-01","end_date":"2026-04-30"}'`,
   `cli.mjs call financial_docs get_financial_news '{"question":"美联储利率政策","top_k":3}'`,
   `cli.mjs call economic_data natural_language_get_edb_data '{"executionMode":"searchFetch","question":"中国GDP","observation":"10"}'`,
@@ -157,9 +157,9 @@ function triggerUpdateCheck() {
     const runnerPath = join(tmpDir, `update-check-${SKILL_NAME}-${process.pid}.mjs`);
     copyFileSync(UPDATE_CHECK_PATH, runnerPath);
     const child = spawn('node', [runnerPath, SKILL_DIR], { detached: true, stdio: 'ignore', windowsHide: true });
-    child.on('error', () => {});
+    child.on('error', () => { });
     child.unref();
-  } catch {}
+  } catch { }
 }
 
 export { triggerUpdateCheck };
@@ -516,28 +516,16 @@ function readCallRules() {
 
 function prepareNormalizationRules(rules) {
   return {
-    dateNormalization: rules.date_normalization || {},
-    langAliases: new Map(Object.entries(rules.lang_aliases || {})),
-    langBackendValuesDefault: rules.lang_backend_values_default || {},
-    langBackendValuesByTool: rules.lang_backend_values_by_tool || {},
-    parameterMappingsByTool: rules.parameter_mappings_by_tool || {},
     klinePeriodMap: new Map(Object.entries(rules.kline_period_map || {})),
-    legacyToolAliases: new Map(Object.entries(rules.legacy_tool_aliases || {})),
     toolByDomain: rules.tool_by_domain || {},
   };
 }
 
 const CALL_RULES = readCallRules();
 const NORMALIZATION_RULES = prepareNormalizationRules(CALL_RULES);
-const DATE_NORMALIZATION = NORMALIZATION_RULES.dateNormalization;
-const LANG_ALIASES = NORMALIZATION_RULES.langAliases;
-const LANG_BACKEND_VALUES_DEFAULT = NORMALIZATION_RULES.langBackendValuesDefault;
-const LANG_BACKEND_VALUES_BY_TOOL = NORMALIZATION_RULES.langBackendValuesByTool;
-const PARAMETER_MAPPINGS_BY_TOOL = NORMALIZATION_RULES.parameterMappingsByTool;
 const KLINE_PERIOD_MAP = NORMALIZATION_RULES.klinePeriodMap;
 const PUBLIC_KLINE_PERIODS = new Set(KLINE_PERIOD_MAP.keys());
 const KLINE_PERIODS = new Set(KLINE_PERIOD_MAP.values());
-const LEGACY_TOOL_ALIASES = NORMALIZATION_RULES.legacyToolAliases;
 const TOOL_BY_DOMAIN = NORMALIZATION_RULES.toolByDomain;
 
 const TOOL_VALIDATION_RULES = {
@@ -545,98 +533,6 @@ const TOOL_VALIDATION_RULES = {
   toolRules: Array.isArray(CALL_RULES.tool_rules) ? CALL_RULES.tool_rules : [],
 };
 const KLINE_TOOLS = new Set(TOOL_VALIDATION_RULES.toolRules.find(rule => rule.name === 'kline')?.tools || []);
-
-function isValidBasicDate(value) {
-  if (!/^\d{8}$/.test(value)) return false;
-  const y = Number(value.slice(0, 4));
-  const m = Number(value.slice(4, 6));
-  const d = Number(value.slice(6, 8));
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
-}
-
-const NORMALIZABLE_DATE_KEYS = new Set(['begin_date', 'end_date', 'begin', 'end', 'beginDate', 'endDate', 'date', 'tradeDate', 'afdate']);
-
-function normalizeDateValue(value, toolName, field) {
-  if (typeof value !== 'string') return { value, error: null };
-  const trimmed = value.trim();
-  const upper = trimmed.toUpperCase();
-  const specialValues = DATE_NORMALIZATION.special_values_by_tool?.[toolName] || [];
-  if (specialValues.includes(upper)) return { value: upper, error: null };
-  const matched = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  const backendValue = matched ? `${matched[1]}${matched[2]}${matched[3]}` : trimmed;
-  if (!matched || !isValidBasicDate(backendValue)) {
-    return {
-      value: backendValue,
-      error: {
-        code: 'INVALID_PARAM_VALUE',
-        message: `字段 '${field}' 日期格式错误，对外统一要求 yyyy-MM-dd`,
-        field,
-        issue: 'invalid_format',
-        actual: value,
-        expected_format: 'yyyy-MM-dd',
-        accepted_input_formats: ['yyyy-MM-dd'],
-        allowed_special_values: specialValues,
-        example: '2026-07-08',
-      },
-    };
-  }
-  return { value: backendValue, error: null };
-}
-
-function normalizeLangValue(value, toolName) {
-  if (typeof value !== 'string') return { value, error: null };
-  const trimmed = value.trim();
-  const canonical = LANG_ALIASES.get(trimmed.toLowerCase());
-  if (!canonical) {
-    return {
-      value: trimmed,
-      error: {
-        code: 'INVALID_PARAM_VALUE',
-        message: `字段 'lang' 取值 '${trimmed}' 不合法`,
-        field: 'lang',
-        issue: 'invalid_enum',
-        actual: trimmed,
-        allowed_values: ['zh-CN', 'en-US'],
-        accepted_aliases: [...LANG_ALIASES.keys()],
-      },
-    };
-  }
-  return {
-    value: LANG_BACKEND_VALUES_BY_TOOL[toolName]?.[canonical]
-      || LANG_BACKEND_VALUES_DEFAULT[canonical]
-      || canonical,
-    error: null,
-  };
-}
-
-function applyToolParameterMappings(toolName, args) {
-  const normalizedArgs = { ...args };
-  const errors = [];
-  for (const key of NORMALIZABLE_DATE_KEYS) {
-    if (!(key in normalizedArgs)) continue;
-    const normalizedDate = normalizeDateValue(normalizedArgs[key], toolName, key);
-    normalizedArgs[key] = normalizedDate.value;
-    if (normalizedDate.error) errors.push(normalizedDate.error);
-  }
-  for (const [canonicalKey, backendKey] of Object.entries(PARAMETER_MAPPINGS_BY_TOOL[toolName] || {})) {
-    if (!(canonicalKey in normalizedArgs)) continue;
-    if (backendKey in normalizedArgs && normalizedArgs[backendKey] !== normalizedArgs[canonicalKey]) {
-      errors.push({
-        code: 'PARAM_CONFLICT_ERROR',
-        message: `同义字段 '${canonicalKey}' 和 '${backendKey}' 的值不一致`,
-        fields: [canonicalKey, backendKey],
-        issue: 'conflicting_aliases',
-        actual_values: { [canonicalKey]: normalizedArgs[canonicalKey], [backendKey]: normalizedArgs[backendKey] },
-        expected: '只保留一个字段，或为两个字段传入相同值',
-      });
-      continue;
-    }
-    normalizedArgs[backendKey] = normalizedArgs[canonicalKey];
-    if (canonicalKey !== backendKey) delete normalizedArgs[canonicalKey];
-  }
-  return { args: normalizedArgs, errors };
-}
 
 function normalizeIndexes(indexes) {
   if (typeof indexes !== 'string') return indexes;
@@ -665,20 +561,12 @@ function toolFamily(toolName) {
 }
 
 function normalizeCall(server_type, toolName, args) {
-  const legacyTool = LEGACY_TOOL_ALIASES.get(toolName);
-  if (legacyTool) [server_type, toolName] = legacyTool;
   const family = toolFamily(toolName);
   if (family) toolName = TOOL_BY_DOMAIN[family]?.[server_type] || toolName;
-  const mapped = applyToolParameterMappings(toolName, args);
-  const normalizedArgs = mapped.args;
-  const normalizationErrors = [...mapped.errors];
+  const normalizedArgs = { ...args };
+  const normalizationErrors = [];
   if (toolName === 'natural_language_get_edb_data' && typeof normalizedArgs.executionMode === 'string') {
     normalizedArgs.executionMode = EDB_EXECUTION_MODE_ALIASES.get(normalizedArgs.executionMode) || normalizedArgs.executionMode;
-  }
-  if ('lang' in normalizedArgs) {
-    const normalizedLang = normalizeLangValue(normalizedArgs.lang, toolName);
-    normalizedArgs.lang = normalizedLang.value;
-    if (normalizedLang.error) normalizationErrors.push(normalizedLang.error);
   }
   if (typeof normalizedArgs.indexes === 'string') normalizedArgs.indexes = normalizeIndexes(normalizedArgs.indexes);
   if (typeof normalizedArgs.windcode === 'string') normalizedArgs.windcode = normalizeWindcode(normalizedArgs.windcode);
@@ -860,7 +748,7 @@ function getApiKey() {
       const env = parseDotenv(readFileSync(globalConfig, 'utf8'));
       const key = env.WIND_API_KEY?.trim();
       if (key) return key;
-    } catch {}
+    } catch { }
   }
 
   const localConfig = join(SKILL_DIR, 'config.json');
@@ -869,7 +757,7 @@ function getApiKey() {
       const cfg = JSON.parse(readFileSync(localConfig, 'utf8'));
       const key = typeof cfg.wind_api_key === 'string' ? cfg.wind_api_key.trim() : '';
       if (key) return key;
-    } catch {}
+    } catch { }
   }
 
   const envKey = process.env.WIND_API_KEY?.trim();
@@ -979,7 +867,7 @@ function parseSSE(text) {
   if (trimmed.startsWith('{')) {
     try {
       return JSON.parse(trimmed);
-    } catch {}
+    } catch { }
   }
   const lines = text.split(/\r?\n/);
   let last = null;
@@ -1111,9 +999,9 @@ async function mcpRequest(server_type, method, params, {
         delaysMs: [300, 1000],
         onAttemptError: process.env.WIND_DEBUG === '1'
           ? (err, attempt, total) => {
-              const causeCode = err?.cause?.code || err?.code || 'UNKNOWN_CAUSE';
-              process.stderr.write(`[wind-mcp fetch retry ${attempt}/${total}] ${causeCode}: ${err?.message || err}\n`);
-            }
+            const causeCode = err?.cause?.code || err?.code || 'UNKNOWN_CAUSE';
+            process.stderr.write(`[wind-mcp fetch retry ${attempt}/${total}] ${causeCode}: ${err?.message || err}\n`);
+          }
           : null,
       },
     );
@@ -1359,70 +1247,6 @@ function validateToolsList(serverType, result) {
   }
 }
 
-function markdownCell(value) {
-  return String(value ?? '—').replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>');
-}
-
-function renderOfficialContract(serverType, tools) {
-  const sections = tools.map(tool => {
-    const schema = tool.inputSchema || {};
-    const properties = schema.properties || {};
-    const required = new Set(schema.required || []);
-    const rows = Object.entries(properties)
-      .filter(([name]) => name !== 'version')
-      .map(([name, property]) => {
-      const publicName = serverType === 'financial_docs' && name === 'query'
-        ? 'question'
-        : serverType === 'economic_data' && name === 'beginDate'
-          ? 'begin_date'
-          : serverType === 'economic_data' && name === 'endDate'
-            ? 'end_date'
-            : tool.name.endsWith('_quote') && name === 'begin'
-              ? 'begin_date'
-              : tool.name.endsWith('_quote') && name === 'end'
-                ? 'end_date'
-                : name;
-      let publicProperty = name === 'period' && tool.name.endsWith('_kline')
-        ? { ...property, enum: Array.from(PUBLIC_KLINE_PERIODS), default: '1d', description: 'K 线周期。' }
-        : name === 'lang'
-          ? { ...property, enum: ['zh-CN', 'en-US'], default: 'zh-CN', description: '返回语言：zh-CN=简体中文，en-US=英文。' }
-        : name === 'indexes'
-          ? { ...property, description: '指标字段，多个字段用英文逗号分隔；可选值见本文件的「`indexes` 行情指标」。' }
-          : property;
-      if (['begin_date', 'end_date', 'afdate'].includes(publicName)) {
-        publicProperty = {
-          ...publicProperty,
-          description: String(publicProperty.description || '')
-            .replaceAll('beginDate', 'begin_date')
-            .replaceAll('endDate', 'end_date')
-            .replaceAll('yyyyMMdd', 'yyyy-MM-dd')
-            .replaceAll('20260325', '2026-03-25')
-            .replaceAll('20260326', '2026-03-26'),
-        };
-      }
-      if (tool.name.endsWith('_quote') && publicName === 'begin_date') {
-        publicProperty = { ...publicProperty, description: '查询开始日期，格式 yyyy-MM-dd；不支持隐式默认值。' };
-      }
-      if (tool.name.endsWith('_quote') && publicName === 'end_date') {
-        publicProperty = { ...publicProperty, description: '查询结束日期，格式 yyyy-MM-dd；不支持 `LAST` 或隐式默认值。' };
-      }
-      if (serverType === 'economic_data') {
-        publicProperty = {
-          ...publicProperty,
-          description: String(publicProperty.description || '')
-            .replaceAll('beginDate', 'begin_date')
-            .replaceAll('endDate', 'end_date')
-            .replaceAll('yyyyMMdd', 'yyyy-MM-dd'),
-        };
-      }
-      const enums = Array.isArray(publicProperty.enum) ? publicProperty.enum.map(String).join(' / ') : '—';
-      const defaultValue = Object.hasOwn(publicProperty, 'default') ? JSON.stringify(publicProperty.default) : '—';
-      return `| \`${publicName}\` | ${required.has(name) ? '是' : '否'} | ${markdownCell(publicProperty.type)} | ${markdownCell(enums)} | ${markdownCell(defaultValue)} | ${markdownCell(publicProperty.description)} |`;
-      });
-    return `### \`${tool.name}\`\n\n${tool.description || '—'}\n\n| 参数 | 必填 | 类型 | 枚举 | 默认值 | 官方说明 |\n| --- | --- | --- | --- | --- | --- |\n${rows.length ? rows.join('\n') : '| — | — | — | — | — | 无参数 |'}`;
-  });
-  return `${GENERATED_CONTRACT_START}\n## 工具契约\n\n${sections.join('\n\n')}\n${GENERATED_CONTRACT_END}`;
-}
 
 function mergeGeneratedContract(filePath, preamble, generated) {
   let suffix = '';
@@ -1453,12 +1277,6 @@ async function cmdSyncContracts() {
     manifest[serverType] = tools.map(tool => tool.name);
   }
 
-  // Only mutate local contracts after every server returned a valid tools/list response.
-  for (const [serverType, tools] of Object.entries(contracts)) {
-    const contractPath = join(SKILL_DIR, 'references', CONTRACT_REFS[serverType]);
-    mergeGeneratedContract(contractPath, CONTRACT_PREAMBLES[serverType], renderOfficialContract(serverType, tools));
-  }
-  writeFileSync(TOOL_MANIFEST_PATH, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
   return {
     updated: true,
     source: 'MCP tools/list',
@@ -1606,53 +1424,53 @@ const IS_MAIN = process.argv[1] && import.meta.url === pathToFileURL(process.arg
 if (IS_MAIN) runMain();
 
 function runMain() {
-const [cmd, ...args] = process.argv.slice(2);
+  const [cmd, ...args] = process.argv.slice(2);
 
-const USAGE =
-  `wind-mcp-skill\n` +
-  `访问万得 Wind 金融数据（按数据域分类调用）\n\n` +
-  `用法:\n` +
-  `  cli.mjs call <server_type> <tool_name> '<params_json>|@params_file'\n` +
-  `  cli.mjs list-tools <server_type>                    # 获取后端官方工具描述和 inputSchema\n` +
-  `  cli.mjs sync-contracts                             # 将七个后端的 tools/list 合并进原有契约\n` +
-  `  cli.mjs open-portal                                # 打开万得开发者中心拿 API Key\n` +
-  `  cli.mjs setup-key <KEY> --scope <global|skill>     # 配置 API Key（先问用户存放位置）\n\n` +
-  `可用 server_type:\n` +
-  Object.entries(SERVERS).map(([k, v]) => `  ${k.padEnd(20)}${v.label}`).join('\n') + '\n\n' +
-  `典型:\n` +
-  `  ${CALL_EXAMPLES.join('\n  ')}`;
+  const USAGE =
+    `wind-mcp-skill\n` +
+    `访问万得 Wind 金融数据（按数据域分类调用）\n\n` +
+    `用法:\n` +
+    `  cli.mjs call <server_type> <tool_name> '<params_json>|@params_file'\n` +
+    `  cli.mjs list-tools <server_type>                    # 获取后端官方工具描述和 inputSchema\n` +
+    `  cli.mjs sync-contracts                             # 将七个后端的 tools/list 合并进原有契约\n` +
+    `  cli.mjs open-portal                                # 打开万得开发者中心拿 API Key\n` +
+    `  cli.mjs setup-key <KEY> --scope <global|skill>     # 配置 API Key（先问用户存放位置）\n\n` +
+    `可用 server_type:\n` +
+    Object.entries(SERVERS).map(([k, v]) => `  ${k.padEnd(20)}${v.label}`).join('\n') + '\n\n' +
+    `典型:\n` +
+    `  ${CALL_EXAMPLES.join('\n  ')}`;
 
-const commands = {
-  call: () => cmdCall(args[0], args[1], args[2]),
-  'list-tools': () => cmdListTools(args[0]),
-  'sync-contracts': () => cmdSyncContracts(),
-  'open-portal': () => cmdOpenPortal(),
-  'setup-key': () => cmdSetupKey(...args),
-  diagnose: () => cmdDiagnose(),
-};
+  const commands = {
+    call: () => cmdCall(args[0], args[1], args[2]),
+    'list-tools': () => cmdListTools(args[0]),
+    'sync-contracts': () => cmdSyncContracts(),
+    'open-portal': () => cmdOpenPortal(),
+    'setup-key': () => cmdSetupKey(...args),
+    diagnose: () => cmdDiagnose(),
+  };
 
-if (!cmd) {
-  // help: 直接输出 USAGE 纯文本
-  process.stdout.write(USAGE + '\n');
-  process.exit(0);
-}
+  if (!cmd) {
+    // help: 直接输出 USAGE 纯文本
+    process.stdout.write(USAGE + '\n');
+    process.exit(0);
+  }
 
-if (!commands[cmd]) {
-  die('USAGE_ERROR', `未知命令: ${cmd}\nUSAGE:\n${USAGE}`);
-}
+  if (!commands[cmd]) {
+    die('USAGE_ERROR', `未知命令: ${cmd}\nUSAGE:\n${USAGE}`);
+  }
 
-commands[cmd]()
-  .then((data) => {
-    if (cmd === 'call') {
-      // call: 透传 result 内容 (parse JSON if applicable, else raw text)
-      writeRawCallSuccess(data?.result, { server_type: data?.server_type, tool_name: data?.tool });
-      setTimeout(triggerUpdateCheck, 0);
-    } else {
-      // open-portal / setup-key: 直接输出结构化数据 (无 envelope 包裹)
-      writePlainSuccess(data);
-    }
-  })
-  .catch((err) => {
-    die('UNKNOWN', `执行失败: ${err.message || err}${err.stack ? ' | stack: ' + err.stack.slice(0, 300) : ''}`);
-  });
+  commands[cmd]()
+    .then((data) => {
+      if (cmd === 'call') {
+        // call: 透传 result 内容 (parse JSON if applicable, else raw text)
+        writeRawCallSuccess(data?.result, { server_type: data?.server_type, tool_name: data?.tool });
+        setTimeout(triggerUpdateCheck, 0);
+      } else {
+        // open-portal / setup-key: 直接输出结构化数据 (无 envelope 包裹)
+        writePlainSuccess(data);
+      }
+    })
+    .catch((err) => {
+      die('UNKNOWN', `执行失败: ${err.message || err}${err.stack ? ' | stack: ' + err.stack.slice(0, 300) : ''}`);
+    });
 }

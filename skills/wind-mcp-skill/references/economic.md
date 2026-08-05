@@ -1,8 +1,8 @@
 # `economic_data` 工具契约
 
-只用于宏观和行业 EDB 指标。自然语言统一使用 `question`；日期统一使用 `begin_date` / `end_date`。
+只用于宏观和行业 EDB 指标。自然语言统一使用 `question`；日期统一使用 `beginDate` / `endDate`。
 
-- 日期字段使用 `begin_date` / `end_date`。
+- 日期字段使用 `beginDate` / `endDate`。
 - `仅提数` / `搜索并提数` 必须提供完整日期范围或 `observation`，两者互斥。
 - 后端将合法日期误报为 observation 格式错误时，视为后端问题：停止自动修正并透传错误。
 - 不得把日期范围擅自改成 `observation`。
@@ -40,8 +40,8 @@ observation：观测区间类型，例如 3，表示最近3期数据，与时间
 | 参数 | 必填 | 类型 | 枚举 | 示例 / 默认 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
 | `executionMode` | 是 | string | 仅搜索 / 仅提数 / 搜索并提数 | — | 执行方式。仅搜索：用户只想查找、筛选或推荐宏观经济指标，不需要返回具体数值。仅提数：用户已经给出明确指标代码，需要直接提取数据。搜索并提数：用户用自然语言描述指标并要求返回具体数据，需要先搜索指标再提数。 |
-| `question` | 是 | string | — | — | 查询内容。执行方式为【仅提数】时，填入指标代码，多个代码用英文逗号分隔，如 G0000069,G8411182。执行方式为【仅搜索、搜索并提数】时，填入指标或经济数据的自然语言描述，如 中国GDP、上海CPI、出口相关指标。时间范围通过 begin_date/end_date 或 observation 显式传入。 |
-| `begin_date` | 否 | string | — | — | 数据提取开始日期，格式为 yyyy-MM-dd。与 observation 互斥；仅在【仅提数、搜索并提数】时生效。 |
-| `end_date` | 否 | string | — | — | 数据提取结束日期，格式为 yyyy-MM-dd。与 observation 互斥；仅在【仅提数、搜索并提数】时生效。 |
-| `observation` | 否 | string | — | — | 观测期数。近 N 期填写数字字符串，如“近10期”填 `10`；全量数据填 `all`。与 begin_date/end_date 互斥；仅在【仅提数、搜索并提数】时生效。 |
+| `question` | 是 | string | — | — | 查询内容。执行方式为【仅提数】时，填入指标代码，多个代码用英文逗号分隔，如 G0000069,G8411182。执行方式为【仅搜索、搜索并提数】时，填入指标或经济数据的自然语言描述，如 中国GDP、上海CPI、出口相关指标。时间范围通过 beginDate/endDate 或 observation 显式传入。 |
+| `beginDate` | 否 | string | — | — | 数据提取开始日期，格式为 yyyy-MM-dd。与 observation 互斥；仅在【仅提数、搜索并提数】时生效。 |
+| `endDate` | 否 | string | — | — | 数据提取结束日期，格式为 yyyy-MM-dd。与 observation 互斥；仅在【仅提数、搜索并提数】时生效。 |
+| `observation` | 否 | string | — | — | 观测期数。近 N 期填写数字字符串，如“近10期”填 `10`；全量数据填 `all`。与 beginDate/endDate 互斥；仅在【仅提数、搜索并提数】时生效。 |
 <!-- END MCP TOOLS/LIST GENERATED CONTRACT -->

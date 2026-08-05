@@ -1,40 +1,6 @@
 {
-  "schema_version": 7,
+  "schema_version": 10,
   "description": "Runtime normalization and validation rules for Wind MCP tool calls.",
-  "date_normalization": {
-    "public_format": "yyyy-MM-dd",
-    "accepted_formats": ["yyyy-MM-dd"],
-    "backend_format": "yyyyMMdd",
-    "special_values_by_tool": {}
-  },
-  "lang_aliases": {
-    "中文": "zh-CN",
-    "zh": "zh-CN",
-    "zh-cn": "zh-CN",
-    "cns": "zh-CN",
-    "english": "en-US",
-    "en": "en-US",
-    "en-us": "en-US",
-    "ens": "en-US"
-  },
-  "lang_backend_values_default": {
-    "zh-CN": "中文",
-    "en-US": "English"
-  },
-  "lang_backend_values_by_tool": {
-    "get_financial_data": {
-      "zh-CN": "CNS",
-      "en-US": "ENS"
-    }
-  },
-  "parameter_mappings_by_tool": {
-    "get_stock_quote": {"begin_date": "begin", "end_date": "end"},
-    "get_fund_quote": {"begin_date": "begin", "end_date": "end"},
-    "get_index_quote": {"begin_date": "begin", "end_date": "end"},
-    "natural_language_get_edb_data": {"begin_date": "beginDate", "end_date": "endDate"},
-    "get_company_announcements": {"question": "query"},
-    "get_financial_news": {"question": "query"}
-  },
   "kline_period_map": {
     "1min": "1",
     "5min": "3",
