@@ -26,7 +26,7 @@ beginDate、endDate：查询时间范围，格式为 yyyy-MM-dd。
 observation：观测区间类型，例如 3，表示最近3期数据，与时间范围参数二选一。
 
 调用约束：
-当 executionMode=fetch 或 searchFetch 且需要返回具体数值数据时，必须显式提供 begin_date/end_date 或 observation。
+当 executionMode=fetch 或 searchFetch 且需要返回具体数值数据时，必须显式提供 beginDate/endDate 或 observation。
 不要仅将时间范围描述写入 question 中。
 
 返回结果：
