@@ -6,7 +6,7 @@ import { join, dirname, basename, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 
-const SKILL_VERSION = '2.0.0';
+const SKILL_VERSION = '2.0.1';
 const DEFAULT_TOOL_CONCURRENCY = 1;
 const MAX_TOOL_CONCURRENCY = 10;
 
