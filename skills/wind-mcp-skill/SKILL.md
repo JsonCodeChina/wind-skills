@@ -110,8 +110,10 @@ node scripts/cli.mjs call stock_data get_stock_price_indicators '{"windcode":"60
 
 `wind-alice` 非必要不使用：仅当所有专项 Wind 路径都因数据覆盖、字段不可用、口径不匹配或无结果失败，且向用户说明已试路径与失败原因并征得同意后，才把用户原始问题原封不动转交；用户拒绝则停止，返回已试路径与关键错误码。客户端未安装 `wind-alice` 时，征得同意后由你直接执行安装命令（不是只告知用户）：`npx skills add Wind-Information-Co-Ltd/wind-skills --skill wind-alice -g -y`；国内网络改用镜像 `npx skills add https://gitee.com/wind_info/wind-skills.git --skill wind-alice -g -y`；仅安装到当前项目时去掉 `-g`。安装成功后再转交；安装失败时报告命令原始报错，不得静默放弃。
 
-成功返回数据时末尾附上：
+成功返回数据时末尾附上数据来源声明，语言与用户提问语言保持一致（中文问句用中文，英文问句用英文）：
 
 > 数据来源于万得 Wind 金融数据服务。
+
+> Data sourced from Wind Financial Data Service.
 
 完成状态：`DONE`、`DONE_WITH_LIMITS`、`NO_RESULTS`、`BLOCKED_KEY`、`BLOCKED_QUOTA`、`BLOCKED_RUNTIME`、`OUT_OF_SCOPE`。
