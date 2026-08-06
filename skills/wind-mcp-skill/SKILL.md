@@ -82,6 +82,8 @@ node scripts/cli.mjs call stock_data get_stock_price_indicators '{"windcode":"60
 
 **批量与并发**：默认串行（并发 1）。需要对 2 个及以上标的逐项调用时，先只发第一个作为探针，探针以 exit 0 完成且无错误信封，才继续其余；探针失败立即终止该批次，不得把相同调用扩散到其它标的。不同 `server_type + tool_name` 或不同参数结构分别分组，每组各发一次探针。用户明确要求并发时上限 10，命中 `CONCURRENCY_LIMIT_ERROR` 后停止新请求并恢复串行。
 
+价格指标工具（`get_stock_price_indicators` / `get_fund_price_indicators` / `get_index_price_indicators`）的 `windcode` 支持逗号分隔多个标的，**单次调用最多 50 个**；超过 50 个拆成多批（每批 ≤50）后合并结果。该上限约束"单次调用内的代码数"，与上面的并发上限 10（约束"同时并发的调用数"）相互独立。请求较宽的指标集（`indexes` 字段数较多）时相应减少单批代码数，因为响应体积随"代码数 × 字段数"增长。
+
 ## 3. 读回执
 
 **成功（exit 0）**：stdout 是结构化数据，直接读；若存在 `content[0].text`，优先解析其中的文本或 JSON。
