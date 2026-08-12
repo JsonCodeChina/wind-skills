@@ -100,8 +100,8 @@
           "message": "字段 'period' 只能是 ${values}，日 K 请传 '1d'"
         },
         "aftype": {
-          "values": ["0", "1"],
-          "message": "字段 'aftype' 只能是 '0' 或 '1'"
+          "values": ["0", "1", "2"],
+          "message": "字段 'aftype' 只能是 '0'（前复权）、'1'（后复权）或 '2'（不复权）"
         },
         "issusp": {
           "values": ["0", "1"],

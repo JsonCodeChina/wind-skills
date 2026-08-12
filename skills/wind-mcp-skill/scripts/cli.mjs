@@ -6,7 +6,7 @@ import { join, dirname, basename, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 
-const SKILL_VERSION = '2.0.1';
+const SKILL_VERSION = '2.0.2';
 const DEFAULT_TOOL_CONCURRENCY = 1;
 const MAX_TOOL_CONCURRENCY = 10;
 
@@ -133,7 +133,7 @@ function triggerUpdateCheck() {
     const runnerPath = join(tmpDir, `update-check-${SKILL_NAME}-${process.pid}.mjs`);
     copyFileSync(UPDATE_CHECK_PATH, runnerPath);
     const child = spawn('node', [runnerPath, SKILL_DIR], { detached: true, stdio: 'ignore', windowsHide: true });
-    child.on('error', () => { });
+    child.on('error', () => { /* ignore spawn failures; update must not block CLI */ });
     child.unref();
   } catch { }
 }
@@ -401,7 +401,7 @@ function maskKey(key) {
 function parseDotenv(content) {
   const env = {};
   for (const rawLine of content.split('\n')) {
-    let line = rawLine.replace(/^﻿/, '').trim();
+    let line = rawLine.replace(/^\uFEFF/, '').trim();
     if (!line || line.startsWith('#')) continue;
     if (line.startsWith('export ')) line = line.slice(7).trim();
     const eq = line.indexOf('=');
@@ -560,7 +560,7 @@ function normalizeCall(server_type, toolName, args) {
   return { server_type, toolName, args: normalizedArgs, normalizationErrors };
 }
 
-function validateBasicParams(params, toolName) {
+function validateBasicParams(params) {
   const errors = [];
   if (!params || typeof params !== 'object' || Array.isArray(params)) {
     return [{
@@ -602,13 +602,6 @@ function resolveValidationDisplayValues(fieldRule) {
 
 function renderValidationMessage(template, values) {
   return String(template || '').replace('${values}', values.join('/'));
-}
-
-function renderValidationTemplate(template, params) {
-  return String(template || '').replace(/\$\{([^}]+)\}/g, (_, key) => {
-    const value = params[key];
-    return value === undefined || value === null ? '' : String(value);
-  });
 }
 
 function validationErrorMessage(error) {
@@ -1124,7 +1117,7 @@ async function cmdCall(server_type, toolName, paramsInput) {
   ({ server_type, toolName, args, normalizationErrors } = normalizeCall(server_type, toolName, args));
   validateToolSelection(server_type, toolName);
 
-  const validationErrors = [...normalizationErrors, ...validateBasicParams(args, toolName)];
+  const validationErrors = [...normalizationErrors, ...validateBasicParams(args)];
   const paramsShapeInvalid = validationErrors.some(error => validationErrorCode(error) === 'PARAM_TYPE_ERROR' && error.field === 'params');
   if (!paramsShapeInvalid) validationErrors.push(...validateToolParams(toolName, args));
   if (validationErrors.length > 0) {

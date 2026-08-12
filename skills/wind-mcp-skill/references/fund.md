@@ -32,7 +32,7 @@
 | `begin_date` | 是 | string | — | — | 开始日期：必须显式填写绝对日期，格式 yyyy-MM-dd，如 2026-03-25。 |
 | `end_date` | 是 | string | — | — | 结束日期：必须显式填写绝对日期，格式 yyyy-MM-dd，如 2026-03-25。 |
 | `period` | 否 | string | 1min / 5min / 10min / 15min / 30min / 60min / 120min / 240min / 1d / 1w / 1mo / 1y / 1q / 6mo | 默认："1d" | K 线周期。 |
-| `aftype` | 否 | string | — | 默认 0 | 复权类型：0=前复权，1=后复权。前复权更常用 |
+| `aftype` | 否 | string | 0 / 1 / 2 | 默认 0 | 复权类型：0=前复权，1=后复权，2=不复权。前复权更常用 |
 | `issusp` | 否 | string | — | 默认 1 | 是否包含停牌数据：0=不包含，1=包含 |
 | `afdate` | 否 | string | — | — | 复权基准日期，格式 yyyy-MM-dd，如 2026-03-25。通常不需要指定。 |
 
