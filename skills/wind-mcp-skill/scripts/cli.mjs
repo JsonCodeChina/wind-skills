@@ -260,112 +260,53 @@ const REDUCE_CONCURRENCY = Object.freeze({
   preserve_params: true,
 });
 
-function defineError(agentAction, {
+function defineError({
   retry = RETRY_AFTER_CORRECTION,
   circuitBreaker = KEEP_CURRENT_CALL,
   correction = NO_CORRECTION,
 } = {}) {
   return Object.freeze({
-    agent_action: agentAction,
     retry,
     circuit_breaker: circuitBreaker,
     correction,
   });
 }
 
-// 错误文案与默认机器策略的唯一总表。调用点可用 metadata 补充本次请求的精确诊断。
+// 错误码与默认机器策略的唯一总表。调用点可用 metadata 补充本次请求的精确诊断。
 const ERROR_DEFINITIONS = Object.freeze({
-  TEMPORARILY_UNAVAILABLE: defineError(
-    '原因：后端临时不可用。处理：保持当前 server_type、tool_name 和参数不变。重试：仅允许原样重试一次，仍失败则停止并告知用户稍后再试。',
-    { retry: RETRY_SAME_REQUEST },
-  ),
-  INVALID_PARAM_NAME: defineError(
-    '原因：参数名错误或缺少必填字段。处理：按 error.details 内联的 allowed_fields 或 required_fields 修正。重试：禁止原样重试；修正后最多重试一次。',
-    { circuitBreaker: ABORT_REMAINING_BATCH },
-  ),
-  INVALID_PARAM_VALUE: defineError(
-    '原因：参数值不合法。处理：按 error.details 内联的 expected_format、allowed_values 或其它期望值修正。重试：禁止原样重试；修正后最多重试一次。',
-    { circuitBreaker: ABORT_REMAINING_BATCH },
-  ),
-  EDB_INDICATOR_NOT_FOUND: defineError(
-    '原因：EDB 未找到用户想查询的经济指标。处理：保持 economic_data.natural_language_get_edb_data，只将 question 改成更短、更标准、更明确的单个指标名；优先补充官方口径、地区、来源或常见英文名，去掉年份、预测、市场规模、CAGR 或多个指标拼接等非指标名成分。重试：禁止原样重试；改写后最多重试一次。若改写后仍未找到，停止自动尝试并提示用户提供更明确的指标名称、来源或口径。',
-  ),
-  MARKET_TARGET_NOT_FOUND: defineError(
-    '原因：行情类金融标的未识别，通常是 windcode 中的标的名称、简称或代码无法被 Wind NER 匹配。处理：保持当前行情工具；若用户输入的是中文名、简称或自然语言标的，优先原样传入更明确的单个名称，不得自行补交易所后缀或把名称猜成代码；若原始 windcode 是 1-5 位纯大写英文字母，且用户问题明确是美股/美国上市公司语境，允许仅在本错误后改为 <ticker>.O 重试一次；台股、日股、韩股、欧股等超出本 skill 覆盖范围的请求不得套用 .O 重试，应停止并说明不在支持范围；只有用户明确给出标准代码且明确市场时，才可修正为用户确认的其它 Wind 标准代码。重试：禁止原样重试；修正后最多重试一次。若仍未识别，停止自动尝试并提示用户提供更明确的标的全称、交易所或 Wind 标准代码。',
-    { circuitBreaker: ABORT_REMAINING_BATCH },
-  ),
-  PARAM_TYPE_ERROR: defineError(
-    '原因：参数类型错误，实际值与工具接受的类型不匹配。处理：按 error.details 中的 expected_type 修正对应字段；indexes 使用英文逗号分隔字符串。重试：禁止原样重试；修正后最多重试一次。',
-    { circuitBreaker: ABORT_REMAINING_BATCH },
-  ),
-  PERIOD_PARSE_ERROR: defineError(
-    "原因：K 线周期值无法解析。处理：保持当前 K 线工具，只修 period；日线用 '1d'，周线用 '1w'，月线用 '1mo'。重试：禁止原样重试；修正后最多重试一次。",
-  ),
-  USAGE_ERROR: defineError(
-    "原因：调用命令格式错误。处理：修正为 cli.mjs call <server_type> <tool_name> '<params_json>|@params_file'。重试：禁止原样重试；修正命令形态后最多重试一次。",
-  ),
-  PARAMS_FILE_ERROR: defineError(
-    '原因：@file 参数文件路径为空、文件不存在、无权限或无法读取。处理：只修文件路径或权限，不改 server_type、tool_name 和业务参数。重试：文件可读后最多重试一次。',
-    { circuitBreaker: ABORT_REMAINING_BATCH },
-  ),
-  INVALID_PARAMS_JSON: defineError(
-    '原因：内联参数或 @file 文件内容不是可解析的 JSON。处理：只修 shell 引号、JSON 转义或文件内容，不改字段、日期、indexes、question 或工具。重试：禁止原样重试；修正 JSON 后最多重试一次。',
-  ),
-  ROUTE_ERROR: defineError(
-    '原因：server_type 或 tool_name 不合法。处理：按 error.details 内联的合法 server_type、tool_name 或候选路由修正。重试：禁止原样重试；修正路由后最多重试一次。',
-  ),
-  PARAM_VALIDATION_ERROR: defineError(
-    '原因：本地或后端参数校验未通过。处理：按 error.details 内联的 field、issue、expected_format、allowed_values、allowed_fields 或 required_fields 修正。重试：禁止原样重试；修正后最多重试一次。',
-    { circuitBreaker: ABORT_REMAINING_BATCH },
-  ),
-  PARAM_CONFLICT_ERROR: defineError(
-    '原因：同时传入的同义参数值不一致。处理：按 error.details 中的 fields 和 actual_values 保留一个字段，或将两个字段改为相同值；不得静默覆盖。重试：修正冲突后最多重试一次。',
-    { circuitBreaker: ABORT_REMAINING_BATCH },
-  ),
-  AUTH_ERROR: defineError(
-    '原因：认证失败或 API Key 缺失/无效。处理：按 detail 配置或更换有效 Key；不要换工具绕过。重试：Key 修复前禁止重试；Key 修复后最多原样重试一次。',
-  ),
-  DAILY_LIMIT_ERROR: defineError(
-    '原因：当前 Key 的单日请求次数已达上限，不是账户余额不足。处理：等待次日额度刷新，或更换仍有当日额度的 Key。重试：额度刷新或更换 Key 前禁止重试。',
-  ),
-  BALANCE_ERROR: defineError(
-    '原因：当前 Key 对应账户余额不足，不是单日请求次数超限。处理：充值，或更换余额充足的 Key。重试：余额恢复或更换 Key 前禁止重试。',
-  ),
-  RATE_LIMIT_ERROR: defineError(
-    '原因：请求过于频繁，触发 QPS 限流，不代表日额度或余额不足。处理：等待 3-5 秒，并降低请求频率。重试：等待后仅允许原样重试一次。',
-    { retry: RETRY_AFTER_WAIT_5S },
-  ),
-  CONCURRENCY_LIMIT_ERROR: defineError(
-    '原因：当前同时执行的工具请求数超过后端并发上限，不是参数、标的或额度错误。处理：立即停止发起剩余同批请求，等待 3 秒并恢复串行调用；如用户明确要求并发，并发数不得超过 10。重试：降低并发后仅允许原样重试一次。',
-    {
-      retry: RETRY_AFTER_WAIT_3S,
-      circuitBreaker: ABORT_REMAINING_BATCH,
-      correction: REDUCE_CONCURRENCY,
-    },
-  ),
-  NETWORK_ERROR: defineError(
-    '原因：网络连接或后端 HTTP 5xx 异常。处理：若 detail 暴露参数问题，先修参数；否则稍后再试。重试：仅允许原样重试一次，仍失败则停止并告知用户。',
-    { retry: RETRY_SAME_REQUEST },
-  ),
-  TOOL_RUNTIME_ERROR: defineError(
-    '原因：后端工具运行失败。处理：优先根据 detail 判断是否为请求过大、字段不支持或数据未覆盖；能定位则只修对应项。重试：禁止盲目原样重试；修正后最多重试一次，无法定位则停止。',
-  ),
-  NO_RESULTS: defineError(
-    '原因：工具执行成功但没有匹配结果。处理：保持同一 server_type、tool_name 和用户意图，只调整一个直接相关的关键词、时间范围或粒度。重试：禁止原样重试；调整后最多重试一次。若第二次仍无结果，停止自动尝试并提示用户提供更明确的指标名称、来源或口径。',
-  ),
-  SETUP_ERROR: defineError(
-    '原因：本地配置或环境操作失败。处理：按 detail 修正 scope、权限、路径或让用户手动打开 URL。重试：禁止原样重试；修正本地问题后最多重试一次。',
-  ),
-  UNKNOWN: defineError(
-    '原因：未归类的后端或本地错误；不代表参数、工具或标的可修复。处理：保留 detail 原文，不要猜测参数、切换工具或扩大查询；仅当能明确判断属于本地命令、参数、认证或网络问题时，才修正对应项。重试：禁止原样重试；有确定修正项时最多重试一次，无法明确定位则停止并将 detail 原文告知用户。',
-  ),
+  TEMPORARILY_UNAVAILABLE: defineError({ retry: RETRY_SAME_REQUEST }),
+  INVALID_PARAM_NAME: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
+  INVALID_PARAM_VALUE: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
+  EDB_INDICATOR_NOT_FOUND: defineError(),
+  MARKET_TARGET_NOT_FOUND: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
+  PARAM_TYPE_ERROR: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
+  PERIOD_PARSE_ERROR: defineError(),
+  USAGE_ERROR: defineError(),
+  PARAMS_FILE_ERROR: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
+  INVALID_PARAMS_JSON: defineError(),
+  ROUTE_ERROR: defineError(),
+  PARAM_VALIDATION_ERROR: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
+  PARAM_CONFLICT_ERROR: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
+  AUTH_ERROR: defineError(),
+  DAILY_LIMIT_ERROR: defineError(),
+  BALANCE_ERROR: defineError(),
+  RATE_LIMIT_ERROR: defineError({ retry: RETRY_AFTER_WAIT_5S }),
+  CONCURRENCY_LIMIT_ERROR: defineError({
+    retry: RETRY_AFTER_WAIT_3S,
+    circuitBreaker: ABORT_REMAINING_BATCH,
+    correction: REDUCE_CONCURRENCY,
+  }),
+  NETWORK_ERROR: defineError({ retry: RETRY_SAME_REQUEST }),
+  TOOL_RUNTIME_ERROR: defineError(),
+  NO_RESULTS: defineError(),
+  SETUP_ERROR: defineError(),
+  UNKNOWN: defineError(),
 });
 
 function getErrorDefinition(code) {
   return ERROR_DEFINITIONS[code] || ERROR_DEFINITIONS.UNKNOWN;
 }
 
-// 失败 envelope 保留 agent_action 向后兼容，同时提供机器可读的诊断与重试策略。
 function writeErrorEnvelope(code, detail, metadata = {}) {
   const definition = getErrorDefinition(code);
   const envelope = {
@@ -377,7 +318,6 @@ function writeErrorEnvelope(code, detail, metadata = {}) {
       retry: metadata.retry || definition.retry,
       circuit_breaker: metadata.circuit_breaker || definition.circuit_breaker,
       correction: metadata.correction || definition.correction,
-      agent_action: buildAgentAction(code, detail),
     },
   };
   process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
@@ -779,17 +719,6 @@ function isExplicitNoDataResult(inner) {
   return inner?.data === null
     && inner?.error?.code === 'QUERY_FAILED'
     && inner?.error?.message === '没找到数据';
-}
-
-// detail 只保留短诊断，避免后端长文本淹没 agent_action。
-function buildAgentAction(code, detail) {
-  const template = getErrorDefinition(code).agent_action;
-  if (code === 'USAGE_ERROR') return template;
-  if (detail && typeof detail === 'string' && detail.trim()) {
-    const d = detail.trim().slice(0, 500);
-    return `[${d}] ${template}`;
-  }
-  return template;
 }
 
 // section: MCP 调用 — 裸 HTTP + JSON-RPC, 响应兼容 SSE / 纯 JSON

@@ -101,7 +101,7 @@ node scripts/cli.mjs call stock_data get_stock_price_indicators '{"windcode":"60
 - 明确上一次的 `error.code`；本次修改必须落在 `error.correction` 允许的字段内。
 - 保持同一 `server_type` 和 `tool_name`；只有当前契约证明该工具无法表达所需字段或口径时，才可在同业务域切换。
 - 除非错误是 `INVALID_PARAMS_JSON`，不得修改命令引号或 JSON 转义。
-- 除非错误是 `PARAM_VALIDATION_ERROR`、`NO_RESULTS`，或 `agent_action` 明确要求缩小范围 / 减少字段，不得改动业务参数；`PARAM_CONFLICT_ERROR` 只消除 `details.fields` 指出的同义字段冲突。
+- 除非错误是 `PARAM_VALIDATION_ERROR`、`NO_RESULTS`，或 `error.correction` 明确要求缩小范围 / 减少字段，不得改动业务参数；`PARAM_CONFLICT_ERROR` 只消除 `details.fields` 指出的同义字段冲突。
 - 参数名和字段值必须来自当前领域契约。
 
 ## 4. 收口

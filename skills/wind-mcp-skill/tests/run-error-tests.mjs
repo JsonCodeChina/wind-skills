@@ -2,7 +2,7 @@
 // for each of the three new structured error codes, and asserts:
 //   1. exit code is 1 (failure envelope)
 //   2. error.code is the expected stable code (mapping works across envelope shapes)
-//   3. error.agent_action carries the guidance keywords the agent is meant to act on
+//   3. error envelope has no agent_action field
 //
 // Usage: node tests/run-error-tests.mjs   (run from the skill dir)
 
@@ -15,34 +15,29 @@ const SKILL_DIR = dirname(TESTS_DIR);
 const CLI = join(SKILL_DIR, 'scripts', 'cli.mjs');
 const PRELOAD = join(TESTS_DIR, 'mock-fetch.mjs');
 
-// [scenario, cli args, expectedExit, expectedCode, guidance keywords that must appear]
+// [scenario, cli args, expectedExit, expectedCode]
 const CASES = [
   ['invalid_param_name',
     ['call', 'stock_data', 'get_stock_price_indicators', '{"windcod":"600519.SH"}'],
-    1, 'INVALID_PARAM_NAME',
-    ['tool-contracts.md', '字段名', '必填', '发明字段名']],
+    1, 'INVALID_PARAM_NAME'],
 
   ['invalid_param_value',
     ['call', 'stock_data', 'get_stock_kline', '{"windcode":"600519.SH","begin_date":"20260401","end_date":"20260430"}'],
-    1, 'INVALID_PARAM_VALUE',
-    ['tool-contracts.md', 'yyyyMMdd', 'indicators.md', '禁止改字段名']],
+    1, 'INVALID_PARAM_VALUE'],
 
   ['temporarily_unavailable',
     ['call', 'stock_data', 'get_stock_price_indicators', '{"windcode":"600519.SH","indexes":"最新成交价"}'],
-    1, 'TEMPORARILY_UNAVAILABLE',
-    ['原样重试一次', '不得修改参数']],
+    1, 'TEMPORARILY_UNAVAILABLE'],
 
   // cross-check: same code, different backend envelope shape
   ['invalid_param_name_via_iserror',
     ['call', 'stock_data', 'get_stock_price_indicators', '{"windcode":"600519.SH","indexes":"最新成交价"}'],
-    1, 'INVALID_PARAM_NAME',
-    ['字段名', '发明字段名']],
+    1, 'INVALID_PARAM_NAME'],
 
   // happy path sanity
   ['success',
     ['call', 'stock_data', 'get_stock_price_indicators', '{"windcode":"600519.SH","indexes":"中文简称,最新成交价"}'],
-    0, null,
-    []],
+    0, null],
 ];
 
 function run(scenario, args) {
@@ -56,7 +51,7 @@ function run(scenario, args) {
 let pass = 0, fail = 0;
 const lines = [];
 
-for (const [scenario, args, wantExit, wantCode, keywords] of CASES) {
+for (const [scenario, args, wantExit, wantCode] of CASES) {
   const { exit, stdout } = run(scenario, args);
   const checks = [];
 
@@ -70,11 +65,8 @@ for (const [scenario, args, wantExit, wantCode, keywords] of CASES) {
     checks.push(['no error envelope', !(envelope && envelope.ok === false)]);
   } else {
     const code = envelope?.error?.code;
-    const action = envelope?.error?.agent_action || '';
     checks.push([`code==${wantCode}`, code === wantCode]);
-    for (const kw of keywords) {
-      checks.push([`action⊇"${kw}"`, action.includes(kw)]);
-    }
+    checks.push(['no agent_action', envelope?.error ? !Object.hasOwn(envelope.error, 'agent_action') : false]);
   }
 
   const ok = checks.every(([, v]) => v);
@@ -82,9 +74,6 @@ for (const [scenario, args, wantExit, wantCode, keywords] of CASES) {
   lines.push(`${ok ? 'PASS' : 'FAIL'}  ${scenario}  (exit=${exit})`);
   for (const [label, v] of checks) {
     if (!v) lines.push(`        ✗ ${label}`);
-  }
-  if (wantCode && envelope?.error?.agent_action) {
-    lines.push(`        agent_action: ${envelope.error.agent_action.slice(0, 160)}…`);
   }
 }
 
