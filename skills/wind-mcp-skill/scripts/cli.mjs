@@ -6,6 +6,7 @@ import { join, dirname, basename, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 
+// #region 静态
 const SKILL_VERSION = '2.0.2';
 const DEFAULT_TOOL_CONCURRENCY = 1;
 const MAX_TOOL_CONCURRENCY = 10;
@@ -68,7 +69,105 @@ const CALL_EXAMPLES = [
   `cli.mjs call analytics_data get_financial_data '{"question":"查询中国A股市场过去一年的平均成交量"}'`,
 ];
 
-// ───── 自动更新 ─────
+const PRICE_INDICATOR_TOOLS = new Set(['get_stock_price_indicators', 'get_fund_price_indicators', 'get_index_price_indicators']);
+const QUOTE_TOOLS = new Set(['get_stock_quote', 'get_fund_quote', 'get_index_quote']);
+const EDB_EXECUTION_MODE_ALIASES = new Map([
+  ['仅搜索', 'search'],
+  ['仅提数', 'fetch'],
+  ['搜索并提数', 'searchFetch'],
+]);
+
+const RETRY_AFTER_CORRECTION = Object.freeze({ allowed: false, mode: 'after_correction', max_attempts: 0 });
+const RETRY_SAME_REQUEST = Object.freeze({ allowed: true, mode: 'same_request', max_attempts: 1 });
+const RETRY_AFTER_WAIT_3S = Object.freeze({ allowed: true, mode: 'same_request_after_wait', max_attempts: 1, after_ms: 3000 });
+const RETRY_AFTER_WAIT_5S = Object.freeze({ allowed: true, mode: 'same_request_after_wait', max_attempts: 1, after_ms: 5000 });
+const KEEP_CURRENT_CALL = Object.freeze({ tripped: false, scope: 'current_call', action: 'none' });
+const ABORT_REMAINING_BATCH = Object.freeze({ tripped: true, scope: 'remaining_batch', action: 'abort_remaining_calls' });
+const NO_CORRECTION = Object.freeze({});
+const REDUCE_CONCURRENCY = Object.freeze({
+  strategy: 'reduce_concurrency',
+  change_only: ['concurrency'],
+  recommended_concurrency: DEFAULT_TOOL_CONCURRENCY,
+  recommended_max_concurrency: MAX_TOOL_CONCURRENCY,
+  preserve_server_type: true,
+  preserve_tool_name: true,
+  preserve_params: true,
+});
+
+function defineError({
+  retry = RETRY_AFTER_CORRECTION,
+  circuitBreaker = KEEP_CURRENT_CALL,
+  correction = NO_CORRECTION,
+} = {}) {
+  return Object.freeze({
+    retry,
+    circuit_breaker: circuitBreaker,
+    correction,
+  });
+}
+
+// 错误码与默认机器策略的唯一总表。调用点可用 metadata 补充本次请求的精确诊断。
+const ERROR_DEFINITIONS = Object.freeze({
+  TEMPORARILY_UNAVAILABLE: defineError({ retry: RETRY_SAME_REQUEST }),
+  INVALID_PARAM_NAME: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
+  INVALID_PARAM_VALUE: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
+  EDB_INDICATOR_NOT_FOUND: defineError(),
+  MARKET_TARGET_NOT_FOUND: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
+  PARAM_TYPE_ERROR: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
+  PERIOD_PARSE_ERROR: defineError(),
+  USAGE_ERROR: defineError(),
+  PARAMS_FILE_ERROR: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
+  INVALID_PARAMS_JSON: defineError(),
+  ROUTE_ERROR: defineError(),
+  PARAM_VALIDATION_ERROR: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
+  PARAM_CONFLICT_ERROR: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
+  AUTH_ERROR: defineError(),
+  DAILY_LIMIT_ERROR: defineError(),
+  BALANCE_ERROR: defineError(),
+  RATE_LIMIT_ERROR: defineError({ retry: RETRY_AFTER_WAIT_5S }),
+  CONCURRENCY_LIMIT_ERROR: defineError({
+    retry: RETRY_AFTER_WAIT_3S,
+    circuitBreaker: ABORT_REMAINING_BATCH,
+    correction: REDUCE_CONCURRENCY,
+  }),
+  NETWORK_ERROR: defineError({ retry: RETRY_SAME_REQUEST }),
+  TOOL_RUNTIME_ERROR: defineError(),
+  NO_RESULTS: defineError(),
+  SETUP_ERROR: defineError(),
+  UNKNOWN: defineError(),
+});
+
+// 错误码 — message 来自 HTTP / JSON-RPC / 工具内嵌 JSON, 统一映射成稳定 code
+const ERROR_PATTERNS = [
+  ['TEMPORARILY_UNAVAILABLE', /temporarily_unavailable/i, '后端偶发不可用。'],
+  ['EDB_INDICATOR_NOT_FOUND', /未找到匹配的(?:经济)?指标|indicator_not_found/i, 'EDB 未找到用户想查询的指标。'],
+  ['MARKET_TARGET_NOT_FOUND', /market_target_not_found|NER-API error.*(?:识别合并后无结果|请确认输入内容是否包含实体)|comm_exception.*NER-API|未识别实体|未识别到有效的金融标的|ner_error/i, '行情类查询对象未识别。'],
+  ['PARAM_TYPE_ERROR', /attribute_error|(?:'list' object has no attribute '(?:split|strip)')|(?:list object has no attribute (?:split|strip))/i, '参数类型错误：列表传给了只接受字符串的字段。'],
+  ['PERIOD_PARSE_ERROR', /srv_internal_error|For input string:\s*\\?["\x27]?(?:day|daily|monthly|week|weekly|month|D|M|W)\\?["\x27]?/i, 'K 线周期值无法解析。'],
+  ['INVALID_PARAM_VALUE', /invalid_param_value|Invalid value .* for field|参数值.*不合法|参数值错误/i, '后端参数值错误。'],
+  ['INVALID_PARAM_NAME', /invalid_param_name|缺少必填参数|missing required/i, '后端参数名错误。'],
+  ['DAILY_LIMIT_ERROR', /单日请求次数超限|daily.*(?:request|quota)?.*limit|daily.*limit.*exceed/i, '单日请求次数已超限。'],
+  ['BALANCE_ERROR', /余额不足|请先充值|insufficient.*balance/i, '账户余额不足。'],
+  ['CONCURRENCY_LIMIT_ERROR', /当前工具并发请求数量超限|并发(?:请求)?(?:数量)?(?:超限|过多)|concurren(?:cy|t).*(?:limit|exceed|too many)/i, '工具并发请求数量超限。'],
+  ['RATE_LIMIT_ERROR', /请求过于频繁|qps.*limit|too.*frequent|rate.*limit/i, 'QPS 限流。'],
+  ['AUTH_ERROR', /密钥无效|key.*invalid|unauthorized|认证失败|auth.*fail/i, '认证/权限错误。按 Key 机制修复后原样重试。'],
+  ['NO_RESULTS', /未获取到数据|"NO_RESULTS"|no\s*results?|not\s*found|empty\s*result/i, '未获取到匹配数据。先在不改变用户意图的前提下调整关键词或参数。'],
+  ['PARAM_VALIDATION_ERROR', /参数验证失败|参数.*(错误|非法|无效)|字段.*(不存在|不识别|不支持|非法)|invalid\s*(param|argument|field)|missing\s*(param|argument|field|required)/i, '后端参数验证失败。先按 SKILL.md 工具表核对字段名、必填项、日期格式和枚举值后重试。'],
+  ['NETWORK_ERROR', /服务.*暂不可用|服务.*不可用|service\s+unavailable|temporarily\s+unavailable/i, '网络/后端错误。先核对参数再稍后重试。'],
+  ['TOOL_RUNTIME_ERROR', /TOOL_ERROR|tool.*error|工具.*(执行|运行).*错误|runtime.*error/i, '后端工具运行错误。保留后端原文，先检查请求是否过大或口径是否受支持；不要直接切换工具绕过。'],
+];
+
+const HTTP_ERROR_MAP = {
+  401: ['AUTH_ERROR', 'API Key 无效或过期'],
+  429: ['RATE_LIMIT_ERROR', '请求过于频繁'],
+  500: ['NETWORK_ERROR', '服务端异常'],
+  502: ['NETWORK_ERROR', '网关异常'],
+  503: ['NETWORK_ERROR', '服务暂不可用'],
+  504: ['NETWORK_ERROR', '网关超时'],
+};
+// #endregion 静态
+
+// #region 自动更新
 // 每天首次使用 skill 时异步执行一次 npx skills update，不阻塞主流程。
 
 function todayKey() {
@@ -137,9 +236,9 @@ function triggerUpdateCheck() {
     child.unref();
   } catch { }
 }
+// #endregion 自动更新
 
-// section: 工具函数
-
+// #region 信封
 function normalizeSuccessPayload(value, path = '$', state = { warnings: [], tables: [], invalidPaths: [] }, dataCell = false) {
   if (dataCell && value === 'INVALID') {
     state.invalidPaths.push(path);
@@ -217,92 +316,6 @@ function writePlainSuccess(data) {
   process.stdout.write(JSON.stringify(data, null, 2) + '\n');
 }
 
-function loadParamsInput(paramsInput) {
-  if (!paramsInput.startsWith('@')) {
-    return { jsonText: paramsInput, source: 'inline' };
-  }
-
-  const fileArg = paramsInput.slice(1);
-  if (!fileArg) {
-    const error = new Error('@file 缺少文件路径');
-    error.code = 'PARAMS_FILE_ERROR';
-    error.file = fileArg;
-    throw error;
-  }
-
-  const filePath = resolve(process.cwd(), fileArg);
-  try {
-    const jsonText = readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '');
-    return { jsonText, source: 'file', filePath };
-  } catch (cause) {
-    const error = new Error(`无法读取 params 文件：${filePath} (${cause.code || cause.message})`);
-    error.code = 'PARAMS_FILE_ERROR';
-    error.file = filePath;
-    error.cause = cause;
-    throw error;
-  }
-}
-
-const RETRY_AFTER_CORRECTION = Object.freeze({ allowed: false, mode: 'after_correction', max_attempts: 0 });
-const RETRY_SAME_REQUEST = Object.freeze({ allowed: true, mode: 'same_request', max_attempts: 1 });
-const RETRY_AFTER_WAIT_3S = Object.freeze({ allowed: true, mode: 'same_request_after_wait', max_attempts: 1, after_ms: 3000 });
-const RETRY_AFTER_WAIT_5S = Object.freeze({ allowed: true, mode: 'same_request_after_wait', max_attempts: 1, after_ms: 5000 });
-const KEEP_CURRENT_CALL = Object.freeze({ tripped: false, scope: 'current_call', action: 'none' });
-const ABORT_REMAINING_BATCH = Object.freeze({ tripped: true, scope: 'remaining_batch', action: 'abort_remaining_calls' });
-const NO_CORRECTION = Object.freeze({});
-const REDUCE_CONCURRENCY = Object.freeze({
-  strategy: 'reduce_concurrency',
-  change_only: ['concurrency'],
-  recommended_concurrency: DEFAULT_TOOL_CONCURRENCY,
-  recommended_max_concurrency: MAX_TOOL_CONCURRENCY,
-  preserve_server_type: true,
-  preserve_tool_name: true,
-  preserve_params: true,
-});
-
-function defineError({
-  retry = RETRY_AFTER_CORRECTION,
-  circuitBreaker = KEEP_CURRENT_CALL,
-  correction = NO_CORRECTION,
-} = {}) {
-  return Object.freeze({
-    retry,
-    circuit_breaker: circuitBreaker,
-    correction,
-  });
-}
-
-// 错误码与默认机器策略的唯一总表。调用点可用 metadata 补充本次请求的精确诊断。
-const ERROR_DEFINITIONS = Object.freeze({
-  TEMPORARILY_UNAVAILABLE: defineError({ retry: RETRY_SAME_REQUEST }),
-  INVALID_PARAM_NAME: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
-  INVALID_PARAM_VALUE: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
-  EDB_INDICATOR_NOT_FOUND: defineError(),
-  MARKET_TARGET_NOT_FOUND: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
-  PARAM_TYPE_ERROR: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
-  PERIOD_PARSE_ERROR: defineError(),
-  USAGE_ERROR: defineError(),
-  PARAMS_FILE_ERROR: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
-  INVALID_PARAMS_JSON: defineError(),
-  ROUTE_ERROR: defineError(),
-  PARAM_VALIDATION_ERROR: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
-  PARAM_CONFLICT_ERROR: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
-  AUTH_ERROR: defineError(),
-  DAILY_LIMIT_ERROR: defineError(),
-  BALANCE_ERROR: defineError(),
-  RATE_LIMIT_ERROR: defineError({ retry: RETRY_AFTER_WAIT_5S }),
-  CONCURRENCY_LIMIT_ERROR: defineError({
-    retry: RETRY_AFTER_WAIT_3S,
-    circuitBreaker: ABORT_REMAINING_BATCH,
-    correction: REDUCE_CONCURRENCY,
-  }),
-  NETWORK_ERROR: defineError({ retry: RETRY_SAME_REQUEST }),
-  TOOL_RUNTIME_ERROR: defineError(),
-  NO_RESULTS: defineError(),
-  SETUP_ERROR: defineError(),
-  UNKNOWN: defineError(),
-});
-
 function getErrorDefinition(code) {
   return ERROR_DEFINITIONS[code] || ERROR_DEFINITIONS.UNKNOWN;
 }
@@ -331,7 +344,9 @@ function die(code, detail = null, exitCode = 1, metadata = {}) {
 function exitWithUsage(usage, exitCode = 0) {
   die('USAGE_ERROR', `USAGE:\n${usage}`, exitCode);
 }
+// #endregion 信封
 
+// #region 认证
 function maskKey(key) {
   if (!key || key.length < 8) return '***';
   return key.slice(0, 4) + '***' + key.slice(-4);
@@ -359,6 +374,33 @@ function parseDotenv(content) {
   return env;
 }
 
+function getApiKey() {
+  const globalConfig = join(homedir(), '.wind-aifinmarket', 'config');
+  if (existsSync(globalConfig)) {
+    try {
+      const env = parseDotenv(readFileSync(globalConfig, 'utf8'));
+      const key = env.WIND_API_KEY?.trim();
+      if (key) return key;
+    } catch { }
+  }
+
+  const localConfig = join(SKILL_DIR, 'config.json');
+  if (existsSync(localConfig)) {
+    try {
+      const cfg = JSON.parse(readFileSync(localConfig, 'utf8'));
+      const key = typeof cfg.wind_api_key === 'string' ? cfg.wind_api_key.trim() : '';
+      if (key) return key;
+    } catch { }
+  }
+
+  const envKey = process.env.WIND_API_KEY?.trim();
+  if (envKey) return envKey;
+
+  die('AUTH_ERROR', 'WIND_API_KEY 未配置（CLI 已完整检查：用户全局配置 > Skill 本地配置 > 环境变量）');
+}
+// #endregion 认证
+
+// #region 路由
 function getServer(server_type) {
   const server = SERVERS[server_type];
   if (!server) {
@@ -409,15 +451,9 @@ function validateToolSelection(server_type, toolName) {
     });
   }
 }
+// #endregion 路由
 
-const PRICE_INDICATOR_TOOLS = new Set(['get_stock_price_indicators', 'get_fund_price_indicators', 'get_index_price_indicators']);
-const QUOTE_TOOLS = new Set(['get_stock_quote', 'get_fund_quote', 'get_index_quote']);
-const EDB_EXECUTION_MODE_ALIASES = new Map([
-  ['仅搜索', 'search'],
-  ['仅提数', 'fetch'],
-  ['搜索并提数', 'searchFetch'],
-]);
-
+// #region 规则加载
 function readCallRules() {
   try {
     return JSON.parse(readFileSync(CALL_RULES_PATH, 'utf8'));
@@ -445,7 +481,9 @@ const TOOL_VALIDATION_RULES = {
   toolRules: Array.isArray(CALL_RULES.tool_rules) ? CALL_RULES.tool_rules : [],
 };
 const KLINE_TOOLS = new Set(TOOL_VALIDATION_RULES.toolRules.find(rule => rule.name === 'kline')?.tools || []);
+// #endregion 规则加载
 
+// #region 规范化
 function normalizeIndexes(indexes) {
   if (typeof indexes !== 'string') return indexes;
   return indexes.split(',').map((item) => item.trim()).filter(Boolean).join(',');
@@ -499,7 +537,9 @@ function normalizeCall(server_type, toolName, args) {
   }
   return { server_type, toolName, args: normalizedArgs, normalizationErrors };
 }
+// #endregion 规范化
 
+// #region 校验
 function validateBasicParams(params) {
   const errors = [];
   if (!params || typeof params !== 'object' || Array.isArray(params)) {
@@ -614,55 +654,9 @@ function validateToolParams(toolName, params) {
   }
   return errors;
 }
+// #endregion 校验
 
-// ───── 认证 ─────
-
-function getApiKey() {
-  const globalConfig = join(homedir(), '.wind-aifinmarket', 'config');
-  if (existsSync(globalConfig)) {
-    try {
-      const env = parseDotenv(readFileSync(globalConfig, 'utf8'));
-      const key = env.WIND_API_KEY?.trim();
-      if (key) return key;
-    } catch { }
-  }
-
-  const localConfig = join(SKILL_DIR, 'config.json');
-  if (existsSync(localConfig)) {
-    try {
-      const cfg = JSON.parse(readFileSync(localConfig, 'utf8'));
-      const key = typeof cfg.wind_api_key === 'string' ? cfg.wind_api_key.trim() : '';
-      if (key) return key;
-    } catch { }
-  }
-
-  const envKey = process.env.WIND_API_KEY?.trim();
-  if (envKey) return envKey;
-
-  die('AUTH_ERROR', 'WIND_API_KEY 未配置（CLI 已完整检查：用户全局配置 > Skill 本地配置 > 环境变量）');
-}
-
-// section: 错误码 — message 来自 HTTP / JSON-RPC / 工具内嵌 JSON, 统一映射成稳定 code
-
-const ERROR_PATTERNS = [
-  ['TEMPORARILY_UNAVAILABLE', /temporarily_unavailable/i, '后端偶发不可用。'],
-  ['EDB_INDICATOR_NOT_FOUND', /未找到匹配的(?:经济)?指标|indicator_not_found/i, 'EDB 未找到用户想查询的指标。'],
-  ['MARKET_TARGET_NOT_FOUND', /market_target_not_found|NER-API error.*(?:识别合并后无结果|请确认输入内容是否包含实体)|comm_exception.*NER-API|未识别实体|未识别到有效的金融标的|ner_error/i, '行情类查询对象未识别。'],
-  ['PARAM_TYPE_ERROR', /attribute_error|(?:'list' object has no attribute '(?:split|strip)')|(?:list object has no attribute (?:split|strip))/i, '参数类型错误：列表传给了只接受字符串的字段。'],
-  ['PERIOD_PARSE_ERROR', /srv_internal_error|For input string:\s*\\?["\x27]?(?:day|daily|monthly|week|weekly|month|D|M|W)\\?["\x27]?/i, 'K 线周期值无法解析。'],
-  ['INVALID_PARAM_VALUE', /invalid_param_value|Invalid value .* for field|参数值.*不合法|参数值错误/i, '后端参数值错误。'],
-  ['INVALID_PARAM_NAME', /invalid_param_name|缺少必填参数|missing required/i, '后端参数名错误。'],
-  ['DAILY_LIMIT_ERROR', /单日请求次数超限|daily.*(?:request|quota)?.*limit|daily.*limit.*exceed/i, '单日请求次数已超限。'],
-  ['BALANCE_ERROR', /余额不足|请先充值|insufficient.*balance/i, '账户余额不足。'],
-  ['CONCURRENCY_LIMIT_ERROR', /当前工具并发请求数量超限|并发(?:请求)?(?:数量)?(?:超限|过多)|concurren(?:cy|t).*(?:limit|exceed|too many)/i, '工具并发请求数量超限。'],
-  ['RATE_LIMIT_ERROR', /请求过于频繁|qps.*limit|too.*frequent|rate.*limit/i, 'QPS 限流。'],
-  ['AUTH_ERROR', /密钥无效|key.*invalid|unauthorized|认证失败|auth.*fail/i, '认证/权限错误。按 Key 机制修复后原样重试。'],
-  ['NO_RESULTS', /未获取到数据|"NO_RESULTS"|no\s*results?|not\s*found|empty\s*result/i, '未获取到匹配数据。先在不改变用户意图的前提下调整关键词或参数。'],
-  ['PARAM_VALIDATION_ERROR', /参数验证失败|参数.*(错误|非法|无效)|字段.*(不存在|不识别|不支持|非法)|invalid\s*(param|argument|field)|missing\s*(param|argument|field|required)/i, '后端参数验证失败。先按 SKILL.md 工具表核对字段名、必填项、日期格式和枚举值后重试。'],
-  ['NETWORK_ERROR', /服务.*暂不可用|服务.*不可用|service\s+unavailable|temporarily\s+unavailable/i, '网络/后端错误。先核对参数再稍后重试。'],
-  ['TOOL_RUNTIME_ERROR', /TOOL_ERROR|tool.*error|工具.*(执行|运行).*错误|runtime.*error/i, '后端工具运行错误。保留后端原文，先检查请求是否过大或口径是否受支持；不要直接切换工具绕过。'],
-];
-
+// #region 错误分类
 function inferErrorCode(msg) {
   if (!msg) return 'UNKNOWN';
   if (/^\s*"?OK"?\s*$/i.test(String(msg))) return 'TOOL_RUNTIME_ERROR';
@@ -720,9 +714,9 @@ function isExplicitNoDataResult(inner) {
     && inner?.error?.code === 'QUERY_FAILED'
     && inner?.error?.message === '没找到数据';
 }
+// #endregion 错误分类
 
-// section: MCP 调用 — 裸 HTTP + JSON-RPC, 响应兼容 SSE / 纯 JSON
-
+// #region MCP
 function parseSSE(text) {
   const trimmed = text.trim();
   // 后端正常 SSE, 部分错误场景纯 JSON
@@ -769,15 +763,6 @@ async function fetchWithRetry(fetchFn, url, optionsOrFactory, {
   }
   throw lastError;
 }
-
-const HTTP_ERROR_MAP = {
-  401: ['AUTH_ERROR', 'API Key 无效或过期'],
-  429: ['RATE_LIMIT_ERROR', '请求过于频繁'],
-  500: ['NETWORK_ERROR', '服务端异常'],
-  502: ['NETWORK_ERROR', '网关异常'],
-  503: ['NETWORK_ERROR', '服务暂不可用'],
-  504: ['NETWORK_ERROR', '网关超时'],
-};
 
 async function mcpRequest(server_type, method, params, {
   timeoutMs = 60_000,
@@ -985,8 +970,34 @@ async function mcpInitializeAndCall(server_type, method, params, diagnosticConte
     diagnosticContext,
   });
 }
+// #endregion MCP
 
-// section: 命令
+// #region 命令
+function loadParamsInput(paramsInput) {
+  if (!paramsInput.startsWith('@')) {
+    return { jsonText: paramsInput, source: 'inline' };
+  }
+
+  const fileArg = paramsInput.slice(1);
+  if (!fileArg) {
+    const error = new Error('@file 缺少文件路径');
+    error.code = 'PARAMS_FILE_ERROR';
+    error.file = fileArg;
+    throw error;
+  }
+
+  const filePath = resolve(process.cwd(), fileArg);
+  try {
+    const jsonText = readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '');
+    return { jsonText, source: 'file', filePath };
+  } catch (cause) {
+    const error = new Error(`无法读取 params 文件：${filePath} (${cause.code || cause.message})`);
+    error.code = 'PARAMS_FILE_ERROR';
+    error.file = filePath;
+    error.cause = cause;
+    throw error;
+  }
+}
 
 async function cmdCall(server_type, toolName, paramsInput) {
   if (!server_type || !toolName || !paramsInput) {
@@ -1227,8 +1238,9 @@ async function cmdDiagnose() {
     next_update_needed: !alreadyUpdatedToday(),
   };
 }
+// #endregion 命令
 
-// section: 主入口 — IS_MAIN guard 让单元测试 import 不副作用
+// #region 主入口
 const IS_MAIN = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (IS_MAIN) runMain();
@@ -1282,3 +1294,4 @@ function runMain() {
       die('UNKNOWN', `执行失败: ${err.message || err}${err.stack ? ' | stack: ' + err.stack.slice(0, 300) : ''}`);
     });
 }
+// #endregion 主入口
