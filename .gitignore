@@ -32,3 +32,9 @@ skills/wind-mcp-skill/cli_architecture_analysis.md
 
 .gitea/
 
+# GitNexus 本地索引与生成文件（analyze 产物，不入远端）
+.gitnexus/
+AGENTS.md
+CLAUDE.md
+.claude/
+
