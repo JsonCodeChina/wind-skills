@@ -1,4 +1,4 @@
-// CLI 契约测试：覆盖重排后仍必须保持的 argv / exit / error.code 行为。
+// CLI 契约测试：覆盖 argv / exit / code 行为。
 // Usage: node tests/run-cli-contract-tests.mjs   (任意 cwd 均可)
 
 import { spawnSync } from 'node:child_process';
@@ -75,7 +75,7 @@ test('unknown command -> USAGE_ERROR', () => {
   const body = parseJson(stdout);
   assertEqual(exit, 1, 'exit');
   assertEqual(body?.ok, false, 'ok');
-  assertEqual(body?.error?.code, 'USAGE_ERROR', 'code');
+  assertEqual(body?.code, 'USAGE_ERROR', 'code');
 });
 
 // 3. call 缺参
@@ -83,7 +83,7 @@ test('call missing args -> USAGE_ERROR', () => {
   const { exit, stdout } = spawnCli(['call', 'stock_data']);
   const body = parseJson(stdout);
   assertEqual(exit, 1, 'exit');
-  assertEqual(body?.error?.code, 'USAGE_ERROR', 'code');
+  assertEqual(body?.code, 'USAGE_ERROR', 'code');
 });
 
 // 4. 非法 JSON
@@ -91,7 +91,7 @@ test('invalid params json -> INVALID_PARAMS_JSON', () => {
   const { exit, stdout } = spawnCli(['call', 'stock_data', 'get_stock_price_indicators', 'not-json']);
   const body = parseJson(stdout);
   assertEqual(exit, 1, 'exit');
-  assertEqual(body?.error?.code, 'INVALID_PARAMS_JSON', 'code');
+  assertEqual(body?.code, 'INVALID_PARAMS_JSON', 'code');
 });
 
 // 5. params 不是 object
@@ -99,7 +99,7 @@ test('params array -> PARAM_TYPE_ERROR', () => {
   const { exit, stdout } = spawnCli(['call', 'stock_data', 'get_stock_price_indicators', '[]']);
   const body = parseJson(stdout);
   assertEqual(exit, 1, 'exit');
-  assertEqual(body?.error?.code, 'PARAM_TYPE_ERROR', 'code');
+  assertEqual(body?.code, 'PARAM_TYPE_ERROR', 'code');
 });
 
 // 6. 未知 server_type（本地路由，不发网络）
@@ -107,8 +107,8 @@ test('unknown server_type -> ROUTE_ERROR', () => {
   const { exit, stdout } = spawnCli(['call', 'crypto_data', 'get_stock_price_indicators', '{"windcode":"600519.SH"}']);
   const body = parseJson(stdout);
   assertEqual(exit, 1, 'exit');
-  assertEqual(body?.error?.code, 'ROUTE_ERROR', 'code');
-  assertEqual(body?.error?.details?.field, 'server_type', 'field');
+  assertEqual(body?.code, 'ROUTE_ERROR', 'code');
+  assert(typeof body?.message === 'string' && body.message.length > 0, 'message');
 });
 
 // 7. 工具不属于该 server
@@ -116,8 +116,8 @@ test('wrong tool for server -> ROUTE_ERROR', () => {
   const { exit, stdout } = spawnCli(['call', 'stock_data', 'search_funds', '{"question":"筛选股票型基金"}']);
   const body = parseJson(stdout);
   assertEqual(exit, 1, 'exit');
-  assertEqual(body?.error?.code, 'ROUTE_ERROR', 'code');
-  assertEqual(body?.error?.details?.field, 'tool_name', 'field');
+  assertEqual(body?.code, 'ROUTE_ERROR', 'code');
+  assert(typeof body?.message === 'string' && body.message.length > 0, 'message');
 });
 
 // 8. 空白 windcode
@@ -125,7 +125,7 @@ test('blank windcode -> PARAM_VALIDATION_ERROR', () => {
   const { exit, stdout } = spawnCli(['call', 'stock_data', 'get_stock_kline', '{"windcode":"  ","begin_date":"20260401","end_date":"20260430"}']);
   const body = parseJson(stdout);
   assertEqual(exit, 1, 'exit');
-  assertEqual(body?.error?.code, 'PARAM_VALIDATION_ERROR', 'code');
+  assertEqual(body?.code, 'PARAM_VALIDATION_ERROR', 'code');
 });
 
 // 9. K 线日期顺序
@@ -133,7 +133,7 @@ test('quote begin after end -> PARAM_VALIDATION_ERROR', () => {
   const { exit, stdout } = spawnCli(['call', 'stock_data', 'get_stock_quote', '{"windcode":"600519.SH","begin":"2026-04-30","end":"2026-04-01"}']);
   const body = parseJson(stdout);
   assertEqual(exit, 1, 'exit');
-  assertEqual(body?.error?.code, 'PARAM_VALIDATION_ERROR', 'code');
+  assertEqual(body?.code, 'PARAM_VALIDATION_ERROR', 'code');
 });
 
 // 10. @file 不存在
@@ -141,7 +141,7 @@ test('@missing-file -> PARAMS_FILE_ERROR', () => {
   const { exit, stdout } = spawnCli(['call', 'stock_data', 'get_stock_price_indicators', '@missing-params.json']);
   const body = parseJson(stdout);
   assertEqual(exit, 1, 'exit');
-  assertEqual(body?.error?.code, 'PARAMS_FILE_ERROR', 'code');
+  assertEqual(body?.code, 'PARAMS_FILE_ERROR', 'code');
 });
 
 // 11. @file 合法 JSON，缺 Key（隔离 HOME）
@@ -151,7 +151,7 @@ test('@file valid json + no key -> AUTH_ERROR', () => {
   const { exit, stdout } = spawnCli(['call', 'stock_data', 'get_stock_price_indicators', '@params.json']);
   const body = parseJson(stdout);
   assertEqual(exit, 1, 'exit');
-  assertEqual(body?.error?.code, 'AUTH_ERROR', 'code');
+  assertEqual(body?.code, 'AUTH_ERROR', 'code');
 });
 
 // 12. setup-key 缺 scope
@@ -159,7 +159,7 @@ test('setup-key without --scope -> USAGE_ERROR', () => {
   const { exit, stdout } = spawnCli(['setup-key', 'faketestkey']);
   const body = parseJson(stdout);
   assertEqual(exit, 1, 'exit');
-  assertEqual(body?.error?.code, 'USAGE_ERROR', 'code');
+  assertEqual(body?.code, 'USAGE_ERROR', 'code');
 });
 
 // 13. diagnose 不依赖网络
@@ -185,17 +185,16 @@ test('mock success returns cli_meta and data', () => {
   assert(Array.isArray(body?.content), 'content array');
 });
 
-// 15. mock 后端错误信封：retry / circuit_breaker 仍在
-test('mock TEMPORARILY_UNAVAILABLE keeps retry policy', () => {
+// 15. mock 接口错误：统一 backend_error，message 为接口原文
+test('mock interface error returns backend_error', () => {
   const { exit, stdout } = spawnCli(
     ['call', 'stock_data', 'get_stock_price_indicators', '{"windcode":"600519.SH","indexes":"最新成交价"}'],
     { mock: true, extraEnv: { WIND_API_KEY: 'test-key-xxxxxxxx', WIND_MOCK_SCENARIO: 'temporarily_unavailable' } },
   );
   const body = parseJson(stdout);
   assertEqual(exit, 1, 'exit');
-  assertEqual(body?.error?.code, 'TEMPORARILY_UNAVAILABLE', 'code');
-  assertEqual(body?.error?.retry?.allowed, true, 'retry.allowed');
-  assert(!Object.hasOwn(body.error, 'agent_action'), 'no agent_action');
+  assertEqual(body?.code, 'backend_error', 'code');
+  assert(typeof body?.message === 'string' && body.message.length > 0, 'message');
 });
 
 // 16. 规范化：港股前导 0、K 线默认 period、EDB 中文 executionMode

@@ -44,12 +44,12 @@ function run(cli, server, tool, params) {
   if (res.status === 0) return { verdict: '通过→后端', code: '', detail: '' };
   let env = null;
   try { env = JSON.parse(res.stdout); } catch {}
-  const detail = env?.error?.details
-    ? JSON.stringify(env.error.details).replace(/\s+/g, ' ').slice(0, 90)
+  const detail = typeof env?.message === 'string'
+    ? env.message.replace(/\s+/g, ' ').slice(0, 90)
     : '';
   return {
     verdict: '本地拦截',
-    code: env?.error?.code || '(no code)',
+    code: env?.code || '(no code)',
     detail,
   };
 }

@@ -6,10 +6,8 @@ import { join, dirname, basename, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 
-// #region 静态：版本、7 个 MCP 地址、路径、错误策略/正则/HTTP 映射。只含常量，不发网络。
+// #region 静态：版本、7 个 MCP 地址、路径、HTTP 状态码映射。只含常量，不发网络。
 const SKILL_VERSION = '2.0.2';
-const DEFAULT_TOOL_CONCURRENCY = 1;
-const MAX_TOOL_CONCURRENCY = 10;
 
 // 本地 registry: 工具选择可在任何网络调用前失败
 const SERVERS = {
@@ -52,7 +50,6 @@ const UPDATE_CHECK_PATH = join(SKILL_DIR, 'scripts', 'update-check.mjs');
 const TOOL_MANIFEST_PATH = join(SKILL_DIR, 'scripts', 'tool-manifest.json');
 const CALL_RULES_PATH = join(SKILL_DIR, 'scripts', 'call-rules.json');
 
-const INTERNAL_WARNINGS_KEY = '__wind_cli_warnings';
 const SKILL_NAME = basename(SKILL_DIR);
 
 const CALL_EXAMPLES = [
@@ -77,93 +74,13 @@ const EDB_EXECUTION_MODE_ALIASES = new Map([
   ['搜索并提数', 'searchFetch'],
 ]);
 
-const RETRY_AFTER_CORRECTION = Object.freeze({ allowed: false, mode: 'after_correction', max_attempts: 0 });
-const RETRY_SAME_REQUEST = Object.freeze({ allowed: true, mode: 'same_request', max_attempts: 1 });
-const RETRY_AFTER_WAIT_3S = Object.freeze({ allowed: true, mode: 'same_request_after_wait', max_attempts: 1, after_ms: 3000 });
-const RETRY_AFTER_WAIT_5S = Object.freeze({ allowed: true, mode: 'same_request_after_wait', max_attempts: 1, after_ms: 5000 });
-const KEEP_CURRENT_CALL = Object.freeze({ tripped: false, scope: 'current_call', action: 'none' });
-const ABORT_REMAINING_BATCH = Object.freeze({ tripped: true, scope: 'remaining_batch', action: 'abort_remaining_calls' });
-const NO_CORRECTION = Object.freeze({});
-const REDUCE_CONCURRENCY = Object.freeze({
-  strategy: 'reduce_concurrency',
-  change_only: ['concurrency'],
-  recommended_concurrency: DEFAULT_TOOL_CONCURRENCY,
-  recommended_max_concurrency: MAX_TOOL_CONCURRENCY,
-  preserve_server_type: true,
-  preserve_tool_name: true,
-  preserve_params: true,
-});
-
-function defineError({
-  retry = RETRY_AFTER_CORRECTION,
-  circuitBreaker = KEEP_CURRENT_CALL,
-  correction = NO_CORRECTION,
-} = {}) {
-  return Object.freeze({
-    retry,
-    circuit_breaker: circuitBreaker,
-    correction,
-  });
-}
-
-// 错误码与默认机器策略的唯一总表。调用点可用 metadata 补充本次请求的精确诊断。
-const ERROR_DEFINITIONS = Object.freeze({
-  TEMPORARILY_UNAVAILABLE: defineError({ retry: RETRY_SAME_REQUEST }),
-  INVALID_PARAM_NAME: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
-  INVALID_PARAM_VALUE: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
-  EDB_INDICATOR_NOT_FOUND: defineError(),
-  MARKET_TARGET_NOT_FOUND: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
-  PARAM_TYPE_ERROR: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
-  PERIOD_PARSE_ERROR: defineError(),
-  USAGE_ERROR: defineError(),
-  PARAMS_FILE_ERROR: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
-  INVALID_PARAMS_JSON: defineError(),
-  ROUTE_ERROR: defineError(),
-  PARAM_VALIDATION_ERROR: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
-  PARAM_CONFLICT_ERROR: defineError({ circuitBreaker: ABORT_REMAINING_BATCH }),
-  AUTH_ERROR: defineError(),
-  DAILY_LIMIT_ERROR: defineError(),
-  BALANCE_ERROR: defineError(),
-  RATE_LIMIT_ERROR: defineError({ retry: RETRY_AFTER_WAIT_5S }),
-  CONCURRENCY_LIMIT_ERROR: defineError({
-    retry: RETRY_AFTER_WAIT_3S,
-    circuitBreaker: ABORT_REMAINING_BATCH,
-    correction: REDUCE_CONCURRENCY,
-  }),
-  NETWORK_ERROR: defineError({ retry: RETRY_SAME_REQUEST }),
-  TOOL_RUNTIME_ERROR: defineError(),
-  NO_RESULTS: defineError(),
-  SETUP_ERROR: defineError(),
-  UNKNOWN: defineError(),
-});
-
-// 错误码 — message 来自 HTTP / JSON-RPC / 工具内嵌 JSON, 统一映射成稳定 code
-const ERROR_PATTERNS = [
-  ['TEMPORARILY_UNAVAILABLE', /temporarily_unavailable/i, '后端偶发不可用。'],
-  ['EDB_INDICATOR_NOT_FOUND', /未找到匹配的(?:经济)?指标|indicator_not_found/i, 'EDB 未找到用户想查询的指标。'],
-  ['MARKET_TARGET_NOT_FOUND', /market_target_not_found|NER-API error.*(?:识别合并后无结果|请确认输入内容是否包含实体)|comm_exception.*NER-API|未识别实体|未识别到有效的金融标的|ner_error/i, '行情类查询对象未识别。'],
-  ['PARAM_TYPE_ERROR', /attribute_error|(?:'list' object has no attribute '(?:split|strip)')|(?:list object has no attribute (?:split|strip))/i, '参数类型错误：列表传给了只接受字符串的字段。'],
-  ['PERIOD_PARSE_ERROR', /srv_internal_error|For input string:\s*\\?["\x27]?(?:day|daily|monthly|week|weekly|month|D|M|W)\\?["\x27]?/i, 'K 线周期值无法解析。'],
-  ['INVALID_PARAM_VALUE', /invalid_param_value|Invalid value .* for field|参数值.*不合法|参数值错误/i, '后端参数值错误。'],
-  ['INVALID_PARAM_NAME', /invalid_param_name|缺少必填参数|missing required/i, '后端参数名错误。'],
-  ['DAILY_LIMIT_ERROR', /单日请求次数超限|daily.*(?:request|quota)?.*limit|daily.*limit.*exceed/i, '单日请求次数已超限。'],
-  ['BALANCE_ERROR', /余额不足|请先充值|insufficient.*balance/i, '账户余额不足。'],
-  ['CONCURRENCY_LIMIT_ERROR', /当前工具并发请求数量超限|并发(?:请求)?(?:数量)?(?:超限|过多)|concurren(?:cy|t).*(?:limit|exceed|too many)/i, '工具并发请求数量超限。'],
-  ['RATE_LIMIT_ERROR', /请求过于频繁|qps.*limit|too.*frequent|rate.*limit/i, 'QPS 限流。'],
-  ['AUTH_ERROR', /密钥无效|key.*invalid|unauthorized|认证失败|auth.*fail/i, '认证/权限错误。按 Key 机制修复后原样重试。'],
-  ['NO_RESULTS', /未获取到数据|"NO_RESULTS"|no\s*results?|not\s*found|empty\s*result/i, '未获取到匹配数据。先在不改变用户意图的前提下调整关键词或参数。'],
-  ['PARAM_VALIDATION_ERROR', /参数验证失败|参数.*(错误|非法|无效)|字段.*(不存在|不识别|不支持|非法)|invalid\s*(param|argument|field)|missing\s*(param|argument|field|required)/i, '后端参数验证失败。先按 SKILL.md 工具表核对字段名、必填项、日期格式和枚举值后重试。'],
-  ['NETWORK_ERROR', /服务.*暂不可用|服务.*不可用|service\s+unavailable|temporarily\s+unavailable/i, '网络/后端错误。先核对参数再稍后重试。'],
-  ['TOOL_RUNTIME_ERROR', /TOOL_ERROR|tool.*error|工具.*(执行|运行).*错误|runtime.*error/i, '后端工具运行错误。保留后端原文，先检查请求是否过大或口径是否受支持；不要直接切换工具绕过。'],
-];
-
 const HTTP_ERROR_MAP = {
-  401: ['AUTH_ERROR', 'API Key 无效或过期'],
-  429: ['RATE_LIMIT_ERROR', '请求过于频繁'],
-  500: ['NETWORK_ERROR', '服务端异常'],
-  502: ['NETWORK_ERROR', '网关异常'],
-  503: ['NETWORK_ERROR', '服务暂不可用'],
-  504: ['NETWORK_ERROR', '网关超时'],
+  401: 'AUTH_ERROR',
+  429: 'RATE_LIMIT_ERROR',
+  500: 'NETWORK_ERROR',
+  502: 'NETWORK_ERROR',
+  503: 'NETWORK_ERROR',
+  504: 'NETWORK_ERROR',
 };
 // #endregion 静态
 
@@ -237,7 +154,7 @@ function triggerUpdateCheck() {
 }
 // #endregion 自动更新
 
-// #region 信封：成功写 MCP result + cli_meta；失败写 {ok:false,error} 后 process.exit。Agent 只读 stdout。
+// #region 信封：成功写 MCP result + cli_meta；失败统一写 {ok:false,code,message}。Agent 只读 stdout。
 function normalizeSuccessPayload(value, path = '$', state = { warnings: [], tables: [], invalidPaths: [] }, dataCell = false) {
   if (dataCell && value === 'INVALID') {
     state.invalidPaths.push(path);
@@ -270,10 +187,6 @@ function normalizeSuccessPayload(value, path = '$', state = { warnings: [], tabl
 function normalizeCallSuccess(result, context = {}) {
   const output = result && typeof result === 'object' ? structuredClone(result) : result;
   const state = { warnings: [], tables: [], invalidPaths: [] };
-  if (output && typeof output === 'object' && Array.isArray(output[INTERNAL_WARNINGS_KEY])) {
-    state.warnings.push(...output[INTERNAL_WARNINGS_KEY]);
-    delete output[INTERNAL_WARNINGS_KEY];
-  }
   if (output && Array.isArray(output.content)) {
     for (const item of output.content) {
       if (item?.type !== 'text' || typeof item.text !== 'string') continue;
@@ -315,22 +228,47 @@ function writePlainSuccess(data) {
   process.stdout.write(JSON.stringify(data, null, 2) + '\n');
 }
 
-function getErrorDefinition(code) {
-  return ERROR_DEFINITIONS[code] || ERROR_DEFINITIONS.UNKNOWN;
+const DEFAULT_ERROR_MESSAGES = Object.freeze({
+  AUTH_ERROR: '认证失败，请检查 API Key',
+  PARAM_TYPE_ERROR: '参数类型错误，请检查字段类型',
+  USAGE_ERROR: '命令用法错误，请检查输入参数',
+  PARAMS_FILE_ERROR: '参数文件读取失败，请检查文件路径和内容',
+  INVALID_PARAMS_JSON: '参数格式错误，params 必须是 JSON 对象',
+  ROUTE_ERROR: '工具路由失败，请检查 server_type 和 tool_name',
+  PARAM_VALIDATION_ERROR: '参数校验失败，请检查字段名和取值',
+  PARAM_CONFLICT_ERROR: '参数存在冲突，请检查输入组合',
+  RATE_LIMIT_ERROR: '请求过于频繁，请稍后重试',
+  NETWORK_ERROR: '服务暂时不可用，请稍后重试',
+  TOOL_RUNTIME_ERROR: '响应解析失败，请稍后重试',
+  SETUP_ERROR: '本地配置缺失或无效，请检查技能配置',
+  UNKNOWN: '调用失败，请稍后重试',
+});
+
+const MAPPED_ERROR_MESSAGE_CODES = new Set(
+  Object.keys(DEFAULT_ERROR_MESSAGES).filter((code) => code !== 'UNKNOWN'),
+);
+
+function normalizeErrorMessage(code, detail, metadata = {}) {
+  if (!MAPPED_ERROR_MESSAGE_CODES.has(code)) {
+    if (typeof metadata.error_message === 'string' && metadata.error_message.trim()) {
+      return metadata.error_message.trim();
+    }
+    if (typeof detail === 'string' && detail.trim()) {
+      return detail.trim().slice(0, 2000);
+    }
+    return DEFAULT_ERROR_MESSAGES.UNKNOWN;
+  }
+  if (typeof detail === 'string' && detail.trim()) {
+    return detail.trim().slice(0, 500);
+  }
+  return DEFAULT_ERROR_MESSAGES[code] || DEFAULT_ERROR_MESSAGES.UNKNOWN;
 }
 
 function writeErrorEnvelope(code, detail, metadata = {}) {
-  const definition = getErrorDefinition(code);
   const envelope = {
     ok: false,
-    error: {
-      code,
-      ...(metadata.error_message ? { message: metadata.error_message } : {}),
-      details: metadata.details || (detail ? { message: String(detail).slice(0, 500) } : {}),
-      retry: metadata.retry || definition.retry,
-      circuit_breaker: metadata.circuit_breaker || definition.circuit_breaker,
-      correction: metadata.correction || definition.correction,
-    },
+    code,
+    message: normalizeErrorMessage(code, detail, metadata),
   };
   process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
 }
@@ -403,11 +341,7 @@ function getApiKey() {
 function getServer(server_type) {
   const server = SERVERS[server_type];
   if (!server) {
-    die('ROUTE_ERROR', `未知 server_type: ${server_type}. 可用: ${Object.keys(SERVERS).join(' / ')}`, 1, {
-      details: { field: 'server_type', issue: 'invalid_enum', actual: server_type, allowed_values: Object.keys(SERVERS) },
-      retry: { allowed: true, mode: 'after_correction', max_attempts: 1 },
-      correction: { change_only: ['server_type'] },
-    });
+    die('ROUTE_ERROR', `未知 server_type: ${server_type}. 可用: ${Object.keys(SERVERS).join(' / ')}`);
   }
   return server;
 }
@@ -443,11 +377,7 @@ function validateToolSelection(server_type, toolName) {
   const manifest = loadToolManifest();
   const tools = manifest[server_type];
   if (!tools.includes(toolName)) {
-    die('ROUTE_ERROR', `工具名 "${toolName}" 不属于 server_type "${server_type}"。`, 1, {
-      details: { field: 'tool_name', issue: 'invalid_enum', actual: toolName, server_type, allowed_values: tools },
-      retry: { allowed: true, mode: 'after_correction', max_attempts: 1 },
-      correction: { change_only: ['tool_name'], preserve_server_type: true },
-    });
+    die('ROUTE_ERROR', `工具名 "${toolName}" 不属于 server_type "${server_type}"。`);
   }
 }
 // #endregion 路由
@@ -655,67 +585,7 @@ function validateToolParams(toolName, params) {
 }
 // #endregion 校验
 
-// #region 错误分类：把后端文案正则映射成稳定 error.code。有可用数据时可能降级为 warning。
-function inferErrorCode(msg) {
-  if (!msg) return 'UNKNOWN';
-  if (/^\s*"?OK"?\s*$/i.test(String(msg))) return 'TOOL_RUNTIME_ERROR';
-  for (const [code, pat] of ERROR_PATTERNS) {
-    if (pat.test(msg)) return code;
-  }
-  return 'UNKNOWN';
-}
-
-function hasUsableData(value) {
-  if (value === null || value === undefined) return false;
-  if (Array.isArray(value)) return value.length > 0;
-  if (typeof value === 'string') return value.trim().length > 0;
-  if (typeof value === 'object') return Object.keys(value).length > 0;
-  return true;
-}
-
-function businessPayloadHasUsableData(inner) {
-  const body = inner && typeof inner === 'object' ? inner.data : null;
-  if (!body || typeof body !== 'object') return hasUsableData(body);
-  return Object.hasOwn(body, 'data') ? hasUsableData(body.data) : hasUsableData(body);
-}
-
-function classifyBusinessResponse(inner, serverType) {
-  const body = inner && typeof inner === 'object' ? inner.data : null;
-  if (!body || typeof body !== 'object') return null;
-  const numericCode = typeof body.code === 'number'
-    ? body.code
-    : (typeof body.code === 'string' && /^\d+$/.test(body.code.trim()) ? Number(body.code) : null);
-  if (numericCode === null) return null;
-  const message = typeof body.message === 'string' ? body.message : JSON.stringify(body);
-  const isSuccessCode = numericCode === 0
-    || (numericCode >= 200 && numericCode < 300 && /^(OK|SUCCESS)$/i.test(String(body.message || '').trim()));
-  if (isSuccessCode) return null;
-  if (serverType === 'economic_data' && numericCode === 1003) {
-    return { error: ['EDB_INDICATOR_NOT_FOUND', message] };
-  }
-  const inferredCode = inferErrorCode(message);
-  if (businessPayloadHasUsableData(inner) && inferredCode === 'UNKNOWN') {
-    return {
-      warning: {
-        code: 'UNKNOWN_BACKEND_STATUS_WITH_DATA',
-        backend_code: body.code,
-        backend_message: body.message ?? null,
-        message: '后端返回未知业务状态码，但响应中包含可用数据；已保留数据并降级为成功警告。',
-      },
-    };
-  }
-  return { error: [inferredCode, message] };
-}
-
-
-function isExplicitNoDataResult(inner) {
-  return inner?.data === null
-    && inner?.error?.code === 'QUERY_FAILED'
-    && inner?.error?.message === '没找到数据';
-}
-// #endregion 错误分类
-
-// #region MCP：裸 HTTP JSON-RPC + SSE。先 initialize 再 tools/call。拆 HTTP / RPC / isError / 业务 JSON 四层错误。
+// #region MCP：裸 HTTP JSON-RPC + SSE。先 initialize 再 tools/call。本地/网络错误由 CLI 收口，接口错误统一 backend_error。
 function parseSSE(text) {
   const trimmed = text.trim();
   // 后端正常 SSE, 部分错误场景纯 JSON
@@ -765,10 +635,8 @@ async function fetchWithRetry(fetchFn, url, optionsOrFactory, {
 
 async function mcpRequest(server_type, method, params, {
   timeoutMs = 60_000,
-  diagnosticContext = null,
 } = {}) {
   const server = getServer(server_type);
-  const responseWarnings = [];
   const apiKey = getApiKey();
   const headers = {
     Authorization: `Bearer ${apiKey}`,
@@ -782,52 +650,10 @@ async function mcpRequest(server_type, method, params, {
     method,
     params
   });
-  const dieMcp = (code, detail, { backendError = null } = {}) => {
-    if (code !== 'MARKET_TARGET_NOT_FOUND') {
-      const backendMessage = String(detail || '').replace(/\s*\(server=[^)]+\)\s*$/, '').slice(0, 2000);
-      const callArguments = params?.arguments && typeof params.arguments === 'object' ? params.arguments : null;
-      die(code, detail, 1, {
-        ...(backendError?.message ? { error_message: backendError.message } : {}),
-        details: {
-          server_type,
-          tool_name: params?.name || null,
-          backend_message: backendMessage,
-          ...(backendError ? { backend_error: backendError } : {}),
-          original_params: callArguments,
-        },
-      });
-    }
-    const originalInput = diagnosticContext?.original_input ?? params?.arguments?.windcode ?? null;
-    const attemptedInput = diagnosticContext?.normalized_input ?? params?.arguments?.windcode ?? null;
-    die(code, detail, 1, {
-      details: {
-        message: String(detail || '').slice(0, 500),
-        field: 'windcode',
-        issue: 'instrument_not_resolved',
-        original_input: originalInput,
-        normalized_input: attemptedInput,
-        attempted_inputs: attemptedInput == null ? [] : [attemptedInput],
-        candidates: [],
-      },
-      retry: { allowed: false, mode: 'after_user_correction', max_attempts: 0 },
-      circuit_breaker: { tripped: true, scope: 'remaining_batch', action: 'abort_remaining_calls' },
-      correction: {
-        required: ['instrument_full_name_or_windcode'],
-        requires_user_input: true,
-        user_prompt: '请提供该标的的准确全称或 Wind 标准代码。',
-        preserve_server_type: true,
-        preserve_tool_name: true,
-      },
+  const dieInterfaceError = (message) => {
+    die('backend_error', null, 1, {
+      error_message: String(message ?? '').slice(0, 2000),
     });
-  };
-  const dieBackend = (error, fallbackCode = 'UNKNOWN') => {
-    const backendError = error && typeof error === 'object'
-      ? error
-      : { message: String(error ?? '') };
-    const message = backendError.message || JSON.stringify(backendError);
-    const inferredCode = inferErrorCode(message);
-    const code = inferredCode === 'UNKNOWN' ? fallbackCode : inferredCode;
-    dieMcp(code, message, { backendError });
   };
   let resp;
   try {
@@ -851,25 +677,13 @@ async function mcpRequest(server_type, method, params, {
           : null,
       },
     );
-  } catch (err) {
-    dieBackend({
-      message: err?.message || String(err),
-      ...(err?.code ? { code: err.code } : {}),
-      ...(err?.cause?.code ? { cause_code: err.cause.code } : {}),
-    }, 'NETWORK_ERROR');
+  } catch {
+    die('NETWORK_ERROR');
   }
 
   if (!resp.ok) {
-    const bodyText = await resp.text().catch(() => '');
-    const code = HTTP_ERROR_MAP[resp.status]?.[0] || 'UNKNOWN';
-    const detail = `HTTP ${resp.status} ${resp.statusText} (server=${server_type})` + (bodyText ? ` | body: ${bodyText.slice(0, 200)}` : '');
-    let backendError = null;
-    try {
-      backendError = bodyText ? JSON.parse(bodyText) : null;
-    } catch {
-      backendError = bodyText ? { message: bodyText.slice(0, 2000) } : null;
-    }
-    dieMcp(code, detail, { backendError });
+    await resp.text().catch(() => '');
+    die(HTTP_ERROR_MAP[resp.status] || 'NETWORK_ERROR');
   }
 
   const text = await resp.text();
@@ -884,30 +698,12 @@ async function mcpRequest(server_type, method, params, {
     const msg = typeof payload.error === 'string'
       ? payload.error
       : (payload.error.message || JSON.stringify(payload.error));
-    if (/^\s*OK\s*$/i.test(msg)) {
-      dieMcp(
-        'TOOL_RUNTIME_ERROR',
-        `JSON-RPC protocol conflict: payload.error is present but error message is "OK"; error=${JSON.stringify(payload.error).slice(0, 1000)} (server=${server_type})`,
-      );
-    }
-    dieBackend(payload.error, 'TOOL_RUNTIME_ERROR');
+    dieInterfaceError(msg);
   }
 
   if (payload.result?.isError) {
     const msg = payload.result.content?.[0]?.text || JSON.stringify(payload.result);
-    if (/^\s*OK\s*$/i.test(msg)) {
-      dieMcp(
-        'TOOL_RUNTIME_ERROR',
-        `MCP result protocol conflict: isError=true but error text is "OK"; result=${JSON.stringify(payload.result).slice(0, 1000)} (server=${server_type})`,
-      );
-    }
-    let raw;
-    try {
-      raw = JSON.parse(msg);
-    } catch {
-      raw = { message: msg };
-    }
-    dieBackend(raw?.error || raw, 'TOOL_RUNTIME_ERROR');
+    dieInterfaceError(msg);
   }
 
   // 部分工具把业务错误包在 content[0].text 的 JSON 字符串里, 必须二次解析
@@ -922,37 +718,29 @@ async function mcpRequest(server_type, method, params, {
     if (inner) {
       if (typeof inner.mcp_tool_error_code === 'number' && inner.mcp_tool_error_code !== 0) {
         const msg = inner.mcp_tool_error_msg || JSON.stringify(inner);
-        dieBackend({ code: inner.mcp_tool_error_code, message: msg }, 'TOOL_RUNTIME_ERROR');
+        dieInterfaceError(msg);
       }
-      if (inner.error && (inner.error.code || inner.error.message) && !isExplicitNoDataResult(inner)) {
+      if (inner.error && (inner.error.code || inner.error.message)) {
         const errorMessage = inner.error.message || JSON.stringify(inner.error);
-        const inferredCode = inferErrorCode(errorMessage);
-        if (businessPayloadHasUsableData(inner) && inferredCode === 'UNKNOWN') {
-          responseWarnings.push({
-            code: 'BACKEND_ERROR_WITH_DATA',
-            backend_error: inner.error,
-            message: '后端同时返回错误信息和可用数据；已保留数据并标记为部分成功，请勿忽略该警告。',
-          });
-        } else {
-          dieBackend(inner.error, 'TOOL_RUNTIME_ERROR');
+        dieInterfaceError(errorMessage);
+      }
+      if (inner?.data && typeof inner.data === 'object') {
+        const numericCode = typeof inner.data.code === 'number'
+          ? inner.data.code
+          : (typeof inner.data.code === 'string' && /^\d+$/.test(inner.data.code.trim()) ? Number(inner.data.code) : null);
+        const isSuccessCode = numericCode === 0
+          || (numericCode !== null && numericCode >= 200 && numericCode < 300
+            && /^(OK|SUCCESS)$/i.test(String(inner.data.message || '').trim()));
+        if (numericCode !== null && !isSuccessCode) {
+          dieInterfaceError(typeof inner.data.message === 'string' ? inner.data.message : JSON.stringify(inner.data));
         }
       }
-      const businessClassification = classifyBusinessResponse(inner, server_type);
-      if (businessClassification?.error) {
-        const [code, message] = businessClassification.error;
-        dieMcp(code, message, { backendError: inner.data });
-      }
-      if (businessClassification?.warning) responseWarnings.push(businessClassification.warning);
     }
-  }
-
-  if (responseWarnings.length && payload.result && typeof payload.result === 'object') {
-    payload.result[INTERNAL_WARNINGS_KEY] = responseWarnings;
   }
   return payload.result;
 }
 
-async function mcpInitializeAndCall(server_type, method, params, diagnosticContext = null) {
+async function mcpInitializeAndCall(server_type, method, params) {
   await mcpRequest(server_type, 'initialize', {
     protocolVersion: '2025-03-26',
     capabilities: {},
@@ -966,7 +754,6 @@ async function mcpInitializeAndCall(server_type, method, params, diagnosticConte
 
   return mcpRequest(server_type, method, params, {
     timeoutMs: 600_000,
-    diagnosticContext,
   });
 }
 // #endregion MCP
@@ -1012,12 +799,7 @@ async function cmdCall(server_type, toolName, paramsInput) {
   try {
     paramsSource = loadParamsInput(paramsInput);
   } catch (e) {
-    die('PARAMS_FILE_ERROR', e.message, 1, {
-      details: { field: 'params', issue: 'file_read_error', source: 'file', file: e.file || null },
-      retry: { allowed: true, mode: 'after_correction', max_attempts: 1 },
-      circuit_breaker: { tripped: true, scope: 'remaining_batch', action: 'abort_remaining_calls' },
-      correction: { change_only: ['params_file'], strategy: 'fix_file_path_or_permissions', requires_user_input: false, preserve_server_type: true, preserve_tool_name: true },
-    });
+    die('PARAMS_FILE_ERROR', e.message);
   }
 
   let args;
@@ -1027,31 +809,13 @@ async function cmdCall(server_type, toolName, paramsInput) {
     const sourceDetail = paramsSource.source === 'file'
       ? `文件：${paramsSource.filePath}`
       : `原文：${paramsSource.jsonText.slice(0, 200)}`;
-    die('INVALID_PARAMS_JSON', `params JSON 解析失败：${e.message} | ${sourceDetail}`, 1, {
-      details: {
-        field: 'params',
-        issue: 'invalid_json',
-        source: paramsSource.source,
-        ...(paramsSource.filePath ? { file: paramsSource.filePath } : {}),
-        message: e.message,
-      },
-      retry: { allowed: true, mode: 'after_correction', max_attempts: 1 },
-      circuit_breaker: { tripped: true, scope: 'remaining_batch', action: 'abort_remaining_calls' },
-      correction: { change_only: [paramsSource.source === 'file' ? 'params_file_content' : 'params_json'], strategy: 'fix_json_syntax', requires_user_input: false, preserve_server_type: true, preserve_tool_name: true },
-    });
+    die('INVALID_PARAMS_JSON', `params JSON 解析失败：${e.message} | ${sourceDetail}`);
   }
 
   if (!args || typeof args !== 'object' || Array.isArray(args)) {
-    const actualType = Array.isArray(args) ? 'array' : typeof args;
-    die('PARAM_TYPE_ERROR', 'params 必须是 JSON object', 1, {
-      details: [{ field: 'params', issue: 'invalid_type', expected_type: 'object', actual_type: actualType }],
-      retry: { allowed: true, mode: 'after_correction', max_attempts: 1 },
-      circuit_breaker: { tripped: true, scope: 'remaining_batch', action: 'abort_remaining_calls' },
-      correction: { change_only: ['params'], strategy: 'fix_from_error_details', requires_user_input: false, preserve_server_type: true, preserve_tool_name: true },
-    });
+    die('PARAM_TYPE_ERROR', 'params 必须是 JSON object');
   }
 
-  const originalArgs = args && typeof args === 'object' && !Array.isArray(args) ? { ...args } : args;
   let normalizationErrors;
   ({ server_type, toolName, args, normalizationErrors } = normalizeCall(server_type, toolName, args));
   validateToolSelection(server_type, toolName);
@@ -1063,27 +827,13 @@ async function cmdCall(server_type, toolName, paramsInput) {
     const explicitCode = validationErrors.map(validationErrorCode).find(Boolean);
     const messages = validationErrors.map(validationErrorMessage);
     const hasTypeError = validationErrors.some(error => typeof error === 'object' && error?.issue === 'invalid_type');
-    die(explicitCode || (hasTypeError ? 'PARAM_TYPE_ERROR' : 'PARAM_VALIDATION_ERROR'), messages.join('；'), 1, {
-      details: validationErrors.map(error => typeof error === 'string' ? { message: error } : { ...error, code: undefined, message: undefined }),
-      retry: { allowed: true, mode: 'after_correction', max_attempts: 1 },
-      circuit_breaker: { tripped: true, scope: 'remaining_batch', action: 'abort_remaining_calls' },
-      correction: {
-        change_only: [...new Set(validationErrors.flatMap(error => error?.field ? [error.field] : error?.fields || []))],
-        strategy: 'fix_from_error_details',
-        requires_user_input: validationErrors.some(error => ['ambiguous_value', 'conflicting_aliases'].includes(error?.issue)),
-        preserve_server_type: true,
-        preserve_tool_name: true,
-      },
-    });
+    die(explicitCode || (hasTypeError ? 'PARAM_TYPE_ERROR' : 'PARAM_VALIDATION_ERROR'), messages.join('；'));
   }
 
   const result = await mcpInitializeAndCall(server_type, 'tools/call', {
     name: toolName,
     arguments: args,
     _meta: { clientVersion: SKILL_VERSION },
-  }, {
-    original_input: originalArgs && typeof originalArgs === 'object' ? originalArgs.windcode : null,
-    normalized_input: args && typeof args === 'object' ? args.windcode : null,
   });
   return {
     server_type,
