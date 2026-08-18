@@ -6,7 +6,7 @@ import { join, dirname, basename, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 
-// #region 静态
+// #region 静态：版本、7 个 MCP 地址、路径、错误策略/正则/HTTP 映射。只含常量，不发网络。
 const SKILL_VERSION = '2.0.2';
 const DEFAULT_TOOL_CONCURRENCY = 1;
 const MAX_TOOL_CONCURRENCY = 10;
@@ -167,8 +167,7 @@ const HTTP_ERROR_MAP = {
 };
 // #endregion 静态
 
-// #region 自动更新
-// 每天首次使用 skill 时异步执行一次 npx skills update，不阻塞主流程。
+// #region 自动更新：仅 call 成功后触发；今天已成功则跳过；detached 跑 update-check.mjs，不阻塞取数。
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
@@ -238,7 +237,7 @@ function triggerUpdateCheck() {
 }
 // #endregion 自动更新
 
-// #region 信封
+// #region 信封：成功写 MCP result + cli_meta；失败写 {ok:false,error} 后 process.exit。Agent 只读 stdout。
 function normalizeSuccessPayload(value, path = '$', state = { warnings: [], tables: [], invalidPaths: [] }, dataCell = false) {
   if (dataCell && value === 'INVALID') {
     state.invalidPaths.push(path);
@@ -346,7 +345,7 @@ function exitWithUsage(usage, exitCode = 0) {
 }
 // #endregion 信封
 
-// #region 认证
+// #region 认证：Key 顺序为 ~/.wind-aifinmarket/config > skill config.json > 环境变量 WIND_API_KEY。
 function maskKey(key) {
   if (!key || key.length < 8) return '***';
   return key.slice(0, 4) + '***' + key.slice(-4);
@@ -400,7 +399,7 @@ function getApiKey() {
 }
 // #endregion 认证
 
-// #region 路由
+// #region 路由：校验 server_type、tool_name 是否在 SERVERS 与 tool-manifest.json。非法则 ROUTE_ERROR。
 function getServer(server_type) {
   const server = SERVERS[server_type];
   if (!server) {
@@ -453,7 +452,7 @@ function validateToolSelection(server_type, toolName) {
 }
 // #endregion 路由
 
-// #region 规则加载
+// #region 规则加载：读 call-rules.json，得到 K 线周期映射、按域改写工具名、参数校验规则。
 function readCallRules() {
   try {
     return JSON.parse(readFileSync(CALL_RULES_PATH, 'utf8'));
@@ -483,7 +482,7 @@ const TOOL_VALIDATION_RULES = {
 const KLINE_TOOLS = new Set(TOOL_VALIDATION_RULES.toolRules.find(rule => rule.name === 'kline')?.tools || []);
 // #endregion 规则加载
 
-// #region 规范化
+// #region 规范化：整理 windcode/indexes/period/EDB executionMode。不给中文名称猜交易所后缀。
 function normalizeIndexes(indexes) {
   if (typeof indexes !== 'string') return indexes;
   return indexes.split(',').map((item) => item.trim()).filter(Boolean).join(',');
@@ -539,7 +538,7 @@ function normalizeCall(server_type, toolName, args) {
 }
 // #endregion 规范化
 
-// #region 校验
+// #region 校验：按 call-rules 查必填、枚举、成对/互斥字段、日期顺序。发网络前拦住非法参数。
 function validateBasicParams(params) {
   const errors = [];
   if (!params || typeof params !== 'object' || Array.isArray(params)) {
@@ -656,7 +655,7 @@ function validateToolParams(toolName, params) {
 }
 // #endregion 校验
 
-// #region 错误分类
+// #region 错误分类：把后端文案正则映射成稳定 error.code。有可用数据时可能降级为 warning。
 function inferErrorCode(msg) {
   if (!msg) return 'UNKNOWN';
   if (/^\s*"?OK"?\s*$/i.test(String(msg))) return 'TOOL_RUNTIME_ERROR';
@@ -716,7 +715,7 @@ function isExplicitNoDataResult(inner) {
 }
 // #endregion 错误分类
 
-// #region MCP
+// #region MCP：裸 HTTP JSON-RPC + SSE。先 initialize 再 tools/call。拆 HTTP / RPC / isError / 业务 JSON 四层错误。
 function parseSSE(text) {
   const trimmed = text.trim();
   // 后端正常 SSE, 部分错误场景纯 JSON
@@ -972,7 +971,7 @@ async function mcpInitializeAndCall(server_type, method, params, diagnosticConte
 }
 // #endregion MCP
 
-// #region 命令
+// #region 命令：call 取数；list-tools 拉 schema；setup-key / open-portal 配 Key；diagnose 看更新状态。
 function loadParamsInput(paramsInput) {
   if (!paramsInput.startsWith('@')) {
     return { jsonText: paramsInput, source: 'inline' };
@@ -1240,7 +1239,7 @@ async function cmdDiagnose() {
 }
 // #endregion 命令
 
-// #region 主入口
+// #region 主入口：IS_MAIN 避免测试 import 时跑副作用。无参打 USAGE；仅 call 成功才触发更新检查。
 const IS_MAIN = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (IS_MAIN) runMain();
