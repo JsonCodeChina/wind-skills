@@ -1,0 +1,5853 @@
+[
+ {
+  "id": "route-unknown-server-001",
+  "category": "route-unknown-server",
+  "angle": "未知 server_type 'stok_data'",
+  "argv": [
+   "call",
+   "stok_data",
+   "get_stock_basicinfo",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-server-002",
+  "category": "route-unknown-server",
+  "angle": "未知 server_type 'stock'",
+  "argv": [
+   "call",
+   "stock",
+   "get_stock_basicinfo",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-server-003",
+  "category": "route-unknown-server",
+  "angle": "未知 server_type 'stockdata'",
+  "argv": [
+   "call",
+   "stockdata",
+   "get_stock_basicinfo",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-server-004",
+  "category": "route-unknown-server",
+  "angle": "未知 server_type 'STOCK_DATA'",
+  "argv": [
+   "call",
+   "STOCK_DATA",
+   "get_stock_basicinfo",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-server-005",
+  "category": "route-unknown-server",
+  "angle": "未知 server_type 'fund'",
+  "argv": [
+   "call",
+   "fund",
+   "get_stock_basicinfo",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-server-006",
+  "category": "route-unknown-server",
+  "angle": "未知 server_type 'economic'",
+  "argv": [
+   "call",
+   "economic",
+   "get_stock_basicinfo",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-server-007",
+  "category": "route-unknown-server",
+  "angle": "未知 server_type 'doc_data'",
+  "argv": [
+   "call",
+   "doc_data",
+   "get_stock_basicinfo",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-server-008",
+  "category": "route-unknown-server",
+  "angle": "未知 server_type 'markets'",
+  "argv": [
+   "call",
+   "markets",
+   "get_stock_basicinfo",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-server-009",
+  "category": "route-unknown-server",
+  "angle": "未知 server_type 'stock_data '",
+  "argv": [
+   "call",
+   "stock_data ",
+   "get_stock_basicinfo",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-server-010",
+  "category": "route-unknown-server",
+  "angle": "未知 server_type ' stock_data'",
+  "argv": [
+   "call",
+   " stock_data",
+   "get_stock_basicinfo",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-server-011",
+  "category": "route-unknown-server",
+  "angle": "未知 server_type 'analytics'",
+  "argv": [
+   "call",
+   "analytics",
+   "get_stock_basicinfo",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-server-012",
+  "category": "route-unknown-server",
+  "angle": "未知 server_type 'bonddata'",
+  "argv": [
+   "call",
+   "bonddata",
+   "get_stock_basicinfo",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-013",
+  "category": "route-wrong-tool",
+  "angle": "search_stocks 放到 fund_data",
+  "argv": [
+   "call",
+   "fund_data",
+   "search_stocks",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-014",
+  "category": "route-wrong-tool",
+  "angle": "get_stock_basicinfo 放到 fund_data",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_stock_basicinfo",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-015",
+  "category": "route-wrong-tool",
+  "angle": "get_stock_fundamentals 放到 fund_data",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_stock_fundamentals",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-016",
+  "category": "route-wrong-tool",
+  "angle": "get_stock_equity_holders 放到 fund_data",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_stock_equity_holders",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-017",
+  "category": "route-wrong-tool",
+  "angle": "get_stock_events 放到 fund_data",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_stock_events",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-018",
+  "category": "route-wrong-tool",
+  "angle": "get_stock_technicals 放到 fund_data",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_stock_technicals",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-019",
+  "category": "route-wrong-tool",
+  "angle": "get_risk_metrics 放到 fund_data",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_risk_metrics",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-020",
+  "category": "route-wrong-tool",
+  "angle": "search_funds 放到 stock_data",
+  "argv": [
+   "call",
+   "stock_data",
+   "search_funds",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-021",
+  "category": "route-wrong-tool",
+  "angle": "get_fund_info 放到 stock_data",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_fund_info",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-022",
+  "category": "route-wrong-tool",
+  "angle": "get_fund_financials 放到 stock_data",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_fund_financials",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-023",
+  "category": "route-wrong-tool",
+  "angle": "get_fund_holdings 放到 stock_data",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_fund_holdings",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-024",
+  "category": "route-wrong-tool",
+  "angle": "get_fund_performance 放到 stock_data",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_fund_performance",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-025",
+  "category": "route-wrong-tool",
+  "angle": "get_fund_holders 放到 stock_data",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_fund_holders",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-026",
+  "category": "route-wrong-tool",
+  "angle": "get_fund_company_info 放到 stock_data",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_fund_company_info",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-027",
+  "category": "route-wrong-tool",
+  "angle": "get_index_basicinfo 放到 stock_data",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_index_basicinfo",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-028",
+  "category": "route-wrong-tool",
+  "angle": "get_index_fundamentals 放到 stock_data",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_index_fundamentals",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-029",
+  "category": "route-wrong-tool",
+  "angle": "get_index_technicals 放到 stock_data",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_index_technicals",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-030",
+  "category": "route-wrong-tool",
+  "angle": "get_bond_basicinfo 放到 stock_data",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_bond_basicinfo",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-031",
+  "category": "route-wrong-tool",
+  "angle": "get_bond_issuer_info 放到 stock_data",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_bond_issuer_info",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-032",
+  "category": "route-wrong-tool",
+  "angle": "get_bond_market_data 放到 stock_data",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_bond_market_data",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-033",
+  "category": "route-wrong-tool",
+  "angle": "get_bond_financial_data 放到 stock_data",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_bond_financial_data",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-034",
+  "category": "route-wrong-tool",
+  "angle": "get_financial_data 放到 stock_data",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_financial_data",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-035",
+  "category": "route-wrong-tool",
+  "angle": "get_company_announcements 放到 stock_data",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_company_announcements",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-036",
+  "category": "route-wrong-tool",
+  "angle": "get_financial_news 放到 stock_data",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_financial_news",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-wrong-tool-037",
+  "category": "route-wrong-tool",
+  "angle": "natural_language_get_edb_data 放到 stock_data",
+  "argv": [
+   "call",
+   "stock_data",
+   "natural_language_get_edb_data",
+   "{\"question\":\"x\",\"query\":\"x\",\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-038",
+  "category": "route-unknown-tool",
+  "angle": "stock_data 未知工具 get_foo",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_foo",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-039",
+  "category": "route-unknown-tool",
+  "angle": "stock_data 未知工具 search",
+  "argv": [
+   "call",
+   "stock_data",
+   "search",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-040",
+  "category": "route-unknown-tool",
+  "angle": "stock_data 未知工具 get_stock_price",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_price",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-041",
+  "category": "route-unknown-tool",
+  "angle": "stock_data 未知工具 get_stock_basic_info",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basic_info",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-042",
+  "category": "route-unknown-tool",
+  "angle": "fund_data 未知工具 get_foo",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_foo",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-043",
+  "category": "route-unknown-tool",
+  "angle": "fund_data 未知工具 search",
+  "argv": [
+   "call",
+   "fund_data",
+   "search",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-044",
+  "category": "route-unknown-tool",
+  "angle": "fund_data 未知工具 get_stock_price",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_stock_price",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-045",
+  "category": "route-unknown-tool",
+  "angle": "fund_data 未知工具 get_stock_basic_info",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_stock_basic_info",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-046",
+  "category": "route-unknown-tool",
+  "angle": "index_data 未知工具 get_foo",
+  "argv": [
+   "call",
+   "index_data",
+   "get_foo",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-047",
+  "category": "route-unknown-tool",
+  "angle": "index_data 未知工具 search",
+  "argv": [
+   "call",
+   "index_data",
+   "search",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-048",
+  "category": "route-unknown-tool",
+  "angle": "index_data 未知工具 get_stock_price",
+  "argv": [
+   "call",
+   "index_data",
+   "get_stock_price",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-049",
+  "category": "route-unknown-tool",
+  "angle": "index_data 未知工具 get_stock_basic_info",
+  "argv": [
+   "call",
+   "index_data",
+   "get_stock_basic_info",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-050",
+  "category": "route-unknown-tool",
+  "angle": "bond_data 未知工具 get_foo",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_foo",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-051",
+  "category": "route-unknown-tool",
+  "angle": "bond_data 未知工具 search",
+  "argv": [
+   "call",
+   "bond_data",
+   "search",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-052",
+  "category": "route-unknown-tool",
+  "angle": "bond_data 未知工具 get_stock_price",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_stock_price",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-053",
+  "category": "route-unknown-tool",
+  "angle": "bond_data 未知工具 get_stock_basic_info",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_stock_basic_info",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-054",
+  "category": "route-unknown-tool",
+  "angle": "financial_docs 未知工具 get_foo",
+  "argv": [
+   "call",
+   "financial_docs",
+   "get_foo",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-055",
+  "category": "route-unknown-tool",
+  "angle": "financial_docs 未知工具 search",
+  "argv": [
+   "call",
+   "financial_docs",
+   "search",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-056",
+  "category": "route-unknown-tool",
+  "angle": "financial_docs 未知工具 get_stock_price",
+  "argv": [
+   "call",
+   "financial_docs",
+   "get_stock_price",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-057",
+  "category": "route-unknown-tool",
+  "angle": "financial_docs 未知工具 get_stock_basic_info",
+  "argv": [
+   "call",
+   "financial_docs",
+   "get_stock_basic_info",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-058",
+  "category": "route-unknown-tool",
+  "angle": "economic_data 未知工具 get_foo",
+  "argv": [
+   "call",
+   "economic_data",
+   "get_foo",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-059",
+  "category": "route-unknown-tool",
+  "angle": "economic_data 未知工具 search",
+  "argv": [
+   "call",
+   "economic_data",
+   "search",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-060",
+  "category": "route-unknown-tool",
+  "angle": "economic_data 未知工具 get_stock_price",
+  "argv": [
+   "call",
+   "economic_data",
+   "get_stock_price",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-061",
+  "category": "route-unknown-tool",
+  "angle": "economic_data 未知工具 get_stock_basic_info",
+  "argv": [
+   "call",
+   "economic_data",
+   "get_stock_basic_info",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-062",
+  "category": "route-unknown-tool",
+  "angle": "analytics_data 未知工具 get_foo",
+  "argv": [
+   "call",
+   "analytics_data",
+   "get_foo",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-063",
+  "category": "route-unknown-tool",
+  "angle": "analytics_data 未知工具 search",
+  "argv": [
+   "call",
+   "analytics_data",
+   "search",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-064",
+  "category": "route-unknown-tool",
+  "angle": "analytics_data 未知工具 get_stock_price",
+  "argv": [
+   "call",
+   "analytics_data",
+   "get_stock_price",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "route-unknown-tool-065",
+  "category": "route-unknown-tool",
+  "angle": "analytics_data 未知工具 get_stock_basic_info",
+  "argv": [
+   "call",
+   "analytics_data",
+   "get_stock_basic_info",
+   "{\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "ROUTE_ERROR"
+  }
+ },
+ {
+  "id": "usage-066",
+  "category": "usage",
+  "angle": "未知子命令",
+  "argv": [
+   "frobnicate"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "USAGE_ERROR"
+  }
+ },
+ {
+  "id": "usage-067",
+  "category": "usage",
+  "angle": "call 缺 tool 与 params",
+  "argv": [
+   "call",
+   "stock_data"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "USAGE_ERROR"
+  }
+ },
+ {
+  "id": "usage-068",
+  "category": "usage",
+  "angle": "call 缺 params",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "USAGE_ERROR"
+  }
+ },
+ {
+  "id": "usage-069",
+  "category": "usage",
+  "angle": "params 空串视为缺失",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   ""
+  ],
+  "expect": {
+   "ok": false,
+   "code": "USAGE_ERROR"
+  }
+ },
+ {
+  "id": "usage-070",
+  "category": "usage",
+  "angle": "setup-key 缺 --scope",
+  "argv": [
+   "setup-key"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "USAGE_ERROR"
+  }
+ },
+ {
+  "id": "json-malformed-071",
+  "category": "json-malformed",
+  "angle": "非法 JSON: {bad",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "{bad"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "INVALID_PARAMS_JSON"
+  }
+ },
+ {
+  "id": "json-malformed-072",
+  "category": "json-malformed",
+  "angle": "非法 JSON: {\"question\":}",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "{\"question\":}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "INVALID_PARAMS_JSON"
+  }
+ },
+ {
+  "id": "json-malformed-073",
+  "category": "json-malformed",
+  "angle": "非法 JSON: {'question':'x'}",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "{'question':'x'}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "INVALID_PARAMS_JSON"
+  }
+ },
+ {
+  "id": "json-malformed-074",
+  "category": "json-malformed",
+  "angle": "非法 JSON: {\"question\":\"x\",}",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "{\"question\":\"x\",}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "INVALID_PARAMS_JSON"
+  }
+ },
+ {
+  "id": "json-malformed-075",
+  "category": "json-malformed",
+  "angle": "非法 JSON: {question:\"x\"}",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "{question:\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "INVALID_PARAMS_JSON"
+  }
+ },
+ {
+  "id": "json-malformed-076",
+  "category": "json-malformed",
+  "angle": "非法 JSON: {\"question\":\"x\"",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "{\"question\":\"x\""
+  ],
+  "expect": {
+   "ok": false,
+   "code": "INVALID_PARAMS_JSON"
+  }
+ },
+ {
+  "id": "json-malformed-077",
+  "category": "json-malformed",
+  "angle": "非法 JSON:    ",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "   "
+  ],
+  "expect": {
+   "ok": false,
+   "code": "INVALID_PARAMS_JSON"
+  }
+ },
+ {
+  "id": "json-malformed-078",
+  "category": "json-malformed",
+  "angle": "非法 JSON: {\"a\":1,,}",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "{\"a\":1,,}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "INVALID_PARAMS_JSON"
+  }
+ },
+ {
+  "id": "json-malformed-079",
+  "category": "json-malformed",
+  "angle": "非法 JSON: {\"a\":\"\\\"}",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "{\"a\":\"\\\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "INVALID_PARAMS_JSON"
+  }
+ },
+ {
+  "id": "json-malformed-080",
+  "category": "json-malformed",
+  "angle": "非法 JSON: undefined",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "undefined"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "INVALID_PARAMS_JSON"
+  }
+ },
+ {
+  "id": "json-malformed-081",
+  "category": "json-malformed",
+  "angle": "非法 JSON: NaN",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "NaN"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "INVALID_PARAMS_JSON"
+  }
+ },
+ {
+  "id": "json-malformed-082",
+  "category": "json-malformed",
+  "angle": "非法 JSON: {\"a\":01}",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "{\"a\":01}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "INVALID_PARAMS_JSON"
+  }
+ },
+ {
+  "id": "json-malformed-083",
+  "category": "json-malformed",
+  "angle": "非法 JSON: {\"a\":.5}",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "{\"a\":.5}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "INVALID_PARAMS_JSON"
+  }
+ },
+ {
+  "id": "json-malformed-084",
+  "category": "json-malformed",
+  "angle": "非法 JSON: [1,2",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "[1,2"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "INVALID_PARAMS_JSON"
+  }
+ },
+ {
+  "id": "json-malformed-085",
+  "category": "json-malformed",
+  "angle": "非法 JSON: {\"a\":\"b\" \"c\":\"d\"}",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "{\"a\":\"b\" \"c\":\"d\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "INVALID_PARAMS_JSON"
+  }
+ },
+ {
+  "id": "params-not-object-086",
+  "category": "params-not-object",
+  "angle": "params 是 数组",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "[]"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "params-not-object-087",
+  "category": "params-not-object",
+  "angle": "params 是 数组非空",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "[1,2]"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "params-not-object-088",
+  "category": "params-not-object",
+  "angle": "params 是 数字",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "123"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "params-not-object-089",
+  "category": "params-not-object",
+  "angle": "params 是 字符串",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "\"hello\""
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "params-not-object-090",
+  "category": "params-not-object",
+  "angle": "params 是 布尔",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "true"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "params-not-object-091",
+  "category": "params-not-object",
+  "angle": "params 是 null",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "null"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "params-file-092",
+  "category": "params-file",
+  "angle": "@ 空路径",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "@"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAMS_FILE_ERROR"
+  }
+ },
+ {
+  "id": "params-file-093",
+  "category": "params-file",
+  "angle": "@不存在的文件",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "@/tmp/definitely-missing-xyz.json"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAMS_FILE_ERROR"
+  }
+ },
+ {
+  "id": "params-file-094",
+  "category": "params-file",
+  "angle": "@目录",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "@/tmp"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAMS_FILE_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-095",
+  "category": "missing-required",
+  "angle": "search_stocks 缺 question",
+  "argv": [
+   "call",
+   "stock_data",
+   "search_stocks",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-096",
+  "category": "missing-required",
+  "angle": "get_stock_basicinfo 缺 question",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-097",
+  "category": "missing-required",
+  "angle": "get_stock_fundamentals 缺 question",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_fundamentals",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-098",
+  "category": "missing-required",
+  "angle": "get_stock_equity_holders 缺 question",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_equity_holders",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-099",
+  "category": "missing-required",
+  "angle": "get_stock_events 缺 question",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_events",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-100",
+  "category": "missing-required",
+  "angle": "get_stock_technicals 缺 question",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_technicals",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-101",
+  "category": "missing-required",
+  "angle": "get_risk_metrics 缺 question",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_risk_metrics",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-102",
+  "category": "missing-required",
+  "angle": "search_funds 缺 question",
+  "argv": [
+   "call",
+   "fund_data",
+   "search_funds",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-103",
+  "category": "missing-required",
+  "angle": "get_fund_info 缺 question",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_info",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-104",
+  "category": "missing-required",
+  "angle": "get_fund_financials 缺 question",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_financials",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-105",
+  "category": "missing-required",
+  "angle": "get_fund_holdings 缺 question",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_holdings",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-106",
+  "category": "missing-required",
+  "angle": "get_fund_performance 缺 question",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_performance",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-107",
+  "category": "missing-required",
+  "angle": "get_fund_holders 缺 question",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_holders",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-108",
+  "category": "missing-required",
+  "angle": "get_fund_company_info 缺 question",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_company_info",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-109",
+  "category": "missing-required",
+  "angle": "get_index_basicinfo 缺 question",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_basicinfo",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-110",
+  "category": "missing-required",
+  "angle": "get_index_fundamentals 缺 question",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_fundamentals",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-111",
+  "category": "missing-required",
+  "angle": "get_index_technicals 缺 question",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_technicals",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-112",
+  "category": "missing-required",
+  "angle": "get_bond_basicinfo 缺 question",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_bond_basicinfo",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-113",
+  "category": "missing-required",
+  "angle": "get_bond_issuer_info 缺 question",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_bond_issuer_info",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-114",
+  "category": "missing-required",
+  "angle": "get_bond_market_data 缺 question",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_bond_market_data",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-115",
+  "category": "missing-required",
+  "angle": "get_bond_financial_data 缺 question",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_bond_financial_data",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-116",
+  "category": "missing-required",
+  "angle": "get_financial_data 缺 question",
+  "argv": [
+   "call",
+   "analytics_data",
+   "get_financial_data",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-117",
+  "category": "missing-required",
+  "angle": "get_company_announcements 缺 query",
+  "argv": [
+   "call",
+   "financial_docs",
+   "get_company_announcements",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-118",
+  "category": "missing-required",
+  "angle": "get_financial_news 缺 query",
+  "argv": [
+   "call",
+   "financial_docs",
+   "get_financial_news",
+   "{}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-119",
+  "category": "missing-required",
+  "angle": "get_stock_kline 缺 windcode",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-120",
+  "category": "missing-required",
+  "angle": "get_stock_kline 缺 begin_date",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"end_date\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-121",
+  "category": "missing-required",
+  "angle": "get_stock_kline 缺 end_date",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-122",
+  "category": "missing-required",
+  "angle": "get_fund_kline 缺 windcode",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-123",
+  "category": "missing-required",
+  "angle": "get_fund_kline 缺 begin_date",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"end_date\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-124",
+  "category": "missing-required",
+  "angle": "get_fund_kline 缺 end_date",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-03\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-125",
+  "category": "missing-required",
+  "angle": "get_index_kline 缺 windcode",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-126",
+  "category": "missing-required",
+  "angle": "get_index_kline 缺 begin_date",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"end_date\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-127",
+  "category": "missing-required",
+  "angle": "get_index_kline 缺 end_date",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-03\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-128",
+  "category": "missing-required",
+  "angle": "get_stock_quote 缺 windcode",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_quote",
+   "{\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-129",
+  "category": "missing-required",
+  "angle": "get_fund_quote 缺 windcode",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_quote",
+   "{\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-130",
+  "category": "missing-required",
+  "angle": "get_index_quote 缺 windcode",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_quote",
+   "{\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-131",
+  "category": "missing-required",
+  "angle": "EDB 缺 executionMode",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"question\":\"中国GDP\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "missing-required-132",
+  "category": "missing-required",
+  "angle": "EDB 缺 question",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"仅搜索\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-133",
+  "category": "empty-required",
+  "angle": "search_stocks question 空串",
+  "argv": [
+   "call",
+   "stock_data",
+   "search_stocks",
+   "{\"question\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-134",
+  "category": "empty-required",
+  "angle": "get_stock_basicinfo question 空串",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "{\"question\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-135",
+  "category": "empty-required",
+  "angle": "get_stock_fundamentals question 空串",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_fundamentals",
+   "{\"question\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-136",
+  "category": "empty-required",
+  "angle": "get_stock_equity_holders question 空串",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_equity_holders",
+   "{\"question\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-137",
+  "category": "empty-required",
+  "angle": "get_stock_events question 空串",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_events",
+   "{\"question\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-138",
+  "category": "empty-required",
+  "angle": "get_stock_technicals question 空串",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_technicals",
+   "{\"question\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-139",
+  "category": "empty-required",
+  "angle": "get_risk_metrics question 空串",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_risk_metrics",
+   "{\"question\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-140",
+  "category": "empty-required",
+  "angle": "search_funds question 空串",
+  "argv": [
+   "call",
+   "fund_data",
+   "search_funds",
+   "{\"question\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-141",
+  "category": "empty-required",
+  "angle": "get_fund_info question 空串",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_info",
+   "{\"question\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-142",
+  "category": "empty-required",
+  "angle": "get_fund_financials question 空串",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_financials",
+   "{\"question\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-143",
+  "category": "empty-required",
+  "angle": "get_fund_holdings question 空串",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_holdings",
+   "{\"question\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-144",
+  "category": "empty-required",
+  "angle": "get_fund_performance question 空串",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_performance",
+   "{\"question\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-145",
+  "category": "empty-required",
+  "angle": "get_fund_holders question 空串",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_holders",
+   "{\"question\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-146",
+  "category": "empty-required",
+  "angle": "get_fund_company_info question 空串",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_company_info",
+   "{\"question\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-147",
+  "category": "empty-required",
+  "angle": "get_index_basicinfo question 空串",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_basicinfo",
+   "{\"question\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-148",
+  "category": "empty-required",
+  "angle": "get_index_fundamentals question 空串",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_fundamentals",
+   "{\"question\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-149",
+  "category": "empty-required",
+  "angle": "get_index_technicals question 空串",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_technicals",
+   "{\"question\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-150",
+  "category": "empty-required",
+  "angle": "get_bond_basicinfo question 空串",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_bond_basicinfo",
+   "{\"question\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-151",
+  "category": "empty-required",
+  "angle": "get_bond_issuer_info question 空串",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_bond_issuer_info",
+   "{\"question\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-152",
+  "category": "empty-required",
+  "angle": "get_bond_market_data question 空串",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_bond_market_data",
+   "{\"question\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-153",
+  "category": "empty-required",
+  "angle": "get_bond_financial_data question 空串",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_bond_financial_data",
+   "{\"question\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-154",
+  "category": "empty-required",
+  "angle": "get_financial_data question 空串",
+  "argv": [
+   "call",
+   "analytics_data",
+   "get_financial_data",
+   "{\"question\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-155",
+  "category": "empty-required",
+  "angle": "search_stocks question 全空白",
+  "argv": [
+   "call",
+   "stock_data",
+   "search_stocks",
+   "{\"question\":\"   \"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-156",
+  "category": "empty-required",
+  "angle": "get_stock_basicinfo question 全空白",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "{\"question\":\"   \"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-157",
+  "category": "empty-required",
+  "angle": "get_stock_fundamentals question 全空白",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_fundamentals",
+   "{\"question\":\"   \"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-158",
+  "category": "empty-required",
+  "angle": "get_stock_equity_holders question 全空白",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_equity_holders",
+   "{\"question\":\"   \"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-159",
+  "category": "empty-required",
+  "angle": "get_stock_events question 全空白",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_events",
+   "{\"question\":\"   \"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-160",
+  "category": "empty-required",
+  "angle": "get_stock_technicals question 全空白",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_technicals",
+   "{\"question\":\"   \"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-161",
+  "category": "empty-required",
+  "angle": "get_risk_metrics question 全空白",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_risk_metrics",
+   "{\"question\":\"   \"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-162",
+  "category": "empty-required",
+  "angle": "search_funds question 全空白",
+  "argv": [
+   "call",
+   "fund_data",
+   "search_funds",
+   "{\"question\":\"   \"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-163",
+  "category": "empty-required",
+  "angle": "get_company_announcements query 空串",
+  "argv": [
+   "call",
+   "financial_docs",
+   "get_company_announcements",
+   "{\"query\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-164",
+  "category": "empty-required",
+  "angle": "get_financial_news query 空串",
+  "argv": [
+   "call",
+   "financial_docs",
+   "get_financial_news",
+   "{\"query\":\"\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-165",
+  "category": "empty-required",
+  "angle": "get_stock_kline windcode 空串",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-166",
+  "category": "empty-required",
+  "angle": "get_fund_kline windcode 空串",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-167",
+  "category": "empty-required",
+  "angle": "get_index_kline windcode 空串",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-168",
+  "category": "empty-required",
+  "angle": "get_stock_quote windcode 空串",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_quote",
+   "{\"windcode\":\"\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-169",
+  "category": "empty-required",
+  "angle": "get_fund_quote windcode 空串",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_quote",
+   "{\"windcode\":\"\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "empty-required-170",
+  "category": "empty-required",
+  "angle": "get_index_quote windcode 空串",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_quote",
+   "{\"windcode\":\"\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-171",
+  "category": "wrong-type",
+  "angle": "search_stocks question=数字",
+  "argv": [
+   "call",
+   "stock_data",
+   "search_stocks",
+   "{\"question\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-172",
+  "category": "wrong-type",
+  "angle": "search_stocks question=数组",
+  "argv": [
+   "call",
+   "stock_data",
+   "search_stocks",
+   "{\"question\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-173",
+  "category": "wrong-type",
+  "angle": "search_stocks question=布尔",
+  "argv": [
+   "call",
+   "stock_data",
+   "search_stocks",
+   "{\"question\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-174",
+  "category": "wrong-type",
+  "angle": "get_stock_basicinfo question=数字",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "{\"question\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-175",
+  "category": "wrong-type",
+  "angle": "get_stock_basicinfo question=数组",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "{\"question\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-176",
+  "category": "wrong-type",
+  "angle": "get_stock_basicinfo question=布尔",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "{\"question\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-177",
+  "category": "wrong-type",
+  "angle": "get_stock_fundamentals question=数字",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_fundamentals",
+   "{\"question\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-178",
+  "category": "wrong-type",
+  "angle": "get_stock_fundamentals question=数组",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_fundamentals",
+   "{\"question\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-179",
+  "category": "wrong-type",
+  "angle": "get_stock_fundamentals question=布尔",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_fundamentals",
+   "{\"question\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-180",
+  "category": "wrong-type",
+  "angle": "get_stock_equity_holders question=数字",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_equity_holders",
+   "{\"question\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-181",
+  "category": "wrong-type",
+  "angle": "get_stock_equity_holders question=数组",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_equity_holders",
+   "{\"question\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-182",
+  "category": "wrong-type",
+  "angle": "get_stock_equity_holders question=布尔",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_equity_holders",
+   "{\"question\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-183",
+  "category": "wrong-type",
+  "angle": "get_stock_events question=数字",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_events",
+   "{\"question\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-184",
+  "category": "wrong-type",
+  "angle": "get_stock_events question=数组",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_events",
+   "{\"question\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-185",
+  "category": "wrong-type",
+  "angle": "get_stock_events question=布尔",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_events",
+   "{\"question\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-186",
+  "category": "wrong-type",
+  "angle": "get_stock_technicals question=数字",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_technicals",
+   "{\"question\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-187",
+  "category": "wrong-type",
+  "angle": "get_stock_technicals question=数组",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_technicals",
+   "{\"question\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-188",
+  "category": "wrong-type",
+  "angle": "get_stock_technicals question=布尔",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_technicals",
+   "{\"question\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-189",
+  "category": "wrong-type",
+  "angle": "get_risk_metrics question=数字",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_risk_metrics",
+   "{\"question\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-190",
+  "category": "wrong-type",
+  "angle": "get_risk_metrics question=数组",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_risk_metrics",
+   "{\"question\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-191",
+  "category": "wrong-type",
+  "angle": "get_risk_metrics question=布尔",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_risk_metrics",
+   "{\"question\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-192",
+  "category": "wrong-type",
+  "angle": "search_funds question=数字",
+  "argv": [
+   "call",
+   "fund_data",
+   "search_funds",
+   "{\"question\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-193",
+  "category": "wrong-type",
+  "angle": "search_funds question=数组",
+  "argv": [
+   "call",
+   "fund_data",
+   "search_funds",
+   "{\"question\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-194",
+  "category": "wrong-type",
+  "angle": "search_funds question=布尔",
+  "argv": [
+   "call",
+   "fund_data",
+   "search_funds",
+   "{\"question\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-195",
+  "category": "wrong-type",
+  "angle": "get_fund_info question=数字",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_info",
+   "{\"question\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-196",
+  "category": "wrong-type",
+  "angle": "get_fund_info question=数组",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_info",
+   "{\"question\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-197",
+  "category": "wrong-type",
+  "angle": "get_fund_info question=布尔",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_info",
+   "{\"question\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-198",
+  "category": "wrong-type",
+  "angle": "get_fund_financials question=数字",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_financials",
+   "{\"question\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-199",
+  "category": "wrong-type",
+  "angle": "get_fund_financials question=数组",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_financials",
+   "{\"question\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-200",
+  "category": "wrong-type",
+  "angle": "get_fund_financials question=布尔",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_financials",
+   "{\"question\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-201",
+  "category": "wrong-type",
+  "angle": "get_fund_holdings question=数字",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_holdings",
+   "{\"question\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-202",
+  "category": "wrong-type",
+  "angle": "get_fund_holdings question=数组",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_holdings",
+   "{\"question\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-203",
+  "category": "wrong-type",
+  "angle": "get_fund_holdings question=布尔",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_holdings",
+   "{\"question\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-204",
+  "category": "wrong-type",
+  "angle": "get_fund_performance question=数字",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_performance",
+   "{\"question\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-205",
+  "category": "wrong-type",
+  "angle": "get_fund_performance question=数组",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_performance",
+   "{\"question\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-206",
+  "category": "wrong-type",
+  "angle": "get_fund_performance question=布尔",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_performance",
+   "{\"question\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-207",
+  "category": "wrong-type",
+  "angle": "get_fund_holders question=数字",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_holders",
+   "{\"question\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-208",
+  "category": "wrong-type",
+  "angle": "get_fund_holders question=数组",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_holders",
+   "{\"question\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-209",
+  "category": "wrong-type",
+  "angle": "get_fund_holders question=布尔",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_holders",
+   "{\"question\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-210",
+  "category": "wrong-type",
+  "angle": "get_fund_company_info question=数字",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_company_info",
+   "{\"question\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-211",
+  "category": "wrong-type",
+  "angle": "get_fund_company_info question=数组",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_company_info",
+   "{\"question\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-212",
+  "category": "wrong-type",
+  "angle": "get_fund_company_info question=布尔",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_company_info",
+   "{\"question\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-213",
+  "category": "wrong-type",
+  "angle": "get_index_basicinfo question=数字",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_basicinfo",
+   "{\"question\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-214",
+  "category": "wrong-type",
+  "angle": "get_index_basicinfo question=数组",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_basicinfo",
+   "{\"question\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-215",
+  "category": "wrong-type",
+  "angle": "get_index_basicinfo question=布尔",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_basicinfo",
+   "{\"question\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-216",
+  "category": "wrong-type",
+  "angle": "get_index_fundamentals question=数字",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_fundamentals",
+   "{\"question\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-217",
+  "category": "wrong-type",
+  "angle": "get_index_fundamentals question=数组",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_fundamentals",
+   "{\"question\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-218",
+  "category": "wrong-type",
+  "angle": "get_index_fundamentals question=布尔",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_fundamentals",
+   "{\"question\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-219",
+  "category": "wrong-type",
+  "angle": "get_index_technicals question=数字",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_technicals",
+   "{\"question\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-220",
+  "category": "wrong-type",
+  "angle": "get_index_technicals question=数组",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_technicals",
+   "{\"question\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-221",
+  "category": "wrong-type",
+  "angle": "get_index_technicals question=布尔",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_technicals",
+   "{\"question\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-222",
+  "category": "wrong-type",
+  "angle": "get_bond_basicinfo question=数字",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_bond_basicinfo",
+   "{\"question\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-223",
+  "category": "wrong-type",
+  "angle": "get_bond_basicinfo question=数组",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_bond_basicinfo",
+   "{\"question\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-224",
+  "category": "wrong-type",
+  "angle": "get_bond_basicinfo question=布尔",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_bond_basicinfo",
+   "{\"question\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-225",
+  "category": "wrong-type",
+  "angle": "get_bond_issuer_info question=数字",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_bond_issuer_info",
+   "{\"question\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-226",
+  "category": "wrong-type",
+  "angle": "get_bond_issuer_info question=数组",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_bond_issuer_info",
+   "{\"question\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-227",
+  "category": "wrong-type",
+  "angle": "get_bond_issuer_info question=布尔",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_bond_issuer_info",
+   "{\"question\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-228",
+  "category": "wrong-type",
+  "angle": "get_bond_market_data question=数字",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_bond_market_data",
+   "{\"question\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-229",
+  "category": "wrong-type",
+  "angle": "get_bond_market_data question=数组",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_bond_market_data",
+   "{\"question\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-230",
+  "category": "wrong-type",
+  "angle": "get_bond_market_data question=布尔",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_bond_market_data",
+   "{\"question\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-231",
+  "category": "wrong-type",
+  "angle": "get_bond_financial_data question=数字",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_bond_financial_data",
+   "{\"question\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-232",
+  "category": "wrong-type",
+  "angle": "get_bond_financial_data question=数组",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_bond_financial_data",
+   "{\"question\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-233",
+  "category": "wrong-type",
+  "angle": "get_bond_financial_data question=布尔",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_bond_financial_data",
+   "{\"question\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-234",
+  "category": "wrong-type",
+  "angle": "get_financial_data question=数字",
+  "argv": [
+   "call",
+   "analytics_data",
+   "get_financial_data",
+   "{\"question\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-235",
+  "category": "wrong-type",
+  "angle": "get_financial_data question=数组",
+  "argv": [
+   "call",
+   "analytics_data",
+   "get_financial_data",
+   "{\"question\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-236",
+  "category": "wrong-type",
+  "angle": "get_financial_data question=布尔",
+  "argv": [
+   "call",
+   "analytics_data",
+   "get_financial_data",
+   "{\"question\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-237",
+  "category": "wrong-type",
+  "angle": "get_company_announcements query=数字",
+  "argv": [
+   "call",
+   "financial_docs",
+   "get_company_announcements",
+   "{\"query\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-238",
+  "category": "wrong-type",
+  "angle": "get_company_announcements query=数组",
+  "argv": [
+   "call",
+   "financial_docs",
+   "get_company_announcements",
+   "{\"query\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-239",
+  "category": "wrong-type",
+  "angle": "get_company_announcements query=布尔",
+  "argv": [
+   "call",
+   "financial_docs",
+   "get_company_announcements",
+   "{\"query\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-240",
+  "category": "wrong-type",
+  "angle": "get_company_announcements query=对象",
+  "argv": [
+   "call",
+   "financial_docs",
+   "get_company_announcements",
+   "{\"query\":{\"a\":1}}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-241",
+  "category": "wrong-type",
+  "angle": "get_company_announcements query=null",
+  "argv": [
+   "call",
+   "financial_docs",
+   "get_company_announcements",
+   "{\"query\":null}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-242",
+  "category": "wrong-type",
+  "angle": "get_financial_news query=数字",
+  "argv": [
+   "call",
+   "financial_docs",
+   "get_financial_news",
+   "{\"query\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-243",
+  "category": "wrong-type",
+  "angle": "get_financial_news query=数组",
+  "argv": [
+   "call",
+   "financial_docs",
+   "get_financial_news",
+   "{\"query\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-244",
+  "category": "wrong-type",
+  "angle": "get_financial_news query=布尔",
+  "argv": [
+   "call",
+   "financial_docs",
+   "get_financial_news",
+   "{\"query\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-245",
+  "category": "wrong-type",
+  "angle": "get_financial_news query=对象",
+  "argv": [
+   "call",
+   "financial_docs",
+   "get_financial_news",
+   "{\"query\":{\"a\":1}}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-246",
+  "category": "wrong-type",
+  "angle": "get_financial_news query=null",
+  "argv": [
+   "call",
+   "financial_docs",
+   "get_financial_news",
+   "{\"query\":null}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-247",
+  "category": "wrong-type",
+  "angle": "get_stock_price_indicators windcode=数字",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_price_indicators",
+   "{\"windcode\":123,\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-248",
+  "category": "wrong-type",
+  "angle": "get_stock_price_indicators windcode=数组",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_price_indicators",
+   "{\"windcode\":[\"a\"],\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-249",
+  "category": "wrong-type",
+  "angle": "get_stock_price_indicators windcode=布尔",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_price_indicators",
+   "{\"windcode\":true,\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-250",
+  "category": "wrong-type",
+  "angle": "get_fund_price_indicators windcode=数字",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_price_indicators",
+   "{\"windcode\":123,\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-251",
+  "category": "wrong-type",
+  "angle": "get_fund_price_indicators windcode=数组",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_price_indicators",
+   "{\"windcode\":[\"a\"],\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-252",
+  "category": "wrong-type",
+  "angle": "get_fund_price_indicators windcode=布尔",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_price_indicators",
+   "{\"windcode\":true,\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-253",
+  "category": "wrong-type",
+  "angle": "get_index_price_indicators windcode=数字",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_price_indicators",
+   "{\"windcode\":123,\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-254",
+  "category": "wrong-type",
+  "angle": "get_index_price_indicators windcode=数组",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_price_indicators",
+   "{\"windcode\":[\"a\"],\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-255",
+  "category": "wrong-type",
+  "angle": "get_index_price_indicators windcode=布尔",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_price_indicators",
+   "{\"windcode\":true,\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-256",
+  "category": "wrong-type",
+  "angle": "get_stock_kline windcode=数字",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":123,\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-257",
+  "category": "wrong-type",
+  "angle": "get_stock_kline windcode=数组",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":[\"a\"],\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-258",
+  "category": "wrong-type",
+  "angle": "get_stock_kline windcode=布尔",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":true,\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-259",
+  "category": "wrong-type",
+  "angle": "get_fund_kline windcode=数字",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":123,\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-260",
+  "category": "wrong-type",
+  "angle": "get_fund_kline windcode=数组",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":[\"a\"],\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-261",
+  "category": "wrong-type",
+  "angle": "get_fund_kline windcode=布尔",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":true,\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-262",
+  "category": "wrong-type",
+  "angle": "get_index_kline windcode=数字",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":123,\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-263",
+  "category": "wrong-type",
+  "angle": "get_index_kline windcode=数组",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":[\"a\"],\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-264",
+  "category": "wrong-type",
+  "angle": "get_index_kline windcode=布尔",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":true,\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-265",
+  "category": "wrong-type",
+  "angle": "get_stock_quote windcode=数字",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_quote",
+   "{\"windcode\":123,\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-266",
+  "category": "wrong-type",
+  "angle": "get_stock_quote windcode=数组",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_quote",
+   "{\"windcode\":[\"a\"],\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-267",
+  "category": "wrong-type",
+  "angle": "get_stock_quote windcode=布尔",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_quote",
+   "{\"windcode\":true,\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-268",
+  "category": "wrong-type",
+  "angle": "get_fund_quote windcode=数字",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_quote",
+   "{\"windcode\":123,\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-269",
+  "category": "wrong-type",
+  "angle": "get_fund_quote windcode=数组",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_quote",
+   "{\"windcode\":[\"a\"],\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-270",
+  "category": "wrong-type",
+  "angle": "get_fund_quote windcode=布尔",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_quote",
+   "{\"windcode\":true,\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-271",
+  "category": "wrong-type",
+  "angle": "get_index_quote windcode=数字",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_quote",
+   "{\"windcode\":123,\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-272",
+  "category": "wrong-type",
+  "angle": "get_index_quote windcode=数组",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_quote",
+   "{\"windcode\":[\"a\"],\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-273",
+  "category": "wrong-type",
+  "angle": "get_index_quote windcode=布尔",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_quote",
+   "{\"windcode\":true,\"indexes\":\"中文简称\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-274",
+  "category": "wrong-type",
+  "angle": "EDB observation=数字",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"搜索并提数\",\"question\":\"x\",\"observation\":123}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-275",
+  "category": "wrong-type",
+  "angle": "EDB observation=数组",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"搜索并提数\",\"question\":\"x\",\"observation\":[\"a\"]}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "wrong-type-276",
+  "category": "wrong-type",
+  "angle": "EDB observation=布尔",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"搜索并提数\",\"question\":\"x\",\"observation\":true}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_TYPE_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-277",
+  "category": "enum-period",
+  "angle": "get_stock_kline period='99'",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"99\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-278",
+  "category": "enum-period",
+  "angle": "get_stock_kline period='daily'",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"daily\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-279",
+  "category": "enum-period",
+  "angle": "get_stock_kline period='day'",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"day\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-280",
+  "category": "enum-period",
+  "angle": "get_stock_kline period='1day'",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"1day\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-281",
+  "category": "enum-period",
+  "angle": "get_stock_kline period='week'",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"week\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-282",
+  "category": "enum-period",
+  "angle": "get_stock_kline period='2d'",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"2d\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-283",
+  "category": "enum-period",
+  "angle": "get_stock_kline period='0d'",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"0d\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-284",
+  "category": "enum-period",
+  "angle": "get_stock_kline period='minute'",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"minute\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-285",
+  "category": "enum-period",
+  "angle": "get_stock_kline period='1D'",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"1D\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-286",
+  "category": "enum-period",
+  "angle": "get_stock_kline period='Q'",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"Q\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-287",
+  "category": "enum-period",
+  "angle": "get_stock_kline period='hourly'",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"hourly\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-aftype-288",
+  "category": "enum-aftype",
+  "angle": "get_stock_kline aftype='3'",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"aftype\":\"3\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-aftype-289",
+  "category": "enum-aftype",
+  "angle": "get_stock_kline aftype='x'",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"aftype\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-aftype-290",
+  "category": "enum-aftype",
+  "angle": "get_stock_kline aftype='front'",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"aftype\":\"front\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-aftype-291",
+  "category": "enum-aftype",
+  "angle": "get_stock_kline aftype='前复权'",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"aftype\":\"前复权\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-aftype-292",
+  "category": "enum-aftype",
+  "angle": "get_stock_kline aftype='-1'",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"aftype\":\"-1\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-issusp-293",
+  "category": "enum-issusp",
+  "angle": "get_stock_kline issusp='2'",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"issusp\":\"2\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-issusp-294",
+  "category": "enum-issusp",
+  "angle": "get_stock_kline issusp='yes'",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"issusp\":\"yes\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-issusp-295",
+  "category": "enum-issusp",
+  "angle": "get_stock_kline issusp='true'",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"issusp\":\"true\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-issusp-296",
+  "category": "enum-issusp",
+  "angle": "get_stock_kline issusp='y'",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"issusp\":\"y\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-297",
+  "category": "enum-period",
+  "angle": "get_fund_kline period='99'",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"99\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-298",
+  "category": "enum-period",
+  "angle": "get_fund_kline period='daily'",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"daily\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-299",
+  "category": "enum-period",
+  "angle": "get_fund_kline period='day'",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"day\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-300",
+  "category": "enum-period",
+  "angle": "get_fund_kline period='1day'",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"1day\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-301",
+  "category": "enum-period",
+  "angle": "get_fund_kline period='week'",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"week\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-302",
+  "category": "enum-period",
+  "angle": "get_fund_kline period='2d'",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"2d\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-303",
+  "category": "enum-period",
+  "angle": "get_fund_kline period='0d'",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"0d\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-304",
+  "category": "enum-period",
+  "angle": "get_fund_kline period='minute'",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"minute\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-305",
+  "category": "enum-period",
+  "angle": "get_fund_kline period='1D'",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"1D\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-306",
+  "category": "enum-period",
+  "angle": "get_fund_kline period='Q'",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"Q\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-307",
+  "category": "enum-period",
+  "angle": "get_fund_kline period='hourly'",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"hourly\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-aftype-308",
+  "category": "enum-aftype",
+  "angle": "get_fund_kline aftype='3'",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"aftype\":\"3\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-aftype-309",
+  "category": "enum-aftype",
+  "angle": "get_fund_kline aftype='x'",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"aftype\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-aftype-310",
+  "category": "enum-aftype",
+  "angle": "get_fund_kline aftype='front'",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"aftype\":\"front\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-aftype-311",
+  "category": "enum-aftype",
+  "angle": "get_fund_kline aftype='前复权'",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"aftype\":\"前复权\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-aftype-312",
+  "category": "enum-aftype",
+  "angle": "get_fund_kline aftype='-1'",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"aftype\":\"-1\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-issusp-313",
+  "category": "enum-issusp",
+  "angle": "get_fund_kline issusp='2'",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"issusp\":\"2\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-issusp-314",
+  "category": "enum-issusp",
+  "angle": "get_fund_kline issusp='yes'",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"issusp\":\"yes\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-issusp-315",
+  "category": "enum-issusp",
+  "angle": "get_fund_kline issusp='true'",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"issusp\":\"true\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-issusp-316",
+  "category": "enum-issusp",
+  "angle": "get_fund_kline issusp='y'",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"issusp\":\"y\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-317",
+  "category": "enum-period",
+  "angle": "get_index_kline period='99'",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"99\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-318",
+  "category": "enum-period",
+  "angle": "get_index_kline period='daily'",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"daily\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-319",
+  "category": "enum-period",
+  "angle": "get_index_kline period='day'",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"day\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-320",
+  "category": "enum-period",
+  "angle": "get_index_kline period='1day'",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"1day\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-321",
+  "category": "enum-period",
+  "angle": "get_index_kline period='week'",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"week\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-322",
+  "category": "enum-period",
+  "angle": "get_index_kline period='2d'",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"2d\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-323",
+  "category": "enum-period",
+  "angle": "get_index_kline period='0d'",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"0d\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-324",
+  "category": "enum-period",
+  "angle": "get_index_kline period='minute'",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"minute\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-325",
+  "category": "enum-period",
+  "angle": "get_index_kline period='1D'",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"1D\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-326",
+  "category": "enum-period",
+  "angle": "get_index_kline period='Q'",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"Q\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-period-327",
+  "category": "enum-period",
+  "angle": "get_index_kline period='hourly'",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"hourly\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-aftype-328",
+  "category": "enum-aftype",
+  "angle": "get_index_kline aftype='3'",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"aftype\":\"3\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-aftype-329",
+  "category": "enum-aftype",
+  "angle": "get_index_kline aftype='x'",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"aftype\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-aftype-330",
+  "category": "enum-aftype",
+  "angle": "get_index_kline aftype='front'",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"aftype\":\"front\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-aftype-331",
+  "category": "enum-aftype",
+  "angle": "get_index_kline aftype='前复权'",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"aftype\":\"前复权\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-aftype-332",
+  "category": "enum-aftype",
+  "angle": "get_index_kline aftype='-1'",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"aftype\":\"-1\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-issusp-333",
+  "category": "enum-issusp",
+  "angle": "get_index_kline issusp='2'",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"issusp\":\"2\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-issusp-334",
+  "category": "enum-issusp",
+  "angle": "get_index_kline issusp='yes'",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"issusp\":\"yes\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-issusp-335",
+  "category": "enum-issusp",
+  "angle": "get_index_kline issusp='true'",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"issusp\":\"true\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-issusp-336",
+  "category": "enum-issusp",
+  "angle": "get_index_kline issusp='y'",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"issusp\":\"y\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-execmode-337",
+  "category": "enum-execmode",
+  "angle": "EDB executionMode='s'",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"s\",\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-execmode-338",
+  "category": "enum-execmode",
+  "angle": "EDB executionMode='SEARCH'",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"SEARCH\",\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-execmode-339",
+  "category": "enum-execmode",
+  "angle": "EDB executionMode='查询'",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"查询\",\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-execmode-340",
+  "category": "enum-execmode",
+  "angle": "EDB executionMode='search_fetch'",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"search_fetch\",\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-execmode-341",
+  "category": "enum-execmode",
+  "angle": "EDB executionMode='fetchAll'",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"fetchAll\",\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-execmode-342",
+  "category": "enum-execmode",
+  "angle": "EDB executionMode='提数'",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"提数\",\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-execmode-343",
+  "category": "enum-execmode",
+  "angle": "EDB executionMode='Search'",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"Search\",\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "enum-execmode-344",
+  "category": "enum-execmode",
+  "angle": "EDB executionMode='仅 搜索'",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"仅 搜索\",\"question\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "date-order-345",
+  "category": "date-order",
+  "angle": "get_stock_kline begin_date>end_date",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-18\",\"end_date\":\"2026-08-03\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "date-order-346",
+  "category": "date-order",
+  "angle": "get_fund_kline begin_date>end_date",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-18\",\"end_date\":\"2026-08-03\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "date-order-347",
+  "category": "date-order",
+  "angle": "get_index_kline begin_date>end_date",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-18\",\"end_date\":\"2026-08-03\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "date-order-348",
+  "category": "date-order",
+  "angle": "get_stock_quote begin>end",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_quote",
+   "{\"windcode\":\"600519.SH\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-03\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "date-order-349",
+  "category": "date-order",
+  "angle": "get_fund_quote begin>end",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_quote",
+   "{\"windcode\":\"510300.SH\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-03\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "date-order-350",
+  "category": "date-order",
+  "angle": "get_index_quote begin>end",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_quote",
+   "{\"windcode\":\"000300.SH\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-03\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "date-order-351",
+  "category": "date-order",
+  "angle": "EDB beginDate>endDate",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"仅提数\",\"question\":\"G0000069\",\"beginDate\":\"20241231\",\"endDate\":\"20230101\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "paired-352",
+  "category": "paired",
+  "angle": "EDB 只给 beginDate",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"仅提数\",\"question\":\"G0000069\",\"beginDate\":\"20230101\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "paired-353",
+  "category": "paired",
+  "angle": "EDB 只给 endDate",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"仅提数\",\"question\":\"G0000069\",\"endDate\":\"20241231\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "mutex-354",
+  "category": "mutex",
+  "angle": "EDB observation + beginDate",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"仅提数\",\"question\":\"G0000069\",\"observation\":\"5\",\"beginDate\":\"20230101\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "mutex-355",
+  "category": "mutex",
+  "angle": "EDB observation + endDate",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"仅提数\",\"question\":\"G0000069\",\"observation\":\"5\",\"endDate\":\"20241231\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "pattern-observation-356",
+  "category": "pattern-observation",
+  "angle": "EDB observation='abc'",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"仅提数\",\"question\":\"G0000069\",\"observation\":\"abc\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "pattern-observation-357",
+  "category": "pattern-observation",
+  "angle": "EDB observation='-1'",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"仅提数\",\"question\":\"G0000069\",\"observation\":\"-1\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "pattern-observation-358",
+  "category": "pattern-observation",
+  "angle": "EDB observation='1.5'",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"仅提数\",\"question\":\"G0000069\",\"observation\":\"1.5\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "pattern-observation-359",
+  "category": "pattern-observation",
+  "angle": "EDB observation='1a'",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"仅提数\",\"question\":\"G0000069\",\"observation\":\"1a\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "pattern-observation-360",
+  "category": "pattern-observation",
+  "angle": "EDB observation='1.0'",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"仅提数\",\"question\":\"G0000069\",\"observation\":\"1.0\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "pattern-observation-361",
+  "category": "pattern-observation",
+  "angle": "EDB observation='ten'",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"仅提数\",\"question\":\"G0000069\",\"observation\":\"ten\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "pattern-observation-362",
+  "category": "pattern-observation",
+  "angle": "EDB observation='5 '",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"仅提数\",\"question\":\"G0000069\",\"observation\":\"5 \"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "pattern-observation-363",
+  "category": "pattern-observation",
+  "angle": "EDB observation=' 5'",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"仅提数\",\"question\":\"G0000069\",\"observation\":\" 5\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "pattern-observation-364",
+  "category": "pattern-observation",
+  "angle": "EDB observation='0x5'",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"仅提数\",\"question\":\"G0000069\",\"observation\":\"0x5\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "conditional-365",
+  "category": "conditional",
+  "angle": "EDB fetch 无 observation/dates",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"fetch\",\"question\":\"G0000069\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "conditional-366",
+  "category": "conditional",
+  "angle": "EDB searchFetch 无 observation/dates",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"searchFetch\",\"question\":\"G0000069\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "conditional-367",
+  "category": "conditional",
+  "angle": "EDB 仅提数 无 observation/dates",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"仅提数\",\"question\":\"G0000069\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "conditional-368",
+  "category": "conditional",
+  "angle": "EDB 搜索并提数 无 observation/dates",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"搜索并提数\",\"question\":\"G0000069\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "unknown-field-369",
+  "category": "unknown-field",
+  "angle": "EDB 多传字段 windcode",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"仅搜索\",\"question\":\"x\",\"windcode\":\"600519.SH\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "unknown-field-370",
+  "category": "unknown-field",
+  "angle": "EDB 多传字段 period",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"仅搜索\",\"question\":\"x\",\"period\":\"1d\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "unknown-field-371",
+  "category": "unknown-field",
+  "angle": "EDB 多传字段 foo",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"仅搜索\",\"question\":\"x\",\"foo\":\"bar\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "unknown-field-372",
+  "category": "unknown-field",
+  "angle": "EDB 多传字段 query",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"仅搜索\",\"question\":\"x\",\"query\":\"x\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "correct-373",
+  "category": "correct",
+  "angle": "search_stocks 合法",
+  "argv": [
+   "call",
+   "stock_data",
+   "search_stocks",
+   "{\"question\":\"贵州茅台600519.SH\"}"
+  ],
+  "expect": {
+   "ok": true
+  }
+ },
+ {
+  "id": "correct-374",
+  "category": "correct",
+  "angle": "get_stock_basicinfo 合法",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_basicinfo",
+   "{\"question\":\"贵州茅台600519.SH\"}"
+  ],
+  "expect": {
+   "ok": true
+  }
+ },
+ {
+  "id": "correct-375",
+  "category": "correct",
+  "angle": "get_risk_metrics 合法",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_risk_metrics",
+   "{\"question\":\"贵州茅台600519.SH\"}"
+  ],
+  "expect": {
+   "ok": true
+  }
+ },
+ {
+  "id": "correct-376",
+  "category": "correct",
+  "angle": "get_bond_basicinfo 合法",
+  "argv": [
+   "call",
+   "bond_data",
+   "get_bond_basicinfo",
+   "{\"question\":\"贵州茅台600519.SH\"}"
+  ],
+  "expect": {
+   "ok": true
+  }
+ },
+ {
+  "id": "correct-377",
+  "category": "correct",
+  "angle": "get_financial_data 合法",
+  "argv": [
+   "call",
+   "analytics_data",
+   "get_financial_data",
+   "{\"question\":\"贵州茅台600519.SH\"}"
+  ],
+  "expect": {
+   "ok": true
+  }
+ },
+ {
+  "id": "correct-378",
+  "category": "correct",
+  "angle": "get_company_announcements 合法",
+  "argv": [
+   "call",
+   "financial_docs",
+   "get_company_announcements",
+   "{\"query\":\"贵州茅台公告\"}"
+  ],
+  "expect": {
+   "ok": true
+  }
+ },
+ {
+  "id": "correct-379",
+  "category": "correct",
+  "angle": "get_financial_news 合法",
+  "argv": [
+   "call",
+   "financial_docs",
+   "get_financial_news",
+   "{\"query\":\"贵州茅台公告\"}"
+  ],
+  "expect": {
+   "ok": true
+  }
+ },
+ {
+  "id": "correct-380",
+  "category": "correct",
+  "angle": "get_stock_price_indicators 合法",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_price_indicators",
+   "{\"windcode\":\"600519.SH\",\"indexes\":\"中文简称\"}"
+  ],
+  "expect": {
+   "ok": true
+  }
+ },
+ {
+  "id": "correct-381",
+  "category": "correct",
+  "angle": "get_fund_price_indicators 合法",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_price_indicators",
+   "{\"windcode\":\"510300.SH\",\"indexes\":\"中文简称\"}"
+  ],
+  "expect": {
+   "ok": true
+  }
+ },
+ {
+  "id": "correct-382",
+  "category": "correct",
+  "angle": "get_index_price_indicators 合法",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_price_indicators",
+   "{\"windcode\":\"000300.SH\",\"indexes\":\"中文简称\"}"
+  ],
+  "expect": {
+   "ok": true
+  }
+ },
+ {
+  "id": "correct-383",
+  "category": "correct",
+  "angle": "get_stock_kline 合法",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"1d\"}"
+  ],
+  "expect": {
+   "ok": true
+  }
+ },
+ {
+  "id": "correct-384",
+  "category": "correct",
+  "angle": "get_fund_kline 合法",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_kline",
+   "{\"windcode\":\"510300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"1d\"}"
+  ],
+  "expect": {
+   "ok": true
+  }
+ },
+ {
+  "id": "correct-385",
+  "category": "correct",
+  "angle": "get_index_kline 合法",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_kline",
+   "{\"windcode\":\"000300.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\",\"period\":\"1d\"}"
+  ],
+  "expect": {
+   "ok": true
+  }
+ },
+ {
+  "id": "correct-386",
+  "category": "correct",
+  "angle": "get_stock_quote 合法(仅 windcode)",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_quote",
+   "{\"windcode\":\"600519.SH\"}"
+  ],
+  "expect": {
+   "ok": true
+  }
+ },
+ {
+  "id": "correct-387",
+  "category": "correct",
+  "angle": "get_fund_quote 合法(仅 windcode)",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_quote",
+   "{\"windcode\":\"510300.SH\"}"
+  ],
+  "expect": {
+   "ok": true
+  }
+ },
+ {
+  "id": "correct-388",
+  "category": "correct",
+  "angle": "get_index_quote 合法(仅 windcode)",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_quote",
+   "{\"windcode\":\"000300.SH\"}"
+  ],
+  "expect": {
+   "ok": true
+  }
+ },
+ {
+  "id": "correct-389",
+  "category": "correct",
+  "angle": "EDB 仅搜索",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"仅搜索\",\"question\":\"中国GDP\"}"
+  ],
+  "expect": {
+   "ok": true
+  }
+ },
+ {
+  "id": "correct-390",
+  "category": "correct",
+  "angle": "EDB 搜索并提数+observation",
+  "argv": [
+   "call",
+   "economic_data",
+   "natural_language_get_edb_data",
+   "{\"executionMode\":\"搜索并提数\",\"question\":\"中国GDP\",\"observation\":\"6\"}"
+  ],
+  "expect": {
+   "ok": true
+  }
+ },
+ {
+  "id": "correct-391",
+  "category": "correct",
+  "angle": "跨域改写 get_fund_quote@stock_data",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_fund_quote",
+   "{\"windcode\":\"600519.SH\"}"
+  ],
+  "expect": {
+   "ok": true
+  }
+ },
+ {
+  "id": "correct-392",
+  "category": "correct",
+  "angle": "跨域改写 get_index_kline@stock_data",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_index_kline",
+   "{\"windcode\":\"600519.SH\",\"begin_date\":\"2026-08-03\",\"end_date\":\"2026-08-18\"}"
+  ],
+  "expect": {
+   "ok": true
+  }
+ }
+]

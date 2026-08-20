@@ -94,6 +94,7 @@
       "label": "K 线",
       "tools": ["get_stock_kline", "get_fund_kline", "get_index_kline"],
       "required": ["windcode", "begin_date", "end_date"],
+      "ordered_dates": [["begin_date", "end_date"]],
       "enum_fields": {
         "period": {
           "values_from": "kline_period_map",
