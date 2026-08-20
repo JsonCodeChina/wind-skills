@@ -41,13 +41,16 @@ function run(cli, server, tool, params) {
     encoding: 'utf8',
     env: { ...process.env, WIND_MOCK_SCENARIO: 'success', WIND_API_KEY: 'dummy-for-mock' },
   });
-  if (res.status === 0) return { verdict: '通过→后端', code: '', action: '' };
+  if (res.status === 0) return { verdict: '通过→后端', code: '', detail: '' };
   let env = null;
   try { env = JSON.parse(res.stdout); } catch {}
+  const detail = typeof env?.message === 'string'
+    ? env.message.replace(/\s+/g, ' ').slice(0, 90)
+    : '';
   return {
     verdict: '本地拦截',
-    code: env?.error?.code || '(no code)',
-    action: (env?.error?.agent_action || '').replace(/\s+/g, ' ').slice(0, 90),
+    code: env?.code || '(no code)',
+    detail,
   };
 }
 
@@ -62,7 +65,7 @@ for (const [label, server, tool, params] of CASES) {
     const r = run(CLIS[p], server, tool, params);
     cells.push(r.verdict === '通过→后端' ? '通过→后端' : `拦截:${r.code}`);
     if (p === 'plan-c' && r.verdict === '本地拦截') {
-      guidance.push(`  [${label}] ${r.code}: ${r.action}…`);
+      guidance.push(`  [${label}] ${r.code}: ${r.detail}…`);
     }
   }
   console.log(label.padEnd(20) + cells.map(c => c.padEnd(26)).join(''));

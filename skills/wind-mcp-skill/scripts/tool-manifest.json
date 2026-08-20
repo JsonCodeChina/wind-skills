@@ -42,7 +42,8 @@
     "get_financial_news"
   ],
   "economic_data": [
-    "natural_language_get_edb_data"
+    "economic_indicator_search",
+    "economic_indicator_data_query"
   ],
   "analytics_data": [
     "get_financial_data"
