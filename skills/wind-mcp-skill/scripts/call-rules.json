@@ -1,5 +1,5 @@
 {
-  "schema_version": 15,
+  "schema_version": 14,
   "description": "Runtime normalization and validation rules for Wind MCP tool calls.",
   "kline_period_map": {
     "1min": "1",
@@ -40,6 +40,8 @@
       "query",
       "windcode",
       "indexes",
+      "executionMode",
+      "observation",
       "begin_date",
       "end_date",
       "begin",
@@ -117,18 +119,32 @@
     {
       "name": "economic_edb",
       "label": "宏观 EDB",
-      "tools": ["economic_indicator_search", "economic_indicator_data_query"],
-      "allowed": ["question", "beginDate", "endDate", "observation"],
-      "required": ["question"],
+      "tools": ["natural_language_get_edb_data"],
+      "allowed": ["executionMode", "question", "beginDate", "endDate", "observation"],
+      "required": ["executionMode", "question"],
+      "enum_fields": {
+        "executionMode": {
+          "values": ["search", "fetch", "searchFetch", "仅搜索", "仅提数", "搜索并提数"],
+          "message": "字段 'executionMode' 只能是 search/fetch/searchFetch 或 仅搜索/仅提数/搜索并提数"
+        }
+      },
       "paired": [["beginDate", "endDate"]],
       "mutually_exclusive": [["observation", "beginDate"], ["observation", "endDate"]],
       "ordered_dates": [["beginDate", "endDate"]],
       "patterns": {
         "observation": {
-          "pattern": "^\\d+$",
-          "message": "字段 'observation' 只能是正整数"
+          "pattern": "^(\\d+|all)$",
+          "message": "字段 'observation' 只能是数字字符串或 'all'"
         }
-      }
+      },
+      "required_one_of_when": [
+        {
+          "field": "executionMode",
+          "values": ["fetch", "searchFetch", "仅提数", "搜索并提数"],
+          "one_of": [["observation"], ["beginDate", "endDate"]],
+          "message": "executionMode 为 fetch/searchFetch 时，必须显式提供 beginDate/endDate 或 observation"
+        }
+      ]
     }
   ]
 }

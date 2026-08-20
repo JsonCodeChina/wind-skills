@@ -62,13 +62,17 @@ const CALL_EXAMPLES = [
   `cli.mjs call stock_data get_stock_quote '{"windcode":"AAPL.O","begin":"2026-08-05","end":"2026-08-05"}'`,
   `cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","begin_date":"2026-04-01","end_date":"2026-04-30"}'`,
   `cli.mjs call financial_docs get_financial_news '{"question":"美联储利率政策","top_k":3}'`,
-  `cli.mjs call economic_data economic_indicator_search '{"question":"中国GDP相关指标"}'`,
-  `cli.mjs call economic_data economic_indicator_data_query '{"question":"中国GDP","observation":10}'`,
+  `cli.mjs call economic_data natural_language_get_edb_data '{"executionMode":"searchFetch","question":"中国GDP","observation":"10"}'`,
   `cli.mjs call analytics_data get_financial_data '{"question":"查询中国A股市场过去一年的平均成交量"}'`,
 ];
 
 const PRICE_INDICATOR_TOOLS = new Set(['get_stock_price_indicators', 'get_fund_price_indicators', 'get_index_price_indicators']);
 const QUOTE_TOOLS = new Set(['get_stock_quote', 'get_fund_quote', 'get_index_quote']);
+const EDB_EXECUTION_MODE_ALIASES = new Map([
+  ['仅搜索', 'search'],
+  ['仅提数', 'fetch'],
+  ['搜索并提数', 'searchFetch'],
+]);
 
 const HTTP_ERROR_MAP = {
   401: 'AUTH_ERROR',
@@ -408,7 +412,7 @@ const TOOL_VALIDATION_RULES = {
 const KLINE_TOOLS = new Set(TOOL_VALIDATION_RULES.toolRules.find(rule => rule.name === 'kline')?.tools || []);
 // #endregion 规则加载
 
-// #region 规范化：整理 windcode/indexes/period。不给中文名称猜交易所后缀。
+// #region 规范化：整理 windcode/indexes/period/EDB executionMode。不给中文名称猜交易所后缀。
 function normalizeIndexes(indexes) {
   if (typeof indexes !== 'string') return indexes;
   return indexes.split(',').map((item) => item.trim()).filter(Boolean).join(',');
@@ -440,9 +444,8 @@ function normalizeCall(server_type, toolName, args) {
   if (family) toolName = TOOL_BY_DOMAIN[family]?.[server_type] || toolName;
   const normalizedArgs = { ...args };
   const normalizationErrors = [];
-  // EDB observation 是整数：把纯数字字符串转成 number，与工具 schema 对齐
-  if (typeof normalizedArgs.observation === 'string' && /^\d+$/.test(normalizedArgs.observation.trim())) {
-    normalizedArgs.observation = Number(normalizedArgs.observation.trim());
+  if (toolName === 'natural_language_get_edb_data' && typeof normalizedArgs.executionMode === 'string') {
+    normalizedArgs.executionMode = EDB_EXECUTION_MODE_ALIASES.get(normalizedArgs.executionMode) || normalizedArgs.executionMode;
   }
   if (typeof normalizedArgs.indexes === 'string') normalizedArgs.indexes = normalizeIndexes(normalizedArgs.indexes);
   if (typeof normalizedArgs.windcode === 'string') normalizedArgs.windcode = normalizeWindcode(normalizedArgs.windcode);

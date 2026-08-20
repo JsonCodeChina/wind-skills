@@ -197,8 +197,8 @@ test('mock interface error returns backend_error', () => {
   assert(typeof body?.message === 'string' && body.message.length > 0, 'message');
 });
 
-// 16. 规范化：港股前导 0、K 线默认 period、EDB 提数参数透传
-test('normalize windcode / period, pass through EDB params before MCP call', () => {
+// 16. 规范化：港股前导 0、K 线默认 period、EDB 中文 executionMode
+test('normalize windcode / period / executionMode before MCP call', () => {
   const klineCapture = join(WORK_DIR, 'captured-kline.json');
   const edbCapture = join(WORK_DIR, 'captured-edb.json');
   const kline = spawnCli(
@@ -209,18 +209,16 @@ test('normalize windcode / period, pass through EDB params before MCP call', () 
   assertEqual(parseJson(kline.stdout)?.cli_meta?.tool_name, 'get_stock_kline', 'kline tool');
 
   const edb = spawnCli(
-    ['call', 'economic_data', 'economic_indicator_data_query', '{"question":"中国GDP","observation":"10"}'],
+    ['call', 'economic_data', 'natural_language_get_edb_data', '{"executionMode":"搜索并提数","question":"中国GDP","observation":"10"}'],
     { capture: true, extraEnv: { WIND_API_KEY: 'test-key-xxxxxxxx', WIND_MOCK_CAPTURE: edbCapture } },
   );
   assertEqual(edb.exit, 0, 'edb exit');
 
   const klineArgs = parseJson(readFileSync(klineCapture, 'utf8'))?.[0]?.params?.arguments;
-  const edbCall = parseJson(readFileSync(edbCapture, 'utf8'))?.[0]?.params;
+  const edbArgs = parseJson(readFileSync(edbCapture, 'utf8'))?.[0]?.params?.arguments;
   assertEqual(klineArgs?.windcode, '7000.HK', 'HK leading zero stripped');
   assertEqual(klineArgs?.period, '10', 'default 1d mapped to backend period');
-  assertEqual(edbCall?.name, 'economic_indicator_data_query', 'EDB tool routed');
-  assertEqual(edbCall?.arguments?.question, '中国GDP', 'EDB question passed through');
-  assertEqual(edbCall?.arguments?.observation, 10, 'EDB observation coerced to integer');
+  assertEqual(edbArgs?.executionMode, 'searchFetch', 'Chinese executionMode alias');
 });
 
 const pass = checks.filter((item) => item.ok).length;
