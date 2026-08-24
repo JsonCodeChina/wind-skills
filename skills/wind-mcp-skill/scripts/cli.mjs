@@ -61,7 +61,7 @@ const CALL_EXAMPLES = [
   `cli.mjs call fund_data get_fund_kline '{"windcode":"588200.SH","begin_date":"2026-04-01","end_date":"2026-04-30"}'`,
   `cli.mjs call stock_data get_stock_quote '{"windcode":"AAPL.O","begin":"2026-08-05","end":"2026-08-05"}'`,
   `cli.mjs call index_data get_index_kline '{"windcode":"000300.SH","begin_date":"2026-04-01","end_date":"2026-04-30"}'`,
-  `cli.mjs call financial_docs get_financial_news '{"question":"美联储利率政策","top_k":3}'`,
+  `cli.mjs call financial_docs get_financial_news '{"query":"美联储利率政策","top_k":3}'`,
   `cli.mjs call economic_data search_economic_indicator '{"question":"中国GDP相关指标有哪些"}'`,
   `cli.mjs call economic_data query_economic_indicator_data '{"question":"中国GDP","observation":"10"}'`,
   `cli.mjs call analytics_data get_financial_data '{"question":"查询中国A股市场过去一年的平均成交量"}'`,
