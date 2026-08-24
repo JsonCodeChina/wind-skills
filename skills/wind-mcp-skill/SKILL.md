@@ -49,7 +49,7 @@ examples:
 
 1. 公告、年报、季报、招股书、监管披露 → `financial_docs.get_company_announcements`
 2. 新闻、快讯、报道、评论 → `financial_docs.get_financial_news`
-3. 宏观、行业或汇率 EDB 指标（产销量、CPI、利率、汇率指标等，即使未出现“宏观”字样）→ `economic_data.natural_language_get_edb_data`
+3. 宏观、行业或汇率 EDB 指标（产销量、CPI、利率、汇率指标等，即使未出现“宏观”字样）→ 只需指标元信息/确认代码走 `economic_data.search_economic_indicator`，要具体数值时间序列走 `economic_data.query_economic_indicator_data`
 4. 未指定具体标的的筛选请求 → 对应领域的 `search_*`；`analytics_data` 返回计算结果，不返回实体列表。
 5. 最新价、涨跌幅、成交量、K 线、分钟线、区间走势 → 对应领域行情工具；历史区间一律走 K 线。
 6. 财务、股本、股东、事件、技术、风险、持仓、业绩 → 对应领域自然语言工具。
