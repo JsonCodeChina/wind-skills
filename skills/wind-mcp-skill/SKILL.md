@@ -80,15 +80,15 @@ node scripts/cli.mjs call stock_data get_stock_price_indicators '{"windcode":"60
 
 **Key**：不得只检查部分配置来源就声称没有 API Key。必须先实跑一次；只有返回 `AUTH_ERROR` 且明确为未配置，才能判定缺失，并按信封中的指引处理。
 
-**批量与并发**：默认串行（并发 1）。需要对 2 个及以上标的逐项调用时，先只发第一个作为探针，探针返回数据对象（stdout 不含 `"ok": false`）才继续其余；探针返回错误信封立即终止该批次，不得把相同调用扩散到其它标的。不同 `server_type + tool_name` 或不同参数结构分别分组，每组各发一次探针。用户明确要求并发时上限 10，一旦某次返回 `RATE_LIMIT_ERROR` 或 `backend_error` 就停止新请求并恢复串行。
+**批量与并发**：默认串行（并发 1）。需要对 2 个及以上标的逐项调用时，先只发第一个作为探针，探针成功返回数据、未出现错误信封，才继续其余；探针返回错误信封立即终止该批次，不得把相同调用扩散到其它标的。不同 `server_type + tool_name` 或不同参数结构分别分组，每组各发一次探针。用户明确要求并发时上限 10，一旦某次返回 `RATE_LIMIT_ERROR` 或 `backend_error` 就停止新请求并恢复串行。
 
 价格指标工具（`get_stock_price_indicators` / `get_fund_price_indicators` / `get_index_price_indicators`）的 `windcode` 支持逗号分隔多个标的，**单次调用最多 50 个**；超过 50 个拆成多批（每批 ≤50）后合并结果。该上限约束"单次调用内的代码数"，与上面的并发上限 10（约束"同时并发的调用数"）相互独立。请求较宽的指标集（`indexes` 字段数较多）时相应减少单批代码数，因为响应体积随"代码数 × 字段数"增长。
 
 ## 3. 读回执
 
-每次调用的 stdout 只有两种形态，用是否含 `"ok": false` 区分：
+每次调用的 stdout 只有两种形态：成功是数据对象，失败是带 `ok:false` 的错误信封。
 
-**成功**：stdout 是数据对象（没有 `ok` 字段），后端结果在 `content[0].text` 里（多为 JSON 字符串），CLI 另附一个 `cli_meta`。直接读；若存在 `content[0].text`，优先解析其中的文本或 JSON。
+**成功**：stdout 是数据对象，后端结果在 `content[0].text` 里（多为 JSON 字符串），CLI 另附一个 `cli_meta`。直接读；若存在 `content[0].text`，优先解析其中的文本或 JSON。
 
 - 数值的单位和**量级**以返回体自带的元数据为准：行情类在 `data.unit`，列定义中可能带 `unit`，EDB 在 `meta.unit` 与 `meta.magnitude`。元数据未给出时保留原值并说明单位未知，不得自行换算。
 - `null` 表示缺失或不适用，禁止当作 0（后端字符串 `INVALID` 已由 CLI 转为 `null`，并在 `cli_meta.warnings` 标注）。

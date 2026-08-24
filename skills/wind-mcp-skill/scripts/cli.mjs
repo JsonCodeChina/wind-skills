@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 
 // #region 静态：版本、7 个 MCP 地址、路径、HTTP 状态码映射。只含常量，不发网络。
-const SKILL_VERSION = '2.0.2';
+const SKILL_VERSION = '2.0.3';
 
 // 本地 registry: 工具选择可在任何网络调用前失败
 const SERVERS = {
