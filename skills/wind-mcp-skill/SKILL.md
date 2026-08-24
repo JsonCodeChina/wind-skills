@@ -91,10 +91,6 @@ node scripts/cli.mjs call stock_data get_stock_price_indicators '{"windcode":"60
 **成功**：stdout 是数据对象，后端结果在 `content[0].text` 里（多为 JSON 字符串），CLI 另附一个 `cli_meta`。直接读；若存在 `content[0].text`，优先解析其中的文本或 JSON。
 
 - 数值的单位和**量级**以返回体自带的元数据为准：行情类在 `data.unit`，列定义中可能带 `unit`，EDB 在 `meta.unit` 与 `meta.magnitude`。元数据未给出时保留原值并说明单位未知，不得自行换算。
-- `null` 表示缺失或不适用，禁止当作 0（后端字符串 `INVALID` 已由 CLI 转为 `null`，并在 `cli_meta.warnings` 标注）。
-- 只报告实际返回的行数，返回多个数据块时逐块报告。后端不提供总数，不得依据 `excelTotalCount` 推断完整性、排名全集或分页状态。
-- `cli_meta.warnings` 非空时保留数据并说明警告内容。
-- analytics 返回多个 Step / 数据块时全部保留并分别解释。
 
 **失败**：stdout 是 `{ "ok": false, "code": "...", "message": "..." }`。本地/参数/网络类错误的 `code` 指明原因（`AUTH_ERROR`、`PARAMS_FILE_ERROR`、`INVALID_PARAMS_JSON`、`PARAM_TYPE_ERROR`、`PARAM_VALIDATION_ERROR`、`ROUTE_ERROR`、`USAGE_ERROR`、`RATE_LIMIT_ERROR`、`NETWORK_ERROR`、`TOOL_RUNTIME_ERROR`、`SETUP_ERROR`、`UNKNOWN`）；接口层错误的 `code` 固定为 `backend_error`，`message` 为接口原文。据此向用户说明，或按下面的自检修正后再调用。
 
