@@ -70,6 +70,7 @@
 | `windcode` | 是 | string | — | — | 基金名称或者基金代码，如588200.SH。|
 | `begin` | 否 | string | — | — | 开始日期，格式 yyyy-MM-dd，如 2026-03-25；未指定默认最新交易日。不可只传 end 不传 begin。|
 | `end` | 否 | string | — | — | 结束日期，格式 yyyy-MM-dd，如 2026-03-25；未指定默认最新交易日（即只传 begin 时返回 begin 至最新交易日的区间）。|
+| `count` | 否 | string | — | 默认 0 | 在 begin/end 区间内取数的条数（整数）：正数从 begin 往后取 N 条，负数从 end 往前取 N 条，0 取区间全部；不会超出区间；未指定 begin/end 时按默认最新交易日计。|
 
 ### `get_fund_info`
 
