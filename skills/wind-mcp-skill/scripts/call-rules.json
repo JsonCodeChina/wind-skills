@@ -1,5 +1,5 @@
 {
-  "schema_version": 16,
+  "schema_version": 17,
   "description": "Runtime normalization and validation rules for Wind MCP tool calls.",
   "kline_period_map": {
     "1min": "1",
@@ -49,8 +49,8 @@
       "endDate",
       "date",
       "tradeDate",
-      "afdate",
-      "count"
+      "tradingday",
+      "afdate"
     ]
   },
   "tool_rules": [
@@ -121,11 +121,10 @@
       "label": "分钟行情",
       "tools": ["get_stock_quote", "get_fund_quote", "get_index_quote"],
       "required": ["windcode"],
-      "ordered_dates": [["begin", "end"]],
       "patterns": {
         "count": {
           "pattern": "^-?\\d+$",
-          "message": "字段 'count' 只能是整数：正数从 begin 往后取 N 条，负数从 end 往前取 N 条，0 取区间全部"
+          "message": "字段 'count' 只能是整数：正数从开始交易时间往后取 N 条，负数从最新交易时间往前取 N 条，0 取全部"
         }
       }
     },
