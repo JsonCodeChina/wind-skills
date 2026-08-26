@@ -128,9 +128,9 @@ test('blank windcode -> PARAM_VALIDATION_ERROR', () => {
   assertEqual(body?.code, 'PARAM_VALIDATION_ERROR', 'code');
 });
 
-// 9. quote count 必须是整数
-test('quote non-integer count -> PARAM_VALIDATION_ERROR', () => {
-  const { exit, stdout } = spawnCli(['call', 'stock_data', 'get_stock_quote', '{"windcode":"600519.SH","count":"abc"}']);
+// 9. quote 日期顺序
+test('quote begin after end -> PARAM_VALIDATION_ERROR', () => {
+  const { exit, stdout } = spawnCli(['call', 'stock_data', 'get_stock_quote', '{"windcode":"600519.SH","begin":"2026-04-30","end":"2026-04-01"}']);
   const body = parseJson(stdout);
   assertEqual(exit, 1, 'exit');
   assertEqual(body?.code, 'PARAM_VALIDATION_ERROR', 'code');
@@ -221,8 +221,8 @@ test('normalize windcode / period / executionMode before MCP call', () => {
   assertEqual(edbArgs?.executionMode, 'searchFetch', 'Chinese executionMode alias');
 });
 
-// 17. count 强制为整型 number；quote 用 tradingday 且原样透传
-test('count coerced to integer number; quote tradingday passes through', () => {
+// 17. count 强制为整型 number；quote begin/end 原样透传
+test('count coerced to integer number; quote begin/end passes through', () => {
   const klineCapture = join(WORK_DIR, 'captured-kline-count.json');
   const quoteCapture = join(WORK_DIR, 'captured-quote.json');
   const kline = spawnCli(
@@ -231,7 +231,7 @@ test('count coerced to integer number; quote tradingday passes through', () => {
   );
   assertEqual(kline.exit, 0, 'kline exit');
   const quote = spawnCli(
-    ['call', 'stock_data', 'get_stock_quote', '{"windcode":"600519.SH","tradingday":"2026-08-05","count":30}'],
+    ['call', 'stock_data', 'get_stock_quote', '{"windcode":"600519.SH","begin":"2026-08-05","end":"2026-08-05","count":30}'],
     { capture: true, extraEnv: { WIND_API_KEY: 'test-key-xxxxxxxx', WIND_MOCK_CAPTURE: quoteCapture } },
   );
   assertEqual(quote.exit, 0, 'quote exit');
@@ -242,7 +242,7 @@ test('count coerced to integer number; quote tradingday passes through', () => {
   assertEqual(klineArgs?.count, -5, 'kline count value -5');
   assert(typeof quoteArgs?.count === 'number', 'quote count sent as number');
   assertEqual(quoteArgs?.count, 30, 'quote count value 30');
-  assertEqual(quoteArgs?.tradingday, '2026-08-05', 'quote tradingday passthrough');
+  assertEqual(quoteArgs?.begin, '2026-08-05', 'quote begin passthrough');
 });
 
 const pass = checks.filter((item) => item.ok).length;

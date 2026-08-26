@@ -88,7 +88,7 @@ for (const t of KL) {
   add('missing-required', `${t} 缺 begin_date`, P(s, t, { windcode: WC[s], end_date: '2026-08-18' }), ERRV('PARAM_VALIDATION_ERROR'));
   add('missing-required', `${t} 缺 end_date`, P(s, t, { windcode: WC[s], begin_date: '2026-08-03' }), ERRV('PARAM_VALIDATION_ERROR'));
 }
-for (const t of QT) add('missing-required', `${t} 缺 windcode`, P(SERVER_OF[t], t, { tradingday: '2026-08-18' }), ERRV('PARAM_VALIDATION_ERROR'));
+for (const t of QT) add('missing-required', `${t} 缺 windcode`, P(SERVER_OF[t], t, { begin: '2026-08-18', end: '2026-08-18' }), ERRV('PARAM_VALIDATION_ERROR'));
 add('missing-required', `EDB 缺 executionMode`, P('economic_data', EDB, { question: '中国GDP' }), ERRV('PARAM_VALIDATION_ERROR'));
 add('missing-required', `EDB 缺 question`, P('economic_data', EDB, { executionMode: '仅搜索' }), ERRV('PARAM_VALIDATION_ERROR'));
 
@@ -97,7 +97,7 @@ for (const t of Q) add('empty-required', `${t} question 空串`, P(SERVER_OF[t],
 for (const t of Q.slice(0, 8)) add('empty-required', `${t} question 全空白`, P(SERVER_OF[t], t, { question: '   ' }), ERRV('PARAM_VALIDATION_ERROR'));
 for (const t of QRY) add('empty-required', `${t} query 空串`, P(SERVER_OF[t], t, { query: '' }), ERRV('PARAM_VALIDATION_ERROR'));
 for (const t of KL) add('empty-required', `${t} windcode 空串`, P(SERVER_OF[t], t, { windcode: '', begin_date: '2026-08-03', end_date: '2026-08-18' }), ERRV('PARAM_VALIDATION_ERROR'));
-for (const t of QT) add('empty-required', `${t} windcode 空串`, P(SERVER_OF[t], t, { windcode: '', tradingday: '2026-08-18' }), ERRV('PARAM_VALIDATION_ERROR'));
+for (const t of QT) add('empty-required', `${t} windcode 空串`, P(SERVER_OF[t], t, { windcode: '', begin: '2026-08-18', end: '2026-08-18' }), ERRV('PARAM_VALIDATION_ERROR'));
 
 // ---------- 10. wrong type on string_keys => PARAM_TYPE_ERROR ----------
 const badTypes = [['数字', 123], ['数组', ['a']], ['布尔', true], ['对象', { a: 1 }], ['null', null]];
@@ -128,6 +128,7 @@ for (const bad of ['s', 'SEARCH', '查询', 'search_fetch', 'fetchAll', '提数'
 
 // ---------- 12. date ordering (begin > end) ----------
 for (const t of KL) add('date-order', `${t} begin_date>end_date`, P(SERVER_OF[t], t, { windcode: WC[SERVER_OF[t]], begin_date: '2026-08-18', end_date: '2026-08-03' }), ERRV('PARAM_VALIDATION_ERROR'));
+for (const t of QT) add('date-order', `${t} begin>end`, P(SERVER_OF[t], t, { windcode: WC[SERVER_OF[t]], begin: '2026-08-18', end: '2026-08-03' }), ERRV('PARAM_VALIDATION_ERROR'));
 add('date-order', 'EDB beginDate>endDate', P('economic_data', EDB, { executionMode: '仅提数', question: 'G0000069', beginDate: '20241231', endDate: '20230101' }), ERRV('PARAM_VALIDATION_ERROR'));
 
 // ---------- 12b. count 必须是整数 (kline 区间取数 + quote 分钟取数) ----------
@@ -166,7 +167,7 @@ for (const t of PI) add('correct', `${t} 合法`, P(SERVER_OF[t], t, { windcode:
 for (const t of KL) add('correct', `${t} 合法`, P(SERVER_OF[t], t, { windcode: WC[SERVER_OF[t]], begin_date: '2026-08-03', end_date: '2026-08-18', period: '1d' }), OKV);
 for (const t of KL) add('correct', `${t} count 整数`, P(SERVER_OF[t], t, { windcode: WC[SERVER_OF[t]], begin_date: '2026-08-03', end_date: '2026-08-18', count: -5 }), OKV);
 for (const t of QT) add('correct', `${t} 合法(仅 windcode)`, P(SERVER_OF[t], t, { windcode: WC[SERVER_OF[t]] }), OKV);
-for (const t of QT) add('correct', `${t} tradingday+count`, P(SERVER_OF[t], t, { windcode: WC[SERVER_OF[t]], tradingday: '2026-08-18', count: 30 }), OKV);
+for (const t of QT) add('correct', `${t} begin/end+count`, P(SERVER_OF[t], t, { windcode: WC[SERVER_OF[t]], begin: '2026-08-05', end: '2026-08-05', count: 30 }), OKV);
 add('correct', 'EDB 仅搜索', P('economic_data', EDB, { executionMode: '仅搜索', question: '中国GDP' }), OKV);
 add('correct', 'EDB 搜索并提数+observation', P('economic_data', EDB, { executionMode: '搜索并提数', question: '中国GDP', observation: '6' }), OKV);
 // cross-domain remap: wrong-domain quote/kline auto-corrects and passes

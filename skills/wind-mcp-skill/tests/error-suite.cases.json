@@ -1903,7 +1903,7 @@
    "call",
    "stock_data",
    "get_stock_quote",
-   "{\"tradingday\":\"2026-08-18\"}"
+   "{\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
   ],
   "expect": {
    "ok": false,
@@ -1918,7 +1918,7 @@
    "call",
    "fund_data",
    "get_fund_quote",
-   "{\"tradingday\":\"2026-08-18\"}"
+   "{\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
   ],
   "expect": {
    "ok": false,
@@ -1933,7 +1933,7 @@
    "call",
    "index_data",
    "get_index_quote",
-   "{\"tradingday\":\"2026-08-18\"}"
+   "{\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
   ],
   "expect": {
    "ok": false,
@@ -2503,7 +2503,7 @@
    "call",
    "stock_data",
    "get_stock_quote",
-   "{\"windcode\":\"\",\"tradingday\":\"2026-08-18\"}"
+   "{\"windcode\":\"\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
   ],
   "expect": {
    "ok": false,
@@ -2518,7 +2518,7 @@
    "call",
    "fund_data",
    "get_fund_quote",
-   "{\"windcode\":\"\",\"tradingday\":\"2026-08-18\"}"
+   "{\"windcode\":\"\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
   ],
   "expect": {
    "ok": false,
@@ -2533,7 +2533,7 @@
    "call",
    "index_data",
    "get_index_quote",
-   "{\"windcode\":\"\",\"tradingday\":\"2026-08-18\"}"
+   "{\"windcode\":\"\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-18\"}"
   ],
   "expect": {
    "ok": false,
@@ -5198,6 +5198,51 @@
  {
   "id": "date-order-348",
   "category": "date-order",
+  "angle": "get_stock_quote begin>end",
+  "argv": [
+   "call",
+   "stock_data",
+   "get_stock_quote",
+   "{\"windcode\":\"600519.SH\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-03\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "date-order-349",
+  "category": "date-order",
+  "angle": "get_fund_quote begin>end",
+  "argv": [
+   "call",
+   "fund_data",
+   "get_fund_quote",
+   "{\"windcode\":\"510300.SH\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-03\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "date-order-350",
+  "category": "date-order",
+  "angle": "get_index_quote begin>end",
+  "argv": [
+   "call",
+   "index_data",
+   "get_index_quote",
+   "{\"windcode\":\"000300.SH\",\"begin\":\"2026-08-18\",\"end\":\"2026-08-03\"}"
+  ],
+  "expect": {
+   "ok": false,
+   "code": "PARAM_VALIDATION_ERROR"
+  }
+ },
+ {
+  "id": "date-order-351",
+  "category": "date-order",
   "angle": "EDB beginDate>endDate",
   "argv": [
    "call",
@@ -5211,7 +5256,7 @@
   }
  },
  {
-  "id": "pattern-count-349",
+  "id": "pattern-count-352",
   "category": "pattern-count",
   "angle": "get_stock_kline count='abc'",
   "argv": [
@@ -5226,7 +5271,7 @@
   }
  },
  {
-  "id": "pattern-count-350",
+  "id": "pattern-count-353",
   "category": "pattern-count",
   "angle": "get_stock_kline count='1.5'",
   "argv": [
@@ -5241,7 +5286,7 @@
   }
  },
  {
-  "id": "pattern-count-351",
+  "id": "pattern-count-354",
   "category": "pattern-count",
   "angle": "get_stock_kline count='3.0'",
   "argv": [
@@ -5256,7 +5301,7 @@
   }
  },
  {
-  "id": "pattern-count-352",
+  "id": "pattern-count-355",
   "category": "pattern-count",
   "angle": "get_stock_kline count='1a'",
   "argv": [
@@ -5271,7 +5316,7 @@
   }
  },
  {
-  "id": "pattern-count-353",
+  "id": "pattern-count-356",
   "category": "pattern-count",
   "angle": "get_stock_kline count='ten'",
   "argv": [
@@ -5286,7 +5331,7 @@
   }
  },
  {
-  "id": "pattern-count-354",
+  "id": "pattern-count-357",
   "category": "pattern-count",
   "angle": "get_stock_kline count='--3'",
   "argv": [
@@ -5301,7 +5346,7 @@
   }
  },
  {
-  "id": "pattern-count-355",
+  "id": "pattern-count-358",
   "category": "pattern-count",
   "angle": "get_fund_kline count='abc'",
   "argv": [
@@ -5316,7 +5361,7 @@
   }
  },
  {
-  "id": "pattern-count-356",
+  "id": "pattern-count-359",
   "category": "pattern-count",
   "angle": "get_fund_kline count='1.5'",
   "argv": [
@@ -5331,7 +5376,7 @@
   }
  },
  {
-  "id": "pattern-count-357",
+  "id": "pattern-count-360",
   "category": "pattern-count",
   "angle": "get_fund_kline count='3.0'",
   "argv": [
@@ -5346,7 +5391,7 @@
   }
  },
  {
-  "id": "pattern-count-358",
+  "id": "pattern-count-361",
   "category": "pattern-count",
   "angle": "get_fund_kline count='1a'",
   "argv": [
@@ -5361,7 +5406,7 @@
   }
  },
  {
-  "id": "pattern-count-359",
+  "id": "pattern-count-362",
   "category": "pattern-count",
   "angle": "get_fund_kline count='ten'",
   "argv": [
@@ -5376,7 +5421,7 @@
   }
  },
  {
-  "id": "pattern-count-360",
+  "id": "pattern-count-363",
   "category": "pattern-count",
   "angle": "get_fund_kline count='--3'",
   "argv": [
@@ -5391,7 +5436,7 @@
   }
  },
  {
-  "id": "pattern-count-361",
+  "id": "pattern-count-364",
   "category": "pattern-count",
   "angle": "get_index_kline count='abc'",
   "argv": [
@@ -5406,7 +5451,7 @@
   }
  },
  {
-  "id": "pattern-count-362",
+  "id": "pattern-count-365",
   "category": "pattern-count",
   "angle": "get_index_kline count='1.5'",
   "argv": [
@@ -5421,7 +5466,7 @@
   }
  },
  {
-  "id": "pattern-count-363",
+  "id": "pattern-count-366",
   "category": "pattern-count",
   "angle": "get_index_kline count='3.0'",
   "argv": [
@@ -5436,7 +5481,7 @@
   }
  },
  {
-  "id": "pattern-count-364",
+  "id": "pattern-count-367",
   "category": "pattern-count",
   "angle": "get_index_kline count='1a'",
   "argv": [
@@ -5451,7 +5496,7 @@
   }
  },
  {
-  "id": "pattern-count-365",
+  "id": "pattern-count-368",
   "category": "pattern-count",
   "angle": "get_index_kline count='ten'",
   "argv": [
@@ -5466,7 +5511,7 @@
   }
  },
  {
-  "id": "pattern-count-366",
+  "id": "pattern-count-369",
   "category": "pattern-count",
   "angle": "get_index_kline count='--3'",
   "argv": [
@@ -5481,7 +5526,7 @@
   }
  },
  {
-  "id": "pattern-count-367",
+  "id": "pattern-count-370",
   "category": "pattern-count",
   "angle": "get_stock_quote count='abc'",
   "argv": [
@@ -5496,7 +5541,7 @@
   }
  },
  {
-  "id": "pattern-count-368",
+  "id": "pattern-count-371",
   "category": "pattern-count",
   "angle": "get_stock_quote count='1.5'",
   "argv": [
@@ -5511,7 +5556,7 @@
   }
  },
  {
-  "id": "pattern-count-369",
+  "id": "pattern-count-372",
   "category": "pattern-count",
   "angle": "get_stock_quote count='3.0'",
   "argv": [
@@ -5526,7 +5571,7 @@
   }
  },
  {
-  "id": "pattern-count-370",
+  "id": "pattern-count-373",
   "category": "pattern-count",
   "angle": "get_stock_quote count='1a'",
   "argv": [
@@ -5541,7 +5586,7 @@
   }
  },
  {
-  "id": "pattern-count-371",
+  "id": "pattern-count-374",
   "category": "pattern-count",
   "angle": "get_stock_quote count='ten'",
   "argv": [
@@ -5556,7 +5601,7 @@
   }
  },
  {
-  "id": "pattern-count-372",
+  "id": "pattern-count-375",
   "category": "pattern-count",
   "angle": "get_stock_quote count='--3'",
   "argv": [
@@ -5571,7 +5616,7 @@
   }
  },
  {
-  "id": "pattern-count-373",
+  "id": "pattern-count-376",
   "category": "pattern-count",
   "angle": "get_fund_quote count='abc'",
   "argv": [
@@ -5586,7 +5631,7 @@
   }
  },
  {
-  "id": "pattern-count-374",
+  "id": "pattern-count-377",
   "category": "pattern-count",
   "angle": "get_fund_quote count='1.5'",
   "argv": [
@@ -5601,7 +5646,7 @@
   }
  },
  {
-  "id": "pattern-count-375",
+  "id": "pattern-count-378",
   "category": "pattern-count",
   "angle": "get_fund_quote count='3.0'",
   "argv": [
@@ -5616,7 +5661,7 @@
   }
  },
  {
-  "id": "pattern-count-376",
+  "id": "pattern-count-379",
   "category": "pattern-count",
   "angle": "get_fund_quote count='1a'",
   "argv": [
@@ -5631,7 +5676,7 @@
   }
  },
  {
-  "id": "pattern-count-377",
+  "id": "pattern-count-380",
   "category": "pattern-count",
   "angle": "get_fund_quote count='ten'",
   "argv": [
@@ -5646,7 +5691,7 @@
   }
  },
  {
-  "id": "pattern-count-378",
+  "id": "pattern-count-381",
   "category": "pattern-count",
   "angle": "get_fund_quote count='--3'",
   "argv": [
@@ -5661,7 +5706,7 @@
   }
  },
  {
-  "id": "pattern-count-379",
+  "id": "pattern-count-382",
   "category": "pattern-count",
   "angle": "get_index_quote count='abc'",
   "argv": [
@@ -5676,7 +5721,7 @@
   }
  },
  {
-  "id": "pattern-count-380",
+  "id": "pattern-count-383",
   "category": "pattern-count",
   "angle": "get_index_quote count='1.5'",
   "argv": [
@@ -5691,7 +5736,7 @@
   }
  },
  {
-  "id": "pattern-count-381",
+  "id": "pattern-count-384",
   "category": "pattern-count",
   "angle": "get_index_quote count='3.0'",
   "argv": [
@@ -5706,7 +5751,7 @@
   }
  },
  {
-  "id": "pattern-count-382",
+  "id": "pattern-count-385",
   "category": "pattern-count",
   "angle": "get_index_quote count='1a'",
   "argv": [
@@ -5721,7 +5766,7 @@
   }
  },
  {
-  "id": "pattern-count-383",
+  "id": "pattern-count-386",
   "category": "pattern-count",
   "angle": "get_index_quote count='ten'",
   "argv": [
@@ -5736,7 +5781,7 @@
   }
  },
  {
-  "id": "pattern-count-384",
+  "id": "pattern-count-387",
   "category": "pattern-count",
   "angle": "get_index_quote count='--3'",
   "argv": [
@@ -5751,7 +5796,7 @@
   }
  },
  {
-  "id": "paired-385",
+  "id": "paired-388",
   "category": "paired",
   "angle": "EDB 只给 beginDate",
   "argv": [
@@ -5766,7 +5811,7 @@
   }
  },
  {
-  "id": "paired-386",
+  "id": "paired-389",
   "category": "paired",
   "angle": "EDB 只给 endDate",
   "argv": [
@@ -5781,7 +5826,7 @@
   }
  },
  {
-  "id": "mutex-387",
+  "id": "mutex-390",
   "category": "mutex",
   "angle": "EDB observation + beginDate",
   "argv": [
@@ -5796,7 +5841,7 @@
   }
  },
  {
-  "id": "mutex-388",
+  "id": "mutex-391",
   "category": "mutex",
   "angle": "EDB observation + endDate",
   "argv": [
@@ -5811,7 +5856,7 @@
   }
  },
  {
-  "id": "pattern-observation-389",
+  "id": "pattern-observation-392",
   "category": "pattern-observation",
   "angle": "EDB observation='abc'",
   "argv": [
@@ -5826,7 +5871,7 @@
   }
  },
  {
-  "id": "pattern-observation-390",
+  "id": "pattern-observation-393",
   "category": "pattern-observation",
   "angle": "EDB observation='-1'",
   "argv": [
@@ -5841,7 +5886,7 @@
   }
  },
  {
-  "id": "pattern-observation-391",
+  "id": "pattern-observation-394",
   "category": "pattern-observation",
   "angle": "EDB observation='1.5'",
   "argv": [
@@ -5856,7 +5901,7 @@
   }
  },
  {
-  "id": "pattern-observation-392",
+  "id": "pattern-observation-395",
   "category": "pattern-observation",
   "angle": "EDB observation='1a'",
   "argv": [
@@ -5871,7 +5916,7 @@
   }
  },
  {
-  "id": "pattern-observation-393",
+  "id": "pattern-observation-396",
   "category": "pattern-observation",
   "angle": "EDB observation='1.0'",
   "argv": [
@@ -5886,7 +5931,7 @@
   }
  },
  {
-  "id": "pattern-observation-394",
+  "id": "pattern-observation-397",
   "category": "pattern-observation",
   "angle": "EDB observation='ten'",
   "argv": [
@@ -5901,7 +5946,7 @@
   }
  },
  {
-  "id": "pattern-observation-395",
+  "id": "pattern-observation-398",
   "category": "pattern-observation",
   "angle": "EDB observation='5 '",
   "argv": [
@@ -5916,7 +5961,7 @@
   }
  },
  {
-  "id": "pattern-observation-396",
+  "id": "pattern-observation-399",
   "category": "pattern-observation",
   "angle": "EDB observation=' 5'",
   "argv": [
@@ -5931,7 +5976,7 @@
   }
  },
  {
-  "id": "pattern-observation-397",
+  "id": "pattern-observation-400",
   "category": "pattern-observation",
   "angle": "EDB observation='0x5'",
   "argv": [
@@ -5946,7 +5991,7 @@
   }
  },
  {
-  "id": "conditional-398",
+  "id": "conditional-401",
   "category": "conditional",
   "angle": "EDB fetch 无 observation/dates",
   "argv": [
@@ -5961,7 +6006,7 @@
   }
  },
  {
-  "id": "conditional-399",
+  "id": "conditional-402",
   "category": "conditional",
   "angle": "EDB searchFetch 无 observation/dates",
   "argv": [
@@ -5976,7 +6021,7 @@
   }
  },
  {
-  "id": "conditional-400",
+  "id": "conditional-403",
   "category": "conditional",
   "angle": "EDB 仅提数 无 observation/dates",
   "argv": [
@@ -5991,7 +6036,7 @@
   }
  },
  {
-  "id": "conditional-401",
+  "id": "conditional-404",
   "category": "conditional",
   "angle": "EDB 搜索并提数 无 observation/dates",
   "argv": [
@@ -6006,7 +6051,7 @@
   }
  },
  {
-  "id": "unknown-field-402",
+  "id": "unknown-field-405",
   "category": "unknown-field",
   "angle": "EDB 多传字段 windcode",
   "argv": [
@@ -6021,7 +6066,7 @@
   }
  },
  {
-  "id": "unknown-field-403",
+  "id": "unknown-field-406",
   "category": "unknown-field",
   "angle": "EDB 多传字段 period",
   "argv": [
@@ -6036,7 +6081,7 @@
   }
  },
  {
-  "id": "unknown-field-404",
+  "id": "unknown-field-407",
   "category": "unknown-field",
   "angle": "EDB 多传字段 foo",
   "argv": [
@@ -6051,7 +6096,7 @@
   }
  },
  {
-  "id": "unknown-field-405",
+  "id": "unknown-field-408",
   "category": "unknown-field",
   "angle": "EDB 多传字段 query",
   "argv": [
@@ -6066,7 +6111,7 @@
   }
  },
  {
-  "id": "correct-406",
+  "id": "correct-409",
   "category": "correct",
   "angle": "search_stocks 合法",
   "argv": [
@@ -6080,7 +6125,7 @@
   }
  },
  {
-  "id": "correct-407",
+  "id": "correct-410",
   "category": "correct",
   "angle": "get_stock_basicinfo 合法",
   "argv": [
@@ -6094,7 +6139,7 @@
   }
  },
  {
-  "id": "correct-408",
+  "id": "correct-411",
   "category": "correct",
   "angle": "get_risk_metrics 合法",
   "argv": [
@@ -6108,7 +6153,7 @@
   }
  },
  {
-  "id": "correct-409",
+  "id": "correct-412",
   "category": "correct",
   "angle": "get_bond_basicinfo 合法",
   "argv": [
@@ -6122,7 +6167,7 @@
   }
  },
  {
-  "id": "correct-410",
+  "id": "correct-413",
   "category": "correct",
   "angle": "get_financial_data 合法",
   "argv": [
@@ -6136,7 +6181,7 @@
   }
  },
  {
-  "id": "correct-411",
+  "id": "correct-414",
   "category": "correct",
   "angle": "get_company_announcements 合法",
   "argv": [
@@ -6150,7 +6195,7 @@
   }
  },
  {
-  "id": "correct-412",
+  "id": "correct-415",
   "category": "correct",
   "angle": "get_financial_news 合法",
   "argv": [
@@ -6164,7 +6209,7 @@
   }
  },
  {
-  "id": "correct-413",
+  "id": "correct-416",
   "category": "correct",
   "angle": "get_stock_price_indicators 合法",
   "argv": [
@@ -6178,7 +6223,7 @@
   }
  },
  {
-  "id": "correct-414",
+  "id": "correct-417",
   "category": "correct",
   "angle": "get_fund_price_indicators 合法",
   "argv": [
@@ -6192,7 +6237,7 @@
   }
  },
  {
-  "id": "correct-415",
+  "id": "correct-418",
   "category": "correct",
   "angle": "get_index_price_indicators 合法",
   "argv": [
@@ -6206,7 +6251,7 @@
   }
  },
  {
-  "id": "correct-416",
+  "id": "correct-419",
   "category": "correct",
   "angle": "get_stock_kline 合法",
   "argv": [
@@ -6220,7 +6265,7 @@
   }
  },
  {
-  "id": "correct-417",
+  "id": "correct-420",
   "category": "correct",
   "angle": "get_fund_kline 合法",
   "argv": [
@@ -6234,7 +6279,7 @@
   }
  },
  {
-  "id": "correct-418",
+  "id": "correct-421",
   "category": "correct",
   "angle": "get_index_kline 合法",
   "argv": [
@@ -6248,7 +6293,7 @@
   }
  },
  {
-  "id": "correct-419",
+  "id": "correct-422",
   "category": "correct",
   "angle": "get_stock_kline count 整数",
   "argv": [
@@ -6262,7 +6307,7 @@
   }
  },
  {
-  "id": "correct-420",
+  "id": "correct-423",
   "category": "correct",
   "angle": "get_fund_kline count 整数",
   "argv": [
@@ -6276,7 +6321,7 @@
   }
  },
  {
-  "id": "correct-421",
+  "id": "correct-424",
   "category": "correct",
   "angle": "get_index_kline count 整数",
   "argv": [
@@ -6290,7 +6335,7 @@
   }
  },
  {
-  "id": "correct-422",
+  "id": "correct-425",
   "category": "correct",
   "angle": "get_stock_quote 合法(仅 windcode)",
   "argv": [
@@ -6304,7 +6349,7 @@
   }
  },
  {
-  "id": "correct-423",
+  "id": "correct-426",
   "category": "correct",
   "angle": "get_fund_quote 合法(仅 windcode)",
   "argv": [
@@ -6318,7 +6363,7 @@
   }
  },
  {
-  "id": "correct-424",
+  "id": "correct-427",
   "category": "correct",
   "angle": "get_index_quote 合法(仅 windcode)",
   "argv": [
@@ -6332,49 +6377,49 @@
   }
  },
  {
-  "id": "correct-425",
+  "id": "correct-428",
   "category": "correct",
-  "angle": "get_stock_quote tradingday+count",
+  "angle": "get_stock_quote begin/end+count",
   "argv": [
    "call",
    "stock_data",
    "get_stock_quote",
-   "{\"windcode\":\"600519.SH\",\"tradingday\":\"2026-08-18\",\"count\":30}"
+   "{\"windcode\":\"600519.SH\",\"begin\":\"2026-08-05\",\"end\":\"2026-08-05\",\"count\":30}"
   ],
   "expect": {
    "ok": true
   }
  },
  {
-  "id": "correct-426",
+  "id": "correct-429",
   "category": "correct",
-  "angle": "get_fund_quote tradingday+count",
+  "angle": "get_fund_quote begin/end+count",
   "argv": [
    "call",
    "fund_data",
    "get_fund_quote",
-   "{\"windcode\":\"510300.SH\",\"tradingday\":\"2026-08-18\",\"count\":30}"
+   "{\"windcode\":\"510300.SH\",\"begin\":\"2026-08-05\",\"end\":\"2026-08-05\",\"count\":30}"
   ],
   "expect": {
    "ok": true
   }
  },
  {
-  "id": "correct-427",
+  "id": "correct-430",
   "category": "correct",
-  "angle": "get_index_quote tradingday+count",
+  "angle": "get_index_quote begin/end+count",
   "argv": [
    "call",
    "index_data",
    "get_index_quote",
-   "{\"windcode\":\"000300.SH\",\"tradingday\":\"2026-08-18\",\"count\":30}"
+   "{\"windcode\":\"000300.SH\",\"begin\":\"2026-08-05\",\"end\":\"2026-08-05\",\"count\":30}"
   ],
   "expect": {
    "ok": true
   }
  },
  {
-  "id": "correct-428",
+  "id": "correct-431",
   "category": "correct",
   "angle": "EDB 仅搜索",
   "argv": [
@@ -6388,7 +6433,7 @@
   }
  },
  {
-  "id": "correct-429",
+  "id": "correct-432",
   "category": "correct",
   "angle": "EDB 搜索并提数+observation",
   "argv": [
@@ -6402,7 +6447,7 @@
   }
  },
  {
-  "id": "correct-430",
+  "id": "correct-433",
   "category": "correct",
   "angle": "跨域改写 get_fund_quote@stock_data",
   "argv": [
@@ -6416,7 +6461,7 @@
   }
  },
  {
-  "id": "correct-431",
+  "id": "correct-434",
   "category": "correct",
   "angle": "跨域改写 get_index_kline@stock_data",
   "argv": [
