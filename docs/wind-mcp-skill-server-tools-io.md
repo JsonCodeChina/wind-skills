@@ -96,6 +96,7 @@ curl -sS https://mcp.wind.com.cn/vserver_stock_data/mcp/ \
 - `windcode`：名称或 Wind 代码（如 `600519.SH`），价格指标支持逗号分隔多标的。
 - `indexes`：指标字段名，逗号分隔。日期：`yyyy-MM-dd`。
 - K 线 `period`（数字编码）：`1`=1分 `3`=5分 `4`=10分 `5`=15分 `6`=30分 `7`=60分 `8`=120分 `9`=240分 **`10`=日K** `11`=周K `12`=月K `13`=年K `14`=季K `15`=半年K；`aftype` `0`前复权/`1`后复权/`2`不复权；`issusp` `0`/`1`。
+- `count`（K 线 / 分钟，整数，默认 `0`）：在开始/结束区间内取数条数——正数从头往后取 N 条、负数从结束日期往前取 N 条、`0` 取全部；不会超出日期区间。
 
 ---
 
@@ -104,8 +105,8 @@ curl -sS https://mcp.wind.com.cn/vserver_stock_data/mcp/ \
 | 工具 | 入参 | 说明 |
 | --- | --- | --- |
 | `get_stock_price_indicators` | `windcode`(必), `indexes` | 时点行情截面 |
-| `get_stock_kline` | `windcode`,`begin_date`,`end_date`(必), `period`/`aftype`/`issusp`/`afdate` | 区间 K 线 |
-| `get_stock_quote` | `windcode`(必), `begin`/`end` | 分钟量价 |
+| `get_stock_kline` | `windcode`,`begin_date`,`end_date`(必), `period`/`count`/`aftype`/`issusp`/`afdate` | 区间 K 线 |
+| `get_stock_quote` | `windcode`(必), `begin`/`end`/`count` | 分钟量价 |
 | `search_stocks` | `question` | 条件筛选 |
 | `get_stock_basicinfo` | `question` | 公司档案 |
 | `get_stock_fundamentals` | `question` | 财务与估值 |
@@ -126,7 +127,7 @@ curl -sS https://mcp.wind.com.cn/vserver_stock_data/mcp/ \
 "rows":[["2026-08-18T00:00:00.000+08:00","1291.00","1297.99","1302.90","1285.17","5007014692","3872283","0.3098","1293.04"]],
 "unit":{"OPEN 单位：":"元","VOLUME 单位：":"股","TURNOVER 单位：":"元"}}}
 ```
-列义：时间/开/收/高/低/成交额/成交量/换手率/均价。`get_stock_quote` 同结构、粒度为分钟（单日约 238 行）。
+列义：时间/开/收/高/低/成交额/成交量/换手率/均价。`get_stock_quote` 同结构、粒度为分钟（单日约 238 行）。K 线/分钟可加 `count` 限条数，如取区间末 2 条传 `"count":-2`。
 
 `search_stocks` ← `{"question":"筛选沪深市场市值超2000亿且股息率超3%的股票"}`（返回 32 行）
 ```json
@@ -180,8 +181,8 @@ curl -sS https://mcp.wind.com.cn/vserver_stock_data/mcp/ \
 | 工具 | 入参 | 说明 |
 | --- | --- | --- |
 | `get_fund_price_indicators` | `windcode`(必), `indexes` | 场内基金时点行情 |
-| `get_fund_kline` | `windcode`,`begin_date`,`end_date`(必), `period`等 | 场内基金 K 线 |
-| `get_fund_quote` | `windcode`(必), `begin`/`end` | 场内基金分钟 |
+| `get_fund_kline` | `windcode`,`begin_date`,`end_date`(必), `period`/`count`/`aftype`/`issusp` | 场内基金 K 线 |
+| `get_fund_quote` | `windcode`(必), `begin`/`end`/`count` | 场内基金分钟 |
 | `search_funds` | `question` | 条件筛选 |
 | `get_fund_financials` | `question` | 财务/分红 |
 | `get_fund_holdings` | `question` | 持仓 |
@@ -246,8 +247,8 @@ curl -sS https://mcp.wind.com.cn/vserver_stock_data/mcp/ \
 | 工具 | 入参 | 说明 |
 | --- | --- | --- |
 | `get_index_price_indicators` | `windcode`(必), `indexes` | 时点行情 |
-| `get_index_kline` | `windcode`,`begin_date`,`end_date`(必), `period` | K 线 |
-| `get_index_quote` | `windcode`(必), `begin`/`end` | 分钟点位 |
+| `get_index_kline` | `windcode`,`begin_date`,`end_date`(必), `period`/`count` | K 线 |
+| `get_index_quote` | `windcode`(必), `begin`/`end`/`count` | 分钟点位 |
 | `get_index_basicinfo` | `question` | 指数概况 |
 | `get_index_fundamentals` | `question` | 加权基本面/估值 |
 | `get_index_technicals` | `question` | 技术指标 |
