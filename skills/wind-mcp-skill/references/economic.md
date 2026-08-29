@@ -4,7 +4,7 @@
 
 - 按职责分两个工具：找指标 / 确认代码用 `search_economic_indicator`；取具体数值时间序列用 `query_economic_indicator_data`。
 - `query_economic_indicator_data` 必须提供完整日期范围（`beginDate` + `endDate`）或 `observation`，两者互斥；只给 `question` 会被后端拒绝。
-- 日期字段使用 `beginDate` / `endDate`，格式 `yyyy-MM-dd`。
+- 日期字段使用 `beginDate` / `endDate`，格式 `YYYY-MM-DD`。
 - `observation` 为数字字符串（近 N 期，如 `10`）。
 - 后端将合法日期误报为 observation 格式错误时，视为后端问题：停止自动修正并透传错误。
 - 不得把日期范围擅自改成 `observation`。
@@ -35,8 +35,8 @@
 | 参数 | 必填 | 类型 | 枚举 | 示例 / 默认 | 官方说明 |
 | --- | --- | --- | --- | --- | --- |
 | `question` | 是 | string | — | 中国GDP现价当季值 / `M5567876` | 自然语言问句或指标代码（多个代码用英文逗号分隔）。时间范围通过 `beginDate`/`endDate` 或 `observation` 显式传入，不要写进 `question`。 |
-| `beginDate` | 否 | string | — | 2025-01-01 | 数据提取开始日期，格式 `yyyy-MM-dd`。须与 `endDate` 成对出现；与 `observation` 互斥。 |
-| `endDate` | 否 | string | — | 2025-12-31 | 数据提取结束日期，格式 `yyyy-MM-dd`。须与 `beginDate` 成对出现；与 `observation` 互斥。 |
+| `beginDate` | 否 | string | — | 2025-01-01 | 数据提取开始日期，格式 `YYYY-MM-DD`。须与 `endDate` 成对出现；与 `observation` 互斥。 |
+| `endDate` | 否 | string | — | 2025-12-31 | 数据提取结束日期，格式 `YYYY-MM-DD`。须与 `beginDate` 成对出现；与 `observation` 互斥。 |
 | `observation` | 否 | string | — | 10 | 观测期数，近 N 期填数字字符串（如近10期填 `10`）。与 `beginDate`/`endDate` 互斥。 |
 
 > 说明：本工具在本 skill 中只接受 `question` 与时间范围参数（`beginDate`/`endDate`/`observation`）；跨口径换算 / 对齐交由 `analytics_data` 处理。
