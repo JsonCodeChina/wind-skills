@@ -268,11 +268,31 @@ await checkAsync('校验失败时不发网络请求', async () => {
   eq(r.calls.length, 0, '本地拦截后不应发出任何请求');
 });
 
-await checkAsync('describe / list-tools / find 不发网络请求', async () => {
-  for (const argv of [['describe', 'edb', 'economic_search_indicator'], ['list-tools', 'company'], ['find', '波动率'], ['list-servers']]) {
+await checkAsync('选工具的命令全部离线', async () => {
+  for (const argv of [['describe', 'edb', 'economic_search_indicator'], ['describe', 'futures', 'futures_get_basis', 'sector'], ['find', '波动率']]) {
     const r = await runCli(argv, simpleHandler({}));
-    eq(r.calls.length, 0, `${argv[0]} 不应发网络请求`);
-    assert(r.json, `${argv[0]} 应输出 JSON`);
+    eq(r.calls.length, 0, `${argv.join(' ')} 不应发网络请求`);
+    assert(r.json, `${argv.join(' ')} 应输出 JSON`);
+  }
+});
+
+// 命令面越小，agent 走错路的机会越少。留下的五个各有不可替代的职责：
+// call 取数、find 选工具、describe 看契约、doctor 排障、refresh 重建。
+// 删掉的四个：list-tools / list-servers 被 references/*.md 和 SKILL.md 路由表覆盖，
+// diff 是 doctor 的子集，smoke 会打满 132 次真实请求、不该出现在 agent 的命令面上。
+await checkAsync('命令面保持精简，且删掉的命令有明确去处', async () => {
+  const usage = (await runCli([])).text;
+  for (const cmd of ['call', 'find', 'describe', 'doctor', 'refresh']) {
+    assert(usage.includes(`cli.mjs ${cmd}`), `用法里缺 ${cmd}`);
+  }
+  for (const gone of ['list-tools', 'list-servers', 'diff ', 'cli.mjs smoke']) {
+    assert(!usage.includes(gone), `${gone} 已删除，用法里不该还留着`);
+  }
+  assert(usage.includes('references/<server>.md'), '用法要把「看某个 server 有什么工具」指向 references');
+  assert(usage.includes('tests/run-smoke.mjs'), '用法要指出冒烟已挪到 tests/');
+  for (const gone of ['list-tools', 'list-servers', 'diff', 'smoke']) {
+    const r = await runCli([gone], simpleHandler({}));
+    eq(r.thrown?.code, 'USAGE_ERROR', `${gone} 应报 USAGE_ERROR 而不是静默失败`);
   }
 });
 
@@ -450,6 +470,8 @@ check('每个 server 都有工具目录，且列全了自己的工具', () => {
     for (const name of Object.keys(s.tools)) {
       assert(md.includes(`| \`${name}\` |`), `references/${alias}.md 的目录表缺 ${name}`);
     }
+    // list-tools 已删除，这份文件是「该 server 有哪些工具」的唯一出口，不能缺
+    assert(md.includes('## 工具目录'), `references/${alias}.md 缺工具目录一节`);
   }
 });
 

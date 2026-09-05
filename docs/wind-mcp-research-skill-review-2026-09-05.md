@@ -2,7 +2,7 @@
 
 - 日期：2026-09-05
 - 范围：按 `skills/wind-mcp-skill/mcp-connection-guide.md` 的方案，为 7 个新 MCP server（132 个工具）新建 skill，并评审现有 `wind-mcp-skill` 的结构
-- 结论：**新 skill 已可用**。离线契约测试 63/63、边界测试 36/36（含真实后端分组时 39/39）、132 个工具实盘冒烟 129/132（3 个失败全部是已记录的服务端故障，非本 skill 问题）
+- 结论：**新 skill 已可用**。离线契约测试 64/64、边界测试 36/36（含真实后端分组时 39/39）、132 个工具实盘冒烟 129/132（3 个失败全部是已记录的服务端故障，非本 skill 问题）
 
 ## 一、先回答「现有结构是否最优」
 
@@ -79,7 +79,7 @@ skills/wind-mcp-research-skill/
 
 **生成物 vs 人工内容。** `registry.json` 和 `references/*.md` 是生成物，后端改了就重新生成；`annotations.json` 是人工写的，`refresh` 不会覆盖它。这样「后端变了」和「我们对后端的理解变了」是两件独立的事，不会互相冲掉。
 
-**离线命令 vs 联网命令。** `find` / `describe` / `list-tools` / `list-servers` 全部离线，不消耗积分。132 个工具选型的成本因此降到零——agent 可以放心地先搜再定，不必赌。
+**离线命令 vs 联网命令。** 选工具的两条命令 `find` / `describe` 全部离线，不消耗积分。132 个工具选型的成本因此降到零——agent 可以放心地先搜再定，不必赌。
 
 **按需加载（决定上下文成本）。** 这是整个设计里返工最多的一处，最后落到「**`find` 是主路径，文档是兜底**」。
 
@@ -118,7 +118,7 @@ skills/wind-mcp-research-skill/
 
 ## 三、测试结果
 
-### 3.1 离线契约测试（63 项，`tests/run-offline-tests.mjs`）
+### 3.1 离线契约测试（64 项，`tests/run-offline-tests.mjs`）
 
 覆盖：8 类参数校验规则、SSE/纯 JSON 双解析、业务错误嗅探的正负样本、CLI 六种信封形态、`jsonrpc.id` 必须是整数、每次调用前必须 `initialize`、校验失败时零网络请求、离线命令零网络请求、`find` 的相关度排序与零命中语义、以及注册表与文档的一致性（每个工具都有样例、样例本身能过校验、每个工具在契约文档里有小节、SKILL.md 路由表覆盖 7 个 server、每个 server 都配了领域关键词）。
 
@@ -141,7 +141,7 @@ skills/wind-mcp-research-skill/
 
 `__proto__`、路径穿越、并发串扰三项确认无问题；数组上下界一项**发现校验缺口并当场补上**（`fund` 批量工具的 `windCodes` 上限 50，原先只由后端截断）。
 
-### 3.3 实盘冒烟（132 个工具，`node scripts/cli.mjs smoke`）
+### 3.3 实盘冒烟（132 个工具，`node tests/run-smoke.mjs`）
 
 ```
 pass 129 / fail 3 / 132
@@ -277,7 +277,7 @@ call edb economic_query_indicator_series '{"question":"中国GDP现价","observa
 | `find` 召回不稳定（`find 库存` 只命中 1 个、`find 仓单` 命中 3 个） | 同上：领域关键词兜底 + 零命中提示 |
 | `futures_get_supply_demand` 一次返回里单位混排（「吨」与「万吨」并存，量级差 1 万倍） | futures guidance 补一句「逐行读各自的 `unit`，不要跨行相加」 |
 
-子 agent 的结论原话：能，六题全部首调成功；**但前提是遵守「先按路由表定 server、再 `list-tools`/`describe` 定工具」的顺序**——关键防错信息大量沉在 `list-tools` 的 guidance 和 `describe` 的 `known_issue` 里，只读 SKILL.md 正文会漏掉其中两条。这条意见已经反映到 SKILL.md 第 1、2 节的措辞里。
+子 agent 的结论原话：能，六题全部首调成功；**但前提是遵守「先按路由表定 server、再定工具」的顺序**——关键防错信息大量沉在各 server 的「调用要点」和 `describe` 的 `known_issue` 里，只读 SKILL.md 正文会漏掉其中两条。这条意见已经反映到 SKILL.md 第 1、2 节的措辞里，第四轮又把选工具的默认入口换成了 `find`（命中项直接带 `boundary` 与 `known_issue`）。
 
 ### 5.3 第三轮：验证分层加载
 
@@ -338,6 +338,24 @@ call edb economic_query_indicator_series '{"question":"中国GDP现价","observa
 
 **顺带堵掉一个错误答案**：子 agent 问「最近 3 年 GDP」时，后端只返季度序列，它自己把四个季度相加得出年度值（181594 / 187253 / 196619 亿美元）。实测 `targetFrequency:"年"` 后端直接给的是 **182497 / 184697 / 200584**——**相加是错的**。已把「要年度序列用 `targetFrequency:"年"`，别自己加」写进该工具的 `known_issue`。
 
+### 5.5 收尾：命令面精简
+
+四轮之后回头审计冗余，删掉了四个命令、一批只在内部用的导出：
+
+| 删掉的 | 为什么 | 去哪了 |
+| --- | --- | --- |
+| `list-tools <server>` | 严格弱于 `references/<server>.md`：少了 `boundary`、`sample` 和「最容易选错的」一节，输出还更大（company 11034 字 vs 8736 字） | 直接读 `references/<server>.md` |
+| `list-servers` | 与 SKILL.md 第 1 节的路由表完全重合 | 路由表；健康检查走 `doctor` |
+| `diff [server]` | 是 `doctor` 的真子集，`doctor` 本来就逐 server 报漂移 | `doctor` |
+| `smoke [server]` | 会打满 132 次真实请求，**不该出现在 agent 的命令面上** | `tests/run-smoke.mjs` |
+| `build`（`refresh` 的别名） | 同一件事两个名字，用法里也只写了一个 | `refresh` |
+
+剩下五个命令，各有不可替代的职责：`call` 取数、`find` 选工具、`describe` 看契约、`doctor` 排障、`refresh` 重建。导出面从 36 个符号收到 12 个（只留测试和入口真正要用的）。`cli.mjs` 959 → 984 行（净增是因为同时补了枚举标签与 `narrow_response`，删掉的命令约 90 行）。
+
+有一条测试专门锁住这个命令面：五个该在的必须在用法里，四个删掉的必须报 `USAGE_ERROR` 而不是静默失败，且用法里要指出它们各自的去处。
+
+**`build` 这部分代码是否还有必要**——有，而且是整个防漂移设计的根。就在这次收尾验证里，`refresh` 报出 `fund` 有 3 个工具入参变了：`fund_get_return_attribution` 掉了 `marketStyle` 和 `includeComponents`，`fund_get_nav` 和 `fund_get_size` 掉了 `includeFields`，`fund_get_industry_allocation` 的 `reportDate` 不再必填。距上一次刷新只隔了几小时。没有 `buildRegistry`，这四处变动会一直躺在本地注册表里，`find` 和 `describe` 会继续告诉调用方一批已经不存在的参数——而本地校验又是按注册表拦截的，等于用过期契约去卡合法调用。刷新后 `fund` 全量冒烟 21/21。
+
 ## 六、与现有 `wind-mcp-skill` 的关系
 
 两套 server **都还在线**（本次实测确认），能力不是替代而是分层：
@@ -369,11 +387,10 @@ call edb economic_query_indicator_series '{"question":"中国GDP现价","observa
 cd skills/wind-mcp-research-skill
 
 node scripts/cli.mjs doctor            # Key + 7 个 server 连通性 + 注册表漂移
-node scripts/cli.mjs diff company      # 只看差异
 node scripts/cli.mjs refresh company   # 拉最新 schema 写回 registry.json 并重生成全部目录
 node scripts/cli.mjs refresh           # 同上，7 个 server 全量
 node tests/run-offline-tests.mjs       # 会点名因 schema 变动而失效的样例
-node scripts/cli.mjs smoke             # 132 个工具实盘冒烟
+node tests/run-smoke.mjs               # 132 个工具实盘冒烟
 
 跑测试或在开发仓里工作时先 `export WIND_SKILL_NO_UPDATE=1`，否则每次 `call` 成功都会在后台起一次 skill 自更新。
 ```

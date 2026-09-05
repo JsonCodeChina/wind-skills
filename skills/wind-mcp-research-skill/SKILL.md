@@ -40,7 +40,7 @@ examples:
 | 是哪个工具、参数长什么样 | `cli.mjs find <关键词>` | 0.5 千字 |
 | 这个工具的完整契约 | `cli.mjs describe <server> <tool>` | 1 千字 |
 | 某几个字段的取值 | `cli.mjs describe <server> <tool> <param ...>` | 0.3–0.9 千字 |
-| 这个 server 都有什么工具（`find` 找不到时） | `references/<server>.md` | 2–9 千字 |
+| 这个 server 都有什么工具（`find` 零命中时） | 直接读 `references/<server>.md` | 2–9 千字 |
 | 132 个工具的全量 schema | `scripts/registry.json` | **不要读**，那是给 CLI 用的 |
 
 出错时该怎么改，错误信封自带 `next` 字段，照它做即可，本文件不重复。
@@ -77,10 +77,9 @@ examples:
 先 `cd` 到本 `SKILL.md` 所在目录（**不是当前项目目录**），再用相对路径执行。下面全部离线，不发网络、不消耗积分。
 
 ```bash
-node scripts/cli.mjs find <关键词>                       # 默认从这里开始
-node scripts/cli.mjs describe <server> <tool>           # 单个工具的完整契约
+node scripts/cli.mjs find <关键词>                          # 默认从这里开始
+node scripts/cli.mjs describe <server> <tool>              # 单个工具的完整契约
 node scripts/cli.mjs describe <server> <tool> <param ...>  # 只看指定几个参数的类型与枚举
-node scripts/cli.mjs list-tools <server>                # 等价于读 references/<server>.md
 ```
 
 `find` 的每条命中都带 `summary`（用途）、`boundary`（【边界】首句）、`params`（入参签名，短枚举会带上含义如 `type*:integer(1=供需平衡/2=供应/3=需求/4=库存)`）、`sample`（实测样例），可能还有 `narrow_response`（怎么把返回体压小）和 `known_issue`。**够不够直接调，看这两条**：
@@ -94,7 +93,7 @@ node scripts/cli.mjs list-tools <server>                # 等价于读 reference
 
 **不要凭工具名猜参数**：同名字段在不同 server 含义不同（`windCode` 在 `stock` 是股票、在 `futures` 是品种、在 `options` 是标的），类型也不同（`futures_get_position_ranking.type` 是 integer，`futures_get_warehouse_receipt.type` 是 string）。
 
-排障命令（会发网络请求）：`doctor`（Key + 连通性 + 注册表漂移 + 上次自更新状态）、`diff <server>`、`refresh <server>`、`smoke [server]`。不带参数跑 `node scripts/cli.mjs` 看完整用法。
+排障命令（会发网络请求）：`doctor`（Key + 连通性 + 注册表漂移 + 上次自更新状态）、`refresh [server]`（拉最新 schema 写回注册表并重生成目录）。不带参数跑 `node scripts/cli.mjs` 看完整用法。
 
 ## 3. 发命令
 
@@ -110,7 +109,7 @@ node scripts/cli.mjs call stock stock_get_company_profile '{"windCode":"600519.S
 
 **先想清楚要不要整段历史。** 返回体常常比文档贵得多：`futures_get_supply_demand` 不关历史序列返 1.6 万字，传 `includeHistory:false` 只剩 2 千字。`find` 和 `describe` 的 `narrow_response` 字段会列出该工具能压小返回体的参数（`includeHistory` / `limit` / `topK` / `observation` / `includeFields` / `indicators` / `strikeLevels` 等）。用户只要一个最新值时，**务必把它们收窄**。
 
-**两段式调用**：不少工具的入参必须来自上游返回值（文档编号、指标代码、报表 id、子叙事 ID、期权合约代码等），**不能自己编**。哪些是两段式、字段名两端怎么对应，写在各 server 的「调用要点」里（`find` 的 `related_servers` 或 `list-tools <server>` 都能拿到）。
+**两段式调用**：不少工具的入参必须来自上游返回值（文档编号、指标代码、报表 id、子叙事 ID、期权合约代码等），**不能自己编**。哪些是两段式、字段名两端怎么对应，写在各 server 的「调用要点」里（`find` 命中后读 `references/<server>.md` 顶部的「调用要点」）。
 
 **参数传递**：POSIX shell 直接传内联 `<params_json>`。非 POSIX 环境（PowerShell / cmd / 经执行器包装）改用参数文件：把 UTF-8 JSON 写到 `scripts/request-<唯一后缀>.json`，传 `@scripts/request-<唯一后缀>.json`，调用后删除，不复用共享文件。
 

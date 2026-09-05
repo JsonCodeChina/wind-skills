@@ -18,13 +18,13 @@ const SKILL_NAME = basename(SKILL_DIR);
 const UPDATE_CHECK_PATH = join(SCRIPTS_DIR, 'update-check.mjs');
 
 export const REGISTRY_PATH = join(SCRIPTS_DIR, 'registry.json');
-export const ANNOTATIONS_PATH = join(SCRIPTS_DIR, 'annotations.json');
+const ANNOTATIONS_PATH = join(SCRIPTS_DIR, 'annotations.json');
 const REF_DIR = join(SKILL_DIR, 'references');
 
 // #region 传输层：MCP Streamable HTTP（JSON-RPC 2.0 over POST，服务端 stateless、无 session id）
-export const ENDPOINT_BASE = 'https://mcp.wind.com.cn';
-export const PROTOCOL_VERSION = '2025-03-26';
-export const CLIENT_INFO = { name: 'wind-mcp-research-skill', version: '1.0.0' };
+const ENDPOINT_BASE = 'https://mcp.wind.com.cn';
+const PROTOCOL_VERSION = '2025-03-26';
+const CLIENT_INFO = { name: 'wind-mcp-research-skill', version: '1.0.0' };
 
 // 结构化异常：CLI 据此选错误码，不必再解析 message 文本。
 export class McpError extends Error {
@@ -48,7 +48,7 @@ const HTTP_ERROR_MAP = {
 };
 
 // ---- API Key：~/.wind-aifinmarket/config > <skill>/config.json > $WIND_API_KEY ----
-export function getApiKey() {
+function getApiKey() {
   const sources = [];
   const globalConfig = join(homedir(), '.wind-aifinmarket', 'config');
   sources.push(globalConfig);
@@ -85,7 +85,7 @@ export function parseBody(text) {
 // 业务错误的判定：七个 server 普遍把「服务暂时不可用」这类错误当成 isError=false 的纯文本返回，
 // 只看协议层会把报错当数据交给用户。文本短 + 命中错误词才算，避免误伤正常的短答案。
 const BUSINESS_ERROR_RE = /服务暂时不可用|数据源当前不可用|请稍后重试|未识别到有效|没有搜索到|数据为空|内部错误|不能大于|参数错误|请填写|不正确|无效的|不支持的|非法|Invalid |Error:/;
-export const BUSINESS_ERROR_MAX_LEN = 200;
+const BUSINESS_ERROR_MAX_LEN = 200;
 
 export function sniffBusinessError(text) {
   if (typeof text !== 'string') return false;
@@ -95,7 +95,7 @@ export function sniffBusinessError(text) {
   return BUSINESS_ERROR_RE.test(t);
 }
 
-export function endpointOf(fullName) {
+function endpointOf(fullName) {
   return `${ENDPOINT_BASE}/${fullName}/mcp/`;
 }
 
@@ -129,14 +129,14 @@ async function rpc(endpoint, method, params, { key, timeoutMs, fetchFn = fetch }
 }
 
 // 服务端 stateless：每条 tools/* 请求前都要重新 initialize。
-export async function session(fullName, { timeoutMs = 300000, fetchFn = fetch, key } = {}) {
+async function session(fullName, { timeoutMs = 300000, fetchFn = fetch, key } = {}) {
   const endpoint = endpointOf(fullName);
   const apiKey = key ?? getApiKey().key;
   await rpc(endpoint, 'initialize', { protocolVersion: PROTOCOL_VERSION, capabilities: {}, clientInfo: CLIENT_INFO }, { key: apiKey, timeoutMs: Math.min(timeoutMs, 60000), fetchFn });
   return (method, params) => rpc(endpoint, method, params, { key: apiKey, timeoutMs, fetchFn });
 }
 
-export async function listTools(fullName, opts = {}) {
+async function listTools(fullName, opts = {}) {
   const send = await session(fullName, { timeoutMs: 60000, ...opts });
   return (await send('tools/list', {})).tools || [];
 }
@@ -155,7 +155,7 @@ export async function callTool(fullName, toolName, args, opts = {}) {
 // #endregion 传输层
 
 // #region 参数校验：全部规则从 registry.json 的 inputSchema 推导，不维护第二份工具清单。
-export function checkUnknownKeys(schema, params) {
+function checkUnknownKeys(schema, params) {
   const allowed = Object.keys(schema.properties || {});
   const unknown = Object.keys(params).filter((k) => !allowed.includes(k));
   if (!unknown.length) return null;
@@ -165,7 +165,7 @@ export function checkUnknownKeys(schema, params) {
   };
 }
 
-export function checkRequired(schema, params) {
+function checkRequired(schema, params) {
   const missing = (schema.required || []).filter((k) => params[k] === undefined || params[k] === null || params[k] === '');
   if (!missing.length) return null;
   return {
@@ -189,7 +189,7 @@ function typeMatches(expected, value) {
   return actual === expected;
 }
 
-export function checkTypes(schema, params) {
+function checkTypes(schema, params) {
   const errors = [];
   for (const [k, v] of Object.entries(params)) {
     const p = (schema.properties || {})[k];
@@ -220,7 +220,7 @@ export function enumAliases(prop) {
   return aliases;
 }
 
-export function checkEnums(schema, params) {
+function checkEnums(schema, params) {
   const errors = [];
   for (const [k, v] of Object.entries(params)) {
     const p = (schema.properties || {})[k];
@@ -244,7 +244,7 @@ export function checkEnums(schema, params) {
 
 // 数组类字段的 minItems / maxItems / uniqueItems 由 schema 声明（如 fund 批量工具的 windCodes 上限 50）。
 // 本地拦住超限比让后端截断或报错更省一次调用。
-export function checkArrayBounds(schema, params) {
+function checkArrayBounds(schema, params) {
   const errors = [];
   for (const [k, v] of Object.entries(params)) {
     const p = (schema.properties || {})[k];
@@ -261,14 +261,14 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const DATETIME_RE = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?$/;
 
 // 日期格式要求直接从 schema 的 description 推导：写了 YYYY-MM-DD 且带 HH 的是日期时间，否则是纯日期。
-export function dateKindOf(prop) {
+function dateKindOf(prop) {
   const text = `${prop?.title || ''} ${prop?.description || ''}`;
   if (!/YYYY-MM-DD/.test(text)) return null;
   if (/LAST/.test(text)) return null; // 允许传 LAST 的字段不做格式校验
   return /HH/.test(text) ? 'datetime' : 'date';
 }
 
-export function checkDateFormats(schema, params) {
+function checkDateFormats(schema, params) {
   const errors = [];
   for (const [k, v] of Object.entries(params)) {
     const p = (schema.properties || {})[k];
@@ -289,7 +289,7 @@ const DATE_PAIRS = [
   ['barrierStartDate', 'barrierEndDate'],
 ];
 
-export function checkDateOrder(schema, params) {
+function checkDateOrder(schema, params) {
   for (const [from, to] of DATE_PAIRS) {
     const a = params[from];
     const b = params[to];
@@ -301,7 +301,7 @@ export function checkDateOrder(schema, params) {
 }
 
 // 互斥关系写在 schema 的 description 里（「与 observation 参数互斥」），按同一 schema 内出现的字段名提取。
-export function checkMutualExclusion(schema, params) {
+function checkMutualExclusion(schema, params) {
   const props = schema.properties || {};
   const conflicts = new Set();
   for (const k of Object.keys(params)) {
@@ -334,7 +334,7 @@ export function validateParams(schema, params, { allowUnknown = false } = {}) {
 // #endregion 参数校验
 
 // #region 注册表读取：registry.json 是生成物，annotations.json 是人工维护的注解。
-export function readAnnotations() {
+function readAnnotations() {
   return JSON.parse(readFileSync(ANNOTATIONS_PATH, 'utf8'));
 }
 
@@ -346,7 +346,7 @@ export function readRegistry() {
 }
 
 // 线上 schema 与本地注册表的差异，供 refresh / diff 报告用。
-export function diffTools(oldTools = {}, liveTools = []) {
+function diffTools(oldTools = {}, liveTools = []) {
   const liveNames = liveTools.map((t) => t.name);
   const added = liveNames.filter((n) => !(n in oldTools));
   const removed = Object.keys(oldTools).filter((n) => !liveNames.includes(n));
@@ -363,7 +363,7 @@ export function diffTools(oldTools = {}, liveTools = []) {
 // #endregion 注册表读取
 
 // #region 注册表：线上 tools/list 的全量 schema + annotations.json 的人工注解
-export async function buildRegistry({ only = null, fetchFn } = {}) {
+async function buildRegistry({ only = null, fetchFn } = {}) {
   const ann = readAnnotations();
   const prev = existsSync(REGISTRY_PATH) ? readRegistry() : { servers: {} };
   const registry = {
@@ -421,7 +421,7 @@ const firstLine = (d) => String(d || '').replace(/【功能】/, '').split(/\n|�
 // 【边界】里才写着它们是不同的司法结果）。目录里放它的第一句，完整版留给 describe。
 const BOUNDARY_MAX = 56;
 
-export function boundaryText(tool) {
+function boundaryText(tool) {
   const m = String(tool.description || '').match(/【边界】([\s\S]*)$/);
   if (!m) return null;
   return m[1].split(/[。；]/)[0].trim() || null;
@@ -454,7 +454,7 @@ function paramCell(tool) {
   return texts.some((t) => EITHER_OR_RE.test(t)) ? `${cell} ⚠二选一，见 \`describe\`` : cell;
 }
 
-export function renderServer(alias, server) {
+function renderServer(alias, server) {
   const lines = [];
   const entries = Object.entries(server.tools);
   lines.push(`# \`${alias}\` 工具目录 —— ${server.title}`);
@@ -499,7 +499,7 @@ export function renderServer(alias, server) {
   return lines.join('\n').replace(/\n{3,}/g, '\n\n');
 }
 
-export function generateReferences(registry) {
+function generateReferences(registry) {
   const written = [];
   for (const [alias, server] of Object.entries(registry.servers)) {
     const md = renderServer(alias, server);
@@ -539,27 +539,26 @@ function fail(code, message, extra = {}) {
 
 const USAGE = `wind-mcp-research-skill —— Wind 7 个 MCP server / 132 个工具
 
+选工具（离线，不发网络、不消耗积分）
+  node scripts/cli.mjs find <关键词>                      跨 server 搜工具，命中项自带用途/边界/入参/样例
+  node scripts/cli.mjs describe <server> <tool>          单个工具的完整契约
+  node scripts/cli.mjs describe <server> <tool> <param>… 只看指定几个参数的类型与枚举
+  想看某个 server 都有什么工具 → 直接读 references/<server>.md
+
 取数
-  node scripts/cli.mjs call <server> <tool> '<params_json>'   调用工具（params 也可写 @path/to.json）
+  node scripts/cli.mjs call <server> <tool> '<params_json>'   params 也可写 @path/to.json
       --allow-unknown   跳过未知字段拦截（仅在确认注册表过期时用）
       --raw             不做业务错误嗅探，原样输出后端返回
 
-查工具（全部离线，不消耗积分）
-  node scripts/cli.mjs list-servers                7 个 server 与工具数
-  node scripts/cli.mjs list-tools <server>         该 server 的工具与入参签名
-  node scripts/cli.mjs describe <server> <tool>    单个工具的完整契约（说明 + 参数表 + 样例）
-  node scripts/cli.mjs describe <server> <tool> <param ...>  只看指定参数的类型、枚举与等价写法
-  node scripts/cli.mjs find <keyword>              按关键词跨 server 搜工具
-
 维护
-  node scripts/cli.mjs doctor                      检查 Key、连通性、注册表是否过期
-  node scripts/cli.mjs diff [server]               线上 schema vs 本地注册表（只读不写）
-  node scripts/cli.mjs refresh [server]            重新拉取 schema，写回注册表并重生成 references/*.md
-  node scripts/cli.mjs smoke [server]              用注册表里的实测样例跑冒烟
+  node scripts/cli.mjs doctor            Key、7 个 server 连通性、注册表漂移、上次自更新状态
+  node scripts/cli.mjs refresh [server]  拉最新 schema 写回 registry.json 并重生成 references/*.md
+  node tests/run-smoke.mjs [server]      用实测样例逐个真实调用（会打满 132 次请求）
 
 server: finance / stock / fund / edb / futures / options / company
 
 call 成功后会在后台检查一次 skill 更新（每天最多一次，不阻塞取数）；设 WIND_SKILL_NO_UPDATE=1 关闭。`;
+
 // #endregion
 
 // #region 注册表访问
@@ -653,18 +652,6 @@ async function cmdCall(alias, toolName, paramsInput, flags) {
   out({ ...r.result, cli_meta: { server: server.alias, tool: toolName, elapsed_ms: elapsed, text_len: r.text.length, ...(r.suspectError ? { suspect_error: true } : {}) } });
 }
 
-function cmdListServers() {
-  const reg = registry();
-  const rows = Object.entries(reg.servers).map(([alias, s]) => ({ server: alias, full: s.full, title: s.title, tools: s.toolCount, params: s.paramCount }));
-  out({ generatedAt: reg.generatedAt, total_tools: rows.reduce((n, r) => n + r.tools, 0), servers: rows });
-}
-
-function signatureOf(tool) {
-  const props = tool.inputSchema?.properties || {};
-  const req = new Set(tool.inputSchema?.required || []);
-  return Object.entries(props).map(([k, p]) => `${k}${req.has(k) ? '*' : ''}:${p.type || '?'}`).join(', ');
-}
-
 // 返回体往往比文档贵得多：`futures_get_supply_demand` 不关历史序列会返 1.6 万字，
 // 关掉只剩 2 千字。这些「能把返回体压小」的参数从名字和默认值推导出来，随 find / describe 一起给出，
 // 免得调用方为了一个最新值拉回一整年的序列。
@@ -728,23 +715,6 @@ function signatureWithEnums(tool) {
 
 function summaryOf(tool) {
   return (tool.description || '').replace(/【功能】/, '').split(/\n|【/)[0].trim();
-}
-
-function cmdListTools(alias) {
-  const server = resolveServer(alias);
-  out({
-    server: server.alias,
-    title: server.title,
-    scope: server.scope,
-    guidance: server.guidance,
-    reference: `references/${server.alias}.md`,
-    tools: Object.entries(server.tools).map(([name, t]) => ({
-      name,
-      signature: `${name}(${signatureOf(t)})`,
-      summary: summaryOf(t),
-      ...(t.knownIssue ? { known_issue: t.knownIssue } : {}),
-    })),
-  });
 }
 
 function cmdDescribe(alias, toolName, fields = []) {
@@ -901,20 +871,6 @@ async function cmdDoctor() {
   out(report);
 }
 
-async function cmdDiff(alias) {
-  const reg = registry();
-  const targets = alias ? [resolveServer(alias).alias] : Object.keys(reg.servers);
-  const result = {};
-  for (const a of targets) {
-    const s = reg.servers[a];
-    const live = await listTools(s.full);
-    result[a] = diffTools(s.tools, live);
-  }
-  out({ compared: targets, diff: result });
-}
-
-// 重建：拉最新 schema 写回 registry.json，再由它重新生成全部契约目录。
-// 只覆盖 schema，annotations.json 里的人工内容（说明、关键词、样例、已知故障）原样保留。
 async function cmdBuild(alias) {
   const only = alias ? resolveServer(alias).alias : null;
   const { registry, report } = await buildRegistry({ only });
@@ -928,30 +884,6 @@ async function cmdBuild(alias) {
   });
 }
 
-async function cmdSmoke(alias) {
-  const reg = registry();
-  const targets = alias ? [resolveServer(alias).alias] : Object.keys(reg.servers);
-  const results = [];
-  let ok = 0; let bad = 0; let skipped = 0;
-  for (const a of targets) {
-    const s = reg.servers[a];
-    for (const [name, t] of Object.entries(s.tools)) {
-      if (!t.sample) { skipped++; results.push({ server: a, tool: name, status: 'skipped', reason: '无样例入参' }); continue; }
-      const invalid = validateParams(t.inputSchema, t.sample);
-      if (invalid) { bad++; results.push({ server: a, tool: name, status: 'invalid_sample', message: invalid.message }); continue; }
-      try {
-        const r = await callTool(s.full, name, t.sample);
-        const failed = r.isError || r.suspectError || !r.text.length;
-        failed ? bad++ : ok++;
-        results.push({ server: a, tool: name, status: failed ? 'fail' : 'pass', len: r.text.length, ...(failed ? { text: r.text.slice(0, 160), known_issue: t.knownIssue || null } : {}) });
-      } catch (e) {
-        bad++;
-        results.push({ server: a, tool: name, status: 'error', code: e.code || 'UNKNOWN', message: String(e.message).slice(0, 160) });
-      }
-    }
-  }
-  out({ summary: { pass: ok, fail: bad, skipped, total: ok + bad + skipped }, results });
-}
 // #endregion
 
 
@@ -1027,19 +959,12 @@ export async function main(argv) {
     case 'call':
       if (args.length < 2) throw new McpError('USAGE_ERROR', `用法：call <server> <tool> '<params_json>'`);
       return cmdCall(args[0], args[1], args[2], flags);
-    case 'list-servers': return cmdListServers();
-    case 'list-tools':
-      if (!args[0]) throw new McpError('USAGE_ERROR', '用法：list-tools <server>');
-      return cmdListTools(args[0]);
     case 'describe':
       if (args.length < 2) throw new McpError('USAGE_ERROR', '用法：describe <server> <tool> [param ...]');
       return cmdDescribe(args[0], args[1], args.slice(2));
     case 'find': return cmdFind(args[0]);
     case 'doctor': return cmdDoctor();
-    case 'diff': return cmdDiff(args[0]);
-    case 'refresh':
-    case 'build': return cmdBuild(args[0]);
-    case 'smoke': return cmdSmoke(args[0]);
+    case 'refresh': return cmdBuild(args[0]);
     default:
       throw new McpError('USAGE_ERROR', `未知命令 '${cmd}'。\n\n${USAGE}`);
   }

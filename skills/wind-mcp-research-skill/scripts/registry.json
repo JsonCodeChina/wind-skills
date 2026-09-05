@@ -918,7 +918,7 @@
       ],
       "confusable": "`fund_get_equity_holdings`（全部股票持仓，几百只）vs `fund_get_top_equity_holdings`（披露的重仓股，十只左右）——问「持仓」多半要后者，问「全部持仓明细」才用前者。",
       "toolCount": 21,
-      "paramCount": 68,
+      "paramCount": 64,
       "tools": {
         "fund_get_similar_funds": {
           "description": "【功能】根据基金代码查询基金的相似基金信息，寻找同类可比基金候选。\n\n【适用场景】用于寻找同类产品，比较候选基金的相似度得分、成立日期、规模、评级、申赎状态和基金经理等基本信息；已确定目标基金后再进行比较。\n\n【返回】返回同类可比基金列表及上述基本字段；查询基金自身从候选中剔除，候选不足时按实际可用数量返回，字段缺失单独说明。\n\n【边界】相似度结果用于筛选同类候选，不等同于业绩、评级或风险结论；无法判断查询目的时先按基金数据类别选择相应能力。",
@@ -1187,35 +1187,6 @@
                   "8"
                 ],
                 "default": "2"
-              },
-              "marketStyle": {
-                "type": "string",
-                "title": "风格因子口径",
-                "description": "风格因子口径 0=Wind 因子库（默认）/ 1=中信标普 / 2=申万 / 3=巨潮。",
-                "enum": [
-                  "0",
-                  "1",
-                  "2",
-                  "3"
-                ],
-                "default": "0"
-              },
-              "includeComponents": {
-                "type": "array",
-                "title": "组件开关",
-                "description": "组件开关数组，留空返回标准 4 类（factor_exposure/fit/return_decomposition/risk_decomposition），含 correlation 时追加因子相关系数。",
-                "items": {
-                  "type": "string",
-                  "enum": [
-                    "factor_exposure",
-                    "fit",
-                    "return_decomposition",
-                    "risk_decomposition",
-                    "correlation"
-                  ]
-                },
-                "uniqueItems": true,
-                "default": []
               }
             }
           },
@@ -1310,8 +1281,7 @@
             "description": "获取基金行业配置。按基金 WindCode 或基金名称和单个报告期，查询受支持基金在该报告期披露的行业配置，返回行业名称、行业代码、持仓市值、占基金净值比、占股票市值比及各项变动、同类平均对比、行业指数收益率和 PE。QDII 基金自动路由到 GICS 分类体系；显式指定 classificationType 时强制走第三方行业分类报表。",
             "additionalProperties": false,
             "required": [
-              "windCode",
-              "reportDate"
+              "windCode"
             ],
             "properties": {
               "windCode": {
@@ -1682,29 +1652,6 @@
                 "title": "截止日期",
                 "description": "截止日期 YYYY-MM-DD；不传用调用当天；实际净值日期以 f_nav_date2 为准，不一定等于截止日。",
                 "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
-              },
-              "includeFields": {
-                "type": "array",
-                "title": "指定返回字段",
-                "description": "指定字段助记符列表，留空返回默认净值字段包（单位净值/复权净值/累计净值/净值日期/币种/公布类型等）；可选 f_nav_date2=基金净值日期 / f_nav_unit=单位净值 / f_nav_adjusted=复权单位净值 / fund_navcur=单位净值币种 / f_nav_publishtype=基金净值公布类型 / f_nav_accumulated=累计单位净值 / f_mmf_unityield=万份基金单位收益 / f_mmf_annualizedyield=7日年化收益率；货币基金可请求万份收益/7日年化；f_info_windcode、f_info_name 必返、即使未传也会置顶返回。",
-                "items": {
-                  "type": "string",
-                  "enum": [
-                    "f_info_windcode",
-                    "f_info_name",
-                    "f_nav_date2",
-                    "f_nav_unit",
-                    "f_nav_adjusted",
-                    "fund_navcur",
-                    "f_nav_publishtype",
-                    "f_nav_accumulated",
-                    "f_mmf_unityield",
-                    "f_mmf_annualizedyield"
-                  ]
-                },
-                "minItems": 0,
-                "maxItems": 50,
-                "uniqueItems": true
               }
             }
           },
@@ -1943,26 +1890,6 @@
                   "type": "string"
                 },
                 "minItems": 1,
-                "maxItems": 50,
-                "uniqueItems": true
-              },
-              "includeFields": {
-                "type": "array",
-                "title": "指定返回字段",
-                "description": "指定字段助记符列表，留空返回默认规模字段包（5 项：子份额规模/规模合计/份额合计/报告期规模合计/规模变动）；可选 f_info_fundscale_cc=基金子份额规模(公告披露) / f_netasset_total2=基金规模合计 / fundshare_total=基金份额份数合计 / fundnetasset_total=基金规模合计(报告期) / f_prt_netassetchange=基金规模变动；f_info_windcode、f_info_name 必返、即使未传也会置顶返回。",
-                "items": {
-                  "type": "string",
-                  "enum": [
-                    "f_info_windcode",
-                    "f_info_name",
-                    "f_info_fundscale_cc",
-                    "f_netasset_total2",
-                    "fundshare_total",
-                    "fundnetasset_total",
-                    "f_prt_netassetchange"
-                  ]
-                },
-                "minItems": 0,
                 "maxItems": 50,
                 "uniqueItems": true
               },
