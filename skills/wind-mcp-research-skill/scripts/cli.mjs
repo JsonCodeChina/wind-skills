@@ -421,10 +421,14 @@ const firstLine = (d) => String(d || '').replace(/【功能】/, '').split(/\n|�
 // 【边界】里才写着它们是不同的司法结果）。目录里放它的第一句，完整版留给 describe。
 const BOUNDARY_MAX = 56;
 
-function boundaryCell(tool) {
+export function boundaryText(tool) {
   const m = String(tool.description || '').match(/【边界】([\s\S]*)$/);
-  if (!m) return '—';
-  const first = m[1].split(/[。；]/)[0].trim();
+  if (!m) return null;
+  return m[1].split(/[。；]/)[0].trim() || null;
+}
+
+function boundaryCell(tool) {
+  const first = boundaryText(tool);
   if (!first) return '—';
   return esc(first.length > BOUNDARY_MAX ? `${first.slice(0, BOUNDARY_MAX)}…` : first);
 }
@@ -511,8 +515,25 @@ function out(obj) {
   process.stdout.write(JSON.stringify(obj, null, 2) + '\n');
 }
 
+// 出错时该怎么办，直接写进信封。放在这里而不是 SKILL.md 里，是因为这些规则只在出错那一刻有用——
+// 常驻文档要每次调用都付上下文成本，而错误信封只在真的出错时才出现，且能针对具体错误码给话。
+const NEXT_BY_CODE = {
+  PARAM_VALIDATION_ERROR: '本地按 schema 拦下，未发出网络请求，不消耗积分。只改 message 点名的那个字段，其它参数别动，命令引号和 JSON 转义也别动。改完直接重调。',
+  PARAM_TYPE_ERROR: '本地按 schema 拦下，未发出网络请求。按 message 给的期望类型改那一个字段，其它别动。',
+  ROUTE_ERROR: 'server 或工具名不存在。message 里如果给了近似名就改成它；确认工具应该存在则本地注册表过期，跑 refresh <server> 后重试。',
+  INVALID_PARAMS_JSON: '命令行引号或 JSON 转义的问题，**业务参数不要动**。POSIX shell 用单引号包住整个 JSON；PowerShell / cmd 改用 @scripts/request-xxx.json 传参。',
+  PARAMS_FILE_ERROR: '参数文件路径或内容有问题，业务参数不要动。路径相对 skill 根目录。',
+  backend_error: '接口层错误，message 是后端原文，据实转述给用户。同一工具同一参数最多再试一次；信封里带 known_issue 说明这是已记录的服务端故障，**别重试**。不要换工具绕路，也不要用记忆里的数据代替。',
+  AUTH_ERROR: 'API Key 缺失或无效。查找顺序：~/.wind-aifinmarket/config → <skill>/config.json → 环境变量 WIND_API_KEY。直接报告，不改参数。',
+  RATE_LIMIT_ERROR: '触发限流。停止发新请求，恢复串行，如实告诉用户额度问题。',
+  NETWORK_ERROR: '网络或后端不可用。直接报告，不改参数、不换工具。',
+  SETUP_ERROR: '本地环境问题，按 message 处理。',
+  USAGE_ERROR: '命令用法错误。跑 `node scripts/cli.mjs` 看完整用法。',
+  UNKNOWN: '未预期的错误，如实报告 message。',
+};
+
 function fail(code, message, extra = {}) {
-  out({ ok: false, code, message, ...extra });
+  out({ ok: false, code, message, ...extra, next: NEXT_BY_CODE[code] || NEXT_BY_CODE.UNKNOWN });
   process.exitCode = 1;
 }
 
@@ -527,7 +548,7 @@ const USAGE = `wind-mcp-research-skill —— Wind 7 个 MCP server / 132 个工
   node scripts/cli.mjs list-servers                7 个 server 与工具数
   node scripts/cli.mjs list-tools <server>         该 server 的工具与入参签名
   node scripts/cli.mjs describe <server> <tool>    单个工具的完整契约（说明 + 参数表 + 样例）
-  node scripts/cli.mjs describe <server> <tool> <param>  只看一个参数的类型、枚举与等价写法
+  node scripts/cli.mjs describe <server> <tool> <param ...>  只看指定参数的类型、枚举与等价写法
   node scripts/cli.mjs find <keyword>              按关键词跨 server 搜工具
 
 维护
@@ -644,6 +665,67 @@ function signatureOf(tool) {
   return Object.entries(props).map(([k, p]) => `${k}${req.has(k) ? '*' : ''}:${p.type || '?'}`).join(', ');
 }
 
+// 返回体往往比文档贵得多：`futures_get_supply_demand` 不关历史序列会返 1.6 万字，
+// 关掉只剩 2 千字。这些「能把返回体压小」的参数从名字和默认值推导出来，随 find / describe 一起给出，
+// 免得调用方为了一个最新值拉回一整年的序列。
+const NARROW_PARAMS = new Set(['limit', 'topK', 'count', 'maxCount', 'observation', 'includeHistory',
+  'termCount', 'strikeCount', 'strikeLevels', 'includeFields', 'indicators', 'indexes', 'asOfDate']);
+
+function narrowHints(tool) {
+  const hints = [];
+  for (const [k, p] of Object.entries(tool.inputSchema?.properties || {})) {
+    if (!NARROW_PARAMS.has(k)) continue;
+    if (k === 'includeHistory' && p.default === true) {
+      hints.push(`只要最新值就传 ${k}:false，否则默认返回整段历史序列`);
+    } else if (p.default !== undefined) {
+      hints.push(`${k} 默认 ${JSON.stringify(p.default)}`);
+    } else {
+      hints.push(`${k} 可缩小返回范围`);
+    }
+  }
+  return hints.length ? hints : null;
+}
+
+// find 里的入参签名要带上短枚举：`type*:integer` 本身说明不了 4 是库存还是需求，
+// 带上 `(1/2/3/4)` 或带标签就够定，能省掉一次 describe。枚举长的（如 24 项的量级词）只给条数。
+const ENUM_INLINE_MAX = 46;
+
+// 数字枚举光给 `(1/2/3/4)` 说明不了 4 是库存还是需求。说明里通常写着「1-供需平衡（…），2-供应（…）」
+// 或「0（分时)，1（K线）」，把标签抠出来贴上去，才真的能省掉一次 describe。
+function enumLabels(prop) {
+  const desc = String(prop.description || '');
+  const labels = [];
+  for (const v of prop.enum.map(String)) {
+    const dash = desc.match(new RegExp(`${v}\\s*[-—－:：]\\s*([^,，;；、()（）\n]{1,8})`));
+    const paren = desc.match(new RegExp(`${v}\\s*[（(]([^）)]{1,8})[）)]`));
+    const label = (dash || paren)?.[1]?.trim();
+    if (!label) return null; // 有一个抠不出来就整体放弃，免得给出半截映射误导人
+    labels.push(`${v}=${label}`);
+  }
+  return labels;
+}
+
+function enumHint(prop) {
+  if (!prop.enum) return '';
+  const vals = prop.enum.map(String);
+  const labels = vals.length <= 8 ? enumLabels(prop) : null;
+  if (labels) {
+    const joined = labels.join('/');
+    if (joined.length <= ENUM_INLINE_MAX * 2) return `(${joined})`;
+  }
+  const joined = vals.join('/');
+  if (vals.length <= 8 && joined.length <= ENUM_INLINE_MAX) return `(${joined})`;
+  return `(${vals.length} 项，describe 看)`;
+}
+
+function signatureWithEnums(tool) {
+  const props = tool.inputSchema?.properties || {};
+  const req = new Set(tool.inputSchema?.required || []);
+  return Object.entries(props)
+    .map(([k, p]) => `${k}${req.has(k) ? '*' : ''}:${p.type || '?'}${enumHint(p)}`)
+    .join(', ');
+}
+
 function summaryOf(tool) {
   return (tool.description || '').replace(/【功能】/, '').split(/\n|【/)[0].trim();
 }
@@ -665,30 +747,36 @@ function cmdListTools(alias) {
   });
 }
 
-function cmdDescribe(alias, toolName, field) {
+function cmdDescribe(alias, toolName, fields = []) {
   const server = resolveServer(alias);
   const tool = resolveTool(server, toolName);
   const req = new Set(tool.inputSchema?.required || []);
   const props = tool.inputSchema?.properties || {};
 
-  // 只想确认一个字段的取值时，没必要把整份契约拉下来（futures 的 sector 光映射表就 4 千字）。
-  if (field) {
-    const p = props[field];
-    if (!p) {
-      throw new McpError('ROUTE_ERROR', `${alias}.${toolName} 没有参数 '${field}'。它接受：${Object.keys(props).join('、') || '（无参数）'}`);
+  // 只想确认某几个字段的取值时，没必要把整份契约拉下来（futures 的 sector 光映射表就 4 千字）。
+  // 支持一次给多个字段名——分两次跑等于付两次固定开销，还多一趟往返。
+  if (fields.length) {
+    const unknown = fields.filter((f) => !props[f]);
+    if (unknown.length) {
+      throw new McpError('ROUTE_ERROR', `${alias}.${toolName} 没有参数 ${unknown.map((f) => `'${f}'`).join('、')}。它接受：${Object.keys(props).join('、') || '（无参数）'}`);
     }
     return out({
       server: server.alias,
       tool: toolName,
-      param: field,
-      required: req.has(field),
-      type: p.type || null,
-      ...(p.enum ? { enum: p.enum } : {}),
-      ...(enumAliases(p).size ? { enum_aliases: [...enumAliases(p)] } : {}),
-      ...(p.default !== undefined ? { default: p.default } : {}),
-      ...(p.maxItems !== undefined ? { max_items: p.maxItems } : {}),
-      description: p.description || p.title || '',
-      ...(tool.sample && tool.sample[field] !== undefined ? { sample_value: tool.sample[field] } : {}),
+      params: fields.map((f) => {
+        const p = props[f];
+        return {
+          name: f,
+          required: req.has(f),
+          type: p.type || null,
+          ...(p.enum ? { enum: p.enum } : {}),
+          ...(enumAliases(p).size ? { enum_aliases: [...enumAliases(p)] } : {}),
+          ...(p.default !== undefined ? { default: p.default } : {}),
+          ...(p.maxItems !== undefined ? { max_items: p.maxItems } : {}),
+          description: p.description || p.title || '',
+          ...(tool.sample && tool.sample[f] !== undefined ? { sample_value: tool.sample[f] } : {}),
+        };
+      }),
     });
   }
 
@@ -704,6 +792,7 @@ function cmdDescribe(alias, toolName, field) {
       ...(p.default !== undefined ? { default: p.default } : {}),
       description: p.description || p.title || '',
     })),
+    ...(narrowHints(tool) ? { narrow_response: narrowHints(tool) } : {}),
     ...(tool.sample ? { verified_sample_args: tool.sample } : {}),
     ...(tool.knownIssue ? { known_issue: tool.knownIssue } : {}),
     call_example: `node scripts/cli.mjs call ${server.alias} ${toolName} '${JSON.stringify(tool.sample || {})}'`,
@@ -711,15 +800,22 @@ function cmdDescribe(alias, toolName, field) {
 }
 
 // 命中要按相关度排，否则「基差」会把 warehouse_receipt 排在 futures_get_basis 前面。
-// 权重：工具名 > 【功能】一句话 > 【适用场景】/【返回】/【边界】正文。
+// 权重：工具名 > 【功能】一句话 > 【边界】首句 > 说明正文其余部分。
+// 【边界】首句单独加权是必要的：问「终结本次执行」时，只有 company_get_final_case 的边界写着
+// 「只核查终结本次执行程序记录」，而另外几个司法工具都只是在正文里顺带提过这个词。
 function relevance(name, tool, kw) {
   let score = 0;
   if (name.toLowerCase().includes(kw)) score += 10;
   if (summaryOf(tool).toLowerCase().includes(kw)) score += 5;
-  const desc = (tool.description || '').toLowerCase();
-  if (desc.includes(kw)) score += 1;
+  if ((boundaryText(tool) || '').toLowerCase().includes(kw)) score += 3;
+  if ((tool.description || '').toLowerCase().includes(kw)) score += 1;
   return score;
 }
+
+// find 是选工具的**主路径**：读整份目录要几千字，find 一次通常只要四五百字。
+// 所以命中项要一次给全「够不够定这个工具」+「够不够直接调」所需的信息：
+// 用途、【边界】首句、入参签名、实测样例。前 5 条给全，再往后只给名字，避免宽泛关键词把输出撑爆。
+const FIND_DETAIL_LIMIT = 5;
 
 function cmdFind(keyword) {
   if (!keyword) throw new McpError('USAGE_ERROR', '用法：find <keyword>');
@@ -732,20 +828,43 @@ function cmdFind(keyword) {
   for (const [alias, s] of Object.entries(servers)) {
     for (const [name, t] of Object.entries(s.tools)) {
       const score = relevance(name, t, kw);
-      if (score > 0) hits.push({ score, server: alias, tool: name, signature: `${name}(${signatureOf(t)})`, summary: summaryOf(t) });
+      if (score > 0) hits.push({ score, alias, name, tool: t });
     }
-    const matched = (s.keywords || []).filter((k) => k.toLowerCase().includes(kw) || kw.includes(k.toLowerCase()));
+    // 反向匹配（用户词包含领域词）只对 3 字以上的领域词生效：否则「限制高消费」会因为
+    // futures 有个「消费」而把期货推荐出来。
+    const matched = (s.keywords || []).filter((k) => {
+      const low = k.toLowerCase();
+      return low.includes(kw) || (low.length >= 3 && kw.includes(low));
+    });
     if (matched.length || s.scope.toLowerCase().includes(kw) || s.title.toLowerCase().includes(kw)) {
-      serverHits.push({ server: alias, title: s.title, matched_keywords: matched, reference: `references/${alias}.md` });
+      serverHits.push({ server: alias, title: s.title, matched_keywords: matched, catalog: `references/${alias}.md` });
     }
   }
   hits.sort((a, b) => b.score - a.score);
-  const payload = { keyword, count: hits.length, hits: hits.map(({ score, ...rest }) => rest) };
+  serverHits.sort((a, b) => b.matched_keywords.length - a.matched_keywords.length);
+
+  const detailed = hits.slice(0, FIND_DETAIL_LIMIT).map(({ alias, name, tool }) => ({
+    server: alias,
+    tool: name,
+    summary: summaryOf(tool),
+    boundary: boundaryText(tool),
+    params: signatureWithEnums(tool) || '（无入参）',
+    ...(tool.sample ? { sample: tool.sample } : {}),
+    ...(narrowHints(tool) ? { narrow_response: narrowHints(tool) } : {}),
+    ...(tool.knownIssue ? { known_issue: tool.knownIssue } : {}),
+    describe: `node scripts/cli.mjs describe ${alias} ${name}`,
+  }));
+  const rest = hits.slice(FIND_DETAIL_LIMIT).map(({ alias, name }) => `${alias}.${name}`);
+
+  const payload = { keyword, count: hits.length, hits: detailed };
+  if (rest.length) payload.more = rest;
   if (serverHits.length) payload.related_servers = serverHits;
-  if (!hits.length) {
-    payload.note = serverHits.length
-      ? `没有工具的名称或说明里出现「${keyword}」，但 related_servers 里的 server 覆盖这个领域——用 list-tools <server> 看该 server 的全部工具。`
-      : `没有命中。**这不构成「不支持」的证据**：工具说明里未必出现用户的用词。判定 OUT_OF_SCOPE 前必须回 SKILL.md 第 1 节的路由表逐行复核，或换更泛的词再搜（如把「GDP」换成「宏观」）。`;
+  if (detailed.length) {
+    payload.next = '样例和你要的一致就直接 call；要改参数、或上面 boundary 不足以确定选对了工具，先跑 describe。';
+  } else {
+    payload.next = serverHits.length
+      ? `没有工具的名称或说明里出现「${keyword}」，但 related_servers 覆盖这个领域——读它的 catalog，或换个词再 find。`
+      : `没有命中。**这不构成「不支持」的证据**：工具说明里未必出现用户的用词。判定 OUT_OF_SCOPE 前回 SKILL.md 第 1 节的路由表逐行复核，或换更泛的词再搜（如把「GDP」换成「宏观」）。`;
   }
   out(payload);
 }
@@ -913,8 +1032,8 @@ export async function main(argv) {
       if (!args[0]) throw new McpError('USAGE_ERROR', '用法：list-tools <server>');
       return cmdListTools(args[0]);
     case 'describe':
-      if (args.length < 2) throw new McpError('USAGE_ERROR', '用法：describe <server> <tool> [param]');
-      return cmdDescribe(args[0], args[1], args[2]);
+      if (args.length < 2) throw new McpError('USAGE_ERROR', '用法：describe <server> <tool> [param ...]');
+      return cmdDescribe(args[0], args[1], args.slice(2));
     case 'find': return cmdFind(args[0]);
     case 'doctor': return cmdDoctor();
     case 'diff': return cmdDiff(args[0]);

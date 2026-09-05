@@ -293,14 +293,100 @@ await checkAsync('find 零命中时给出 related_servers 而不是让人误判�
   const r = await runCli(['find', 'GDP']);
   eq(r.json.count, 0, '前提：工具说明里确实没有 GDP 字样');
   assert(r.json.related_servers?.some((x) => x.server === 'edb'), 'GDP 应指向 edb');
-  assert(r.json.note, '零命中必须带提示');
+  assert(r.json.next, '零命中必须带下一步提示');
 });
 
 await checkAsync('确实不支持的领域零命中且明确说明不构成越界证据', async () => {
   const r = await runCli(['find', '比特币']);
   eq(r.json.count, 0);
   eq(r.json.related_servers, undefined, '不支持的领域不应有 related_servers');
-  assert(r.json.note.includes('不构成'), '提示要说明零命中不等于不支持');
+  assert(r.json.next.includes('不构成'), '提示要说明零命中不等于不支持');
+});
+
+// find 是选工具的主路径：一条命中就要够「定工具」+「直接调」，否则 agent 还得回头读整份目录。
+await checkAsync('find 的命中项自带定工具与直接调所需的全部信息', async () => {
+  const r = await runCli(['find', '终本']);
+  eq(r.json.count, 1, 'find 终本 应唯一命中');
+  const h = r.json.hits[0];
+  eq(h.server, 'company');
+  eq(h.tool, 'company_get_final_case');
+  for (const f of ['summary', 'boundary', 'params', 'sample', 'describe']) {
+    assert(h[f], `命中项缺 ${f}`);
+  }
+  assert(r.json.next, 'find 要给下一步提示');
+  assert(r.text.length < 1200, `find 单命中输出 ${r.text.length} 字，太大——它的价值就是比读目录便宜`);
+});
+
+// 返回体常比文档贵：includeHistory 不关会返 1.6 万字，关掉只剩 2 千字。
+// 这类「能压小返回体」的参数必须在选工具那一步就被看见，否则省下的文档全被返回体吃回去。
+await checkAsync('find 会提示怎么把返回体压小', async () => {
+  const r = await runCli(['find', '库存']);
+  const h = r.json.hits.find((x) => x.tool === 'futures_get_supply_demand');
+  assert(h, 'find 库存 应命中 supply_demand');
+  assert(h.narrow_response?.some((n) => n.includes('includeHistory')), `应提示 includeHistory，实际 ${JSON.stringify(h.narrow_response)}`);
+});
+
+await checkAsync('find 的入参签名带上短枚举的含义', async () => {
+  const r = await runCli(['find', 'futures_get_supply_demand']);
+  const h = r.json.hits[0];
+  assert(/type\*:integer\(1=供需平衡\/2=供应\/3=需求\/4=库存\)/.test(h.params), `枚举应带标签，实际 ${h.params}`);
+});
+
+await checkAsync('抠不出标签时退回裸枚举，不给半截映射', async () => {
+  const r = await runCli(['find', 'company_get_biz_enum']);
+  const h = r.json.hits[0];
+  assert(/listType\*:integer\(1\/2\)/.test(h.params), `无标签时应给裸值，实际 ${h.params}`);
+});
+
+await checkAsync('describe 可以一次取多个参数', async () => {
+  const r = await runCli(['describe', 'edb', 'economic_query_indicator_series', 'targetMagnitude', 'targetCurrency']);
+  eq(r.json.params.length, 2);
+  eq(r.json.params[0].name, 'targetMagnitude');
+  assert(r.json.params[0].enum?.includes('亿'), '应给出 enum');
+  eq(r.calls.length, 0);
+});
+
+await checkAsync('find 按【边界】提问时也能排对：终结本次执行 → final_case 居首', async () => {
+  const r = await runCli(['find', '终结本次执行']);
+  eq(r.json.hits[0]?.tool, 'company_get_final_case', '边界首句命中应加权到首位');
+});
+
+await checkAsync('related_servers 不被短领域词误伤', async () => {
+  const r = await runCli(['find', '限制高消费']);
+  eq(r.json.hits[0]?.tool, 'company_get_high_consumers');
+  const servers = (r.json.related_servers || []).map((x) => x.server);
+  assert(!servers.includes('futures'), `「限制高消费」不该推荐 futures（曾因领域词「消费」误命中），实际：${servers.join(',')}`);
+});
+
+await checkAsync('find 宽泛关键词只对前几条给详情，其余只列名字', async () => {
+  const r = await runCli(['find', '查询']);
+  assert(r.json.count > 5, `前提：宽泛词应命中很多，实际 ${r.json.count}`);
+  assert(r.json.hits.length <= 5, 'detail 应封顶 5 条');
+  assert(Array.isArray(r.json.more) && r.json.more.length > 0, '其余应放进 more');
+  assert(r.json.more.every((x) => typeof x === 'string'), 'more 里只放 server.tool 字符串');
+});
+
+// 出错怎么办写在信封里而不是 SKILL.md 里：只在真出错时才付上下文成本。
+await checkAsync('每种错误码的信封都带可执行的 next', async () => {
+  const cases = [
+    [['call', 'company', 'company_get_judgments', '{"companyKey":"X","startDate":"2024-01-01"}'], 'PARAM_VALIDATION_ERROR'],
+    [['call', 'edb', 'economic_get_indicator_series', '{"metricCodes":"M1","observation":"5"}'], 'PARAM_TYPE_ERROR'],
+  ];
+  for (const [argv, code] of cases) {
+    const r = await runCli(argv, simpleHandler({}));
+    eq(r.json.code, code);
+    assert(r.json.next && r.json.next.length > 20, `${code} 的信封缺 next`);
+  }
+  const be = await runCli(['call', 'edb', 'economic_search_indicator', '{"question":"GDP"}'], simpleHandler({ toolText: '服务暂时不可用，请稍后重试' }));
+  eq(be.json.code, 'backend_error');
+  assert(be.json.next.includes('known_issue'), 'backend_error 的 next 要提到 known_issue');
+});
+
+check('SKILL.md 保持精简：出错流程与工具参数都不该常驻其中', () => {
+  const md = readFileSync(join(SKILL_DIR, 'SKILL.md'), 'utf8');
+  assert(md.length <= 8000, `SKILL.md 有 ${md.length} 字——它每次调用都在上下文里，参数表和错误码表应该下沉到 find / describe / 错误信封`);
+  assert(!/\| `PARAM_VALIDATION_ERROR`/.test(md), 'SKILL.md 里不该再有错误码表，那是错误信封 next 字段的活');
+  assert(md.includes('find'), 'SKILL.md 必须把 find 写成选工具的默认路径');
 });
 
 check('每个 server 都配了领域关键词', () => {
@@ -383,9 +469,10 @@ check('工具目录保持轻量：单份不超过 1 万字，7 份合计不超�
 await checkAsync('describe 可以只取一个参数', async () => {
   const full = await runCli(['describe', 'futures', 'futures_get_basis']);
   const one = await runCli(['describe', 'futures', 'futures_get_basis', 'sector']);
-  eq(one.json.param, 'sector');
-  assert(one.json.enum?.includes('Non-ferrous metals'), '应给出 enum');
-  assert(one.json.enum_aliases?.includes('有色金属'), '应给出等价写法');
+  eq(one.json.params.length, 1);
+  eq(one.json.params[0].name, 'sector');
+  assert(one.json.params[0].enum?.includes('Non-ferrous metals'), '应给出 enum');
+  assert(one.json.params[0].enum_aliases?.includes('有色金属'), '应给出等价写法');
   assert(one.text.length < full.text.length, '单字段输出应比整份契约小');
   eq(one.calls.length, 0, '不应发网络请求');
 });

@@ -38,6 +38,7 @@
 | --- | --- |
 | `futures_get_warehouse_receipt` | 只管仓单与交割的汇总口径。用户问「某品种库存多少」时应走 `futures_get_supply_demand` 的 `type=4`（库存/仓单/港口库存），不要用本工具。 |
 | `futures_get_basis` | `sector`（板块）与 `startDate`/`endDate` **不能一起用**：同时传时后端会静默降级成 `endDate` 当日的单日截面，只在返回体的 `queryDataNote` 里留一句「日期区间仅支持单品种查询」，不报错。要板块的历史序列只能逐品种用 `windCodes` 循环调。实测已验证。 |
+| `futures_get_supply_demand` | `includeHistory` **默认 true**：不显式关掉会返回整段历史序列（实测沪铜库存 1.6 万字），只要最新值时传 `includeHistory:false`（降到 2 千字）。另外一次返回里单位可能混排（「吨」与「万吨」并存，量级差 1 万倍），逐行读各自的 `unit`，不要跨行相加。 |
 
 ## 本 server 最容易选错的
 

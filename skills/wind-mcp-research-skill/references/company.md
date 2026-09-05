@@ -13,6 +13,7 @@
 - **日期字段分两派**：`company_get_court_announcements`、`company_get_court_sessions`、`company_get_filing_info`、`company_get_judgments`、`company_get_news_sentiment` 用 `timeFrom`/`timeTo`；其余带日期的工具一律 `startDate`/`endDate`。传错的一方会被**静默忽略**，静默返回默认区间（近 5 年）的全量数据而不报错——本 CLI 已在本地拦截未知字段。
 - 本 server 的 schema 在历史上反复变动（日期字段名改过 4 轮）。命中「参数被忽略」或「工具不存在」时先跑 `node scripts/cli.mjs refresh company` 对齐，再重试。
 - 54 个工具中 45 个只需 `companyKey`，选工具时按「要查什么记录」直接对照目录，不要用 `company_search_entity` 之外的工具做实体检索。
+- `companyKey` 接受**企业全称或统一社会信用代码**，是自然语言不是不可构造的 id。用户已给出唯一全称时可以直接传；只有拿到简称、品牌、曾用名，或可能匹配多个主体时，才先 `company_search_entity` 做主体匹配。
 
 ## 工具目录
 

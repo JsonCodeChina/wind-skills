@@ -30,13 +30,24 @@ examples:
 
 通过本地 CLI 调用 Wind 的 7 个 MCP 服务取数，**只基于返回结果回答**：不补常识、不补点评、不用记忆里的数字填空。
 
-每个问题按四步处理：**① 定路由 → ② 选工具 → ③ 发命令 → ④ 读回执**。③④ 之间可以按回执里的错误信息修正参数后重调，每次重调前都要过一遍第 4 节的自检项。
+每个问题按四步处理：**① 定路由 → ② 选工具 → ③ 发命令 → ④ 读回执**。
 
-契约分四层，**按需往下取，不要一次全读**：路由表（本文件第 1 节）→ 工具目录（`references/<server>.md`，一份两千到九千字）→ 单个工具的完整契约（`describe <server> <tool>`，约一千字）→ 单个参数（`describe <server> <tool> <param>`，几百字）。132 个工具的全量 schema 在 `scripts/registry.json` 里，那是给 CLI 用的，**你不需要读它**。
+**按需加载，不要一次全读。** 选工具的默认路径是 `find`（一次约五百字，通常直接给出唯一命中和可用样例），不是读整份目录：
+
+| 想知道什么 | 读哪里 | 大约 |
+| --- | --- | --- |
+| 归哪个 server | 本文件第 1 节的路由表 | 已在上下文里 |
+| 是哪个工具、参数长什么样 | `cli.mjs find <关键词>` | 0.5 千字 |
+| 这个工具的完整契约 | `cli.mjs describe <server> <tool>` | 1 千字 |
+| 某几个字段的取值 | `cli.mjs describe <server> <tool> <param ...>` | 0.3–0.9 千字 |
+| 这个 server 都有什么工具（`find` 找不到时） | `references/<server>.md` | 2–9 千字 |
+| 132 个工具的全量 schema | `scripts/registry.json` | **不要读**，那是给 CLI 用的 |
+
+出错时该怎么改，错误信封自带 `next` 字段，照它做即可，本文件不重复。
 
 ## 1. 定路由
 
-先按**问的是什么**选 `server`，之后只看这一个 server 的目录。参数一律以契约为准，不读其它 server 的文件，不凭记忆填参数名或字段值。
+先按**问的是什么**选 `server`。选定之后只在这一个 server 里找工具，参数一律以契约为准，不读其它 server 的文件，不凭记忆填参数名或字段值。
 
 | `server` | 覆盖 | 工具目录 |
 | --- | --- | --- |
@@ -63,38 +74,27 @@ examples:
 
 ## 2. 选工具
 
-先 `cd` 到本 `SKILL.md` 所在目录（**不是当前项目目录**），再用相对路径执行。
-
-**第一步——读目录**：读路由表指的那份 `references/<server>.md`。它只有调用要点 + 一张工具表（工具名 / 一句话用途 / **别选错**（【边界】首句）/ 入参签名 / 可直接跑的样例）+ 一节「本 server 最容易选错的」，最大的一份也才九千字。
-
-**第二步——取契约**：选定工具后，跑
+先 `cd` 到本 `SKILL.md` 所在目录（**不是当前项目目录**），再用相对路径执行。下面全部离线，不发网络、不消耗积分。
 
 ```bash
-node scripts/cli.mjs describe <server> <tool>
+node scripts/cli.mjs find <关键词>                       # 默认从这里开始
+node scripts/cli.mjs describe <server> <tool>           # 单个工具的完整契约
+node scripts/cli.mjs describe <server> <tool> <param ...>  # 只看指定几个参数的类型与枚举
+node scripts/cli.mjs list-tools <server>                # 等价于读 references/<server>.md
 ```
 
-拿到这一个工具的完整契约：【功能】【适用场景】【返回】【边界】+ 参数表 + 枚举取值 + 默认值 + 实测样例。只想确认某一个字段的取值时，加上字段名 `describe <server> <tool> <param>`，输出只有那个字段。
+`find` 的每条命中都带 `summary`（用途）、`boundary`（【边界】首句）、`params`（入参签名，短枚举会带上含义如 `type*:integer(1=供需平衡/2=供应/3=需求/4=库存)`）、`sample`（实测样例），可能还有 `narrow_response`（怎么把返回体压小）和 `known_issue`。**够不够直接调，看这两条**：
 
-**什么时候可以跳过 `describe`**——两个条件同时成立才行：
+1. **`boundary` 和用户的问法对上了**——不是「用户有没有说出工具名」，而是这句边界描述是否**排他地**覆盖了用户要的东西。用户说「法院查不到财产、执行不下去的案子」，`company_get_final_case` 的 boundary 写「只核查终结本次执行程序记录」，这就是对上了，不必再 `describe`。三个候选的 boundary 互相排斥、只有一个符合时，选它。
+2. **参数不用改**：照抄 `sample`，只替换标的名/代码这类显而易见的值。
 
-1. **工具选得准**：目录的「别选错」列已经把你要的和相邻工具区分开了。用户用工具名的原词提问（说「限制高消费」→ `company_get_high_consumers`）属于这一类；用户换了说法（说「法院查不到财产的案子」，实际是终本）就**不属于**，必须看完整【边界】。
-2. **参数不用改**：你打算原样照抄目录里的样例，只替换标的名/代码这类显而易见的值。任何要新增参数、改枚举、改日期口径的情况，都要先 `describe`。
+有一条不成立就先 `describe` 那一个工具。只是拿不准某几个字段的取值，用 `describe <server> <tool> <param> [param ...]`（可以一次给多个，分两次跑等于付两次固定开销）。
 
-两条有一条不成立就先 `describe`。它是离线的，代价只有约一千字。
-
-不知道该看哪个 server 时，用 `node scripts/cli.mjs find <关键词>` 跨 7 个 server 搜；零命中会给出 `related_servers`。
-
-```bash
-node scripts/cli.mjs find <关键词>                 # 跨 7 个 server 搜工具；零命中会给出 related_servers
-node scripts/cli.mjs describe <server> <tool>     # 单个工具的完整契约 + 实测样例入参
-node scripts/cli.mjs describe <server> <tool> <param>   # 只看一个参数的类型、枚举与等价写法
-node scripts/cli.mjs list-tools <server>          # 等价于读 references/<server>.md
-node scripts/cli.mjs list-servers                 # 7 个 server 与工具数
-```
-
-以上**全部离线**，不发网络、不消耗积分，不确定时随便用。不带参数跑 `node scripts/cli.mjs` 会打印完整用法，包含这些排障命令（会发网络请求）：`doctor`（Key + 连通性 + 注册表漂移 + 上次自更新状态）、`diff <server>`（线上 schema vs 本地，只读）、`refresh <server>`（拉最新 schema，写回注册表并重生成目录）、`smoke [server]`（用实测样例跑冒烟）。
+`find` 零命中会给出 `related_servers` 和一句提示——**零命中不等于不支持**（`find GDP` 就搜不到工具名，尽管 `edb` 完全覆盖）。这时读该 server 的 `references/<server>.md`，它有完整工具表和「本 server 最容易选错的」一节。
 
 **不要凭工具名猜参数**：同名字段在不同 server 含义不同（`windCode` 在 `stock` 是股票、在 `futures` 是品种、在 `options` 是标的），类型也不同（`futures_get_position_ranking.type` 是 integer，`futures_get_warehouse_receipt.type` 是 string）。
+
+排障命令（会发网络请求）：`doctor`（Key + 连通性 + 注册表漂移 + 上次自更新状态）、`diff <server>`、`refresh <server>`、`smoke [server]`。不带参数跑 `node scripts/cli.mjs` 看完整用法。
 
 ## 3. 发命令
 
@@ -102,75 +102,41 @@ node scripts/cli.mjs list-servers                 # 7 个 server 与工具数
 node scripts/cli.mjs call <server> <tool> '<params_json>'
 ```
 
-一个可直接运行的完整例子：
-
 ```bash
 node scripts/cli.mjs call stock stock_get_company_profile '{"windCode":"600519.SH"}'
 ```
 
 参数取值一律回契约拿，不得从本例外推。
 
+**先想清楚要不要整段历史。** 返回体常常比文档贵得多：`futures_get_supply_demand` 不关历史序列返 1.6 万字，传 `includeHistory:false` 只剩 2 千字。`find` 和 `describe` 的 `narrow_response` 字段会列出该工具能压小返回体的参数（`includeHistory` / `limit` / `topK` / `observation` / `includeFields` / `indicators` / `strikeLevels` 等）。用户只要一个最新值时，**务必把它们收窄**。
+
+**两段式调用**：不少工具的入参必须来自上游返回值（文档编号、指标代码、报表 id、子叙事 ID、期权合约代码等），**不能自己编**。哪些是两段式、字段名两端怎么对应，写在各 server 的「调用要点」里（`find` 的 `related_servers` 或 `list-tools <server>` 都能拿到）。
+
 **参数传递**：POSIX shell 直接传内联 `<params_json>`。非 POSIX 环境（PowerShell / cmd / 经执行器包装）改用参数文件：把 UTF-8 JSON 写到 `scripts/request-<唯一后缀>.json`，传 `@scripts/request-<唯一后缀>.json`，调用后删除，不复用共享文件。
 
-**两段式调用**：下列工具的入参必须来自上游返回值，**不能自己编 id 或代码**。缺上游就先调上游。（唯一的例外是最后一行的行情指标，指标名拿不准时才需要先搜。）
+**Key**：不得只检查配置文件就声称没有 API Key。必须先实跑一次；只有返回 `AUTH_ERROR` 才能判定缺失。
 
-| 上游 → 下游 | 传递的字段 |
-| --- | --- |
-| `finance.general_search_documents` → `general_get_document` | 「文档编号」→ `documentId`；两端 `documentType` 都传英文枚举 `news`/`na`/`rpp`（上游 schema 说明文字误写成中文，别照抄）。**只能拿到元信息，正文为空** |
-| `finance.general_search_indicators` → `general_get_indicator_data` | 「指标代码」→ `indicatorCode` |
-| `finance.general_search_datasets` → `general_get_dataset` | `id` → `reportId`，`exampleCondition` → `condition` |
-| `finance.general_search_research_insight` → `general_get_research_insight` | `templateId` |
-| `finance.quote_search_realtime_indicators` → `quote_get_realtime_indicators` | `cnName` / `enName` → `indexes`（**可选**：`indexes` 也直接收中文指标名） |
-| `edb.economic_search_indicator` → `economic_get_indicator_series` | `code` → `metricCodes`（逗号分隔 string） |
-| `stock.stock_get_market_narratives` → `stock_get_narrative_details` | 「子叙事ID」→ `childId` |
-| `options.options_get_listed_terms` → `options_get_term_metrics` | `optionVarietyCode` + `expiryDate` |
-| `options.options_get_term_metrics` → `options_get_contract_series` | `optionContractCode[]` → `optionContractCodes`（数组） |
-
-`company` 的 `companyKey` **不在这张表里**：它接受企业全称或统一社会信用代码，是自然语言而非不可构造的 id。用户已给出唯一全称（如「恒大地产集团有限公司」）时可以直接传，不必先 `company_search_entity`；只有拿到的是简称、品牌、曾用名，或可能匹配多个主体时，才先做主体匹配。
-
-**Key**：不得只检查配置文件就声称没有 API Key。必须先实跑一次；只有返回 `AUTH_ERROR` 才能判定缺失。查找顺序：`~/.wind-aifinmarket/config` → `<skill>/config.json` → 环境变量 `WIND_API_KEY`。
-
-**批量与并发**：默认串行。需要对 2 个及以上标的逐项调用时，先只发第一个作探针；探针成功才继续其余，探针返回错误信封立即终止该批次，不得把同样的调用扩散到其它标的。不同 `server + tool` 或不同参数结构各自分组、各发一次探针。用户明确要求并发时上限 5，一旦返回 `RATE_LIMIT_ERROR` 就停止新请求并恢复串行。
+**批量与并发**：默认串行。对 2 个及以上标的逐项调用时，先只发第一个作探针；探针成功才继续，探针返回错误信封立即终止该批次，不得把同样的调用扩散到其它标的。不同 `server + tool` 或不同参数结构各自分组、各发一次探针。用户明确要求并发时上限 5，一旦返回 `RATE_LIMIT_ERROR` 就停止新请求并恢复串行。
 
 ## 4. 读回执
 
 stdout 只有两种形态。
 
-**成功**：数据对象，后端结果在 `content[0].text` 里（多为 JSON 字符串），CLI 另附一个 `cli_meta`。直接读，优先解析 `content[0].text`。
+**失败**：`{"ok":false,"code":"...","message":"...","next":"..."}`。`message` 说清了哪里不对，`next` 说清了下一步该做什么——**照 `next` 做**，不要自己发挥。`code` 为 `PARAM_*` 时本地已拦下、未发网络请求；为 `backend_error` 时 `message` 是后端原文，若同时带 `known_issue` 就不要重试。同一工具同一参数最多重试一次。
 
-- **先核对返回的标的是不是你问的那一个**（返回体里的证券代码 / 公司名称 / 指标代码），再读数值。后端的标的识别不报错也可能认错，见第 5 节。
-- **结构完整但关键字段是空串，同样按失败处理**。信封是 `isError:false`、文本是合法 JSON，CLI 的错误嗅探抓不到这种形态——拿到数据后先确认你要的那个字段真的有值（典型例子见第 5 节的文档正文）。
-- 数值的单位和**量级**以返回体自带的元数据为准（EDB 在 `meta.unit` / `meta.magnitude`，行情类在 `data.unit`）。元数据没给就保留原值并说明单位未知，**不得自行换算**。
-- **EDB 币种例外**：`economic_query_indicator_series` 传了 `targetCurrency` 时，`meta.unit` **不会跟着改**（仍显示原币种的「亿元」），而 `meta.currency` 已经是转换后的币种。此时币种一律以 `meta.currency` 为准、量级以 `meta.magnitude` 为准，报数写「亿美元」，**不要照抄 `unit`**。照抄会给出一个不报错但完全错误的答案。
-- `cli_meta.suspect_error` 为 `true`（只在 `--raw` 下出现）说明返回文本像错误提示，按失败处理。
+**成功**：数据对象，后端结果在 `content[0].text` 里（多为 JSON 字符串），CLI 另附一个 `cli_meta`。读之前先过三条：
 
-**失败**：`{"ok":false,"code":"...","message":"..."}`。
+- **核对返回的标的是不是你问的那一个**（返回体里的证券代码 / 公司名称 / 指标代码）。后端的标的识别不报错也可能认错，见第 5 节。
+- **结构完整但关键字段是空串，按失败处理**。信封是 `isError:false`、文本是合法 JSON，CLI 的错误嗅探抓不到这种形态。
+- **单位和量级以返回体自带的元数据为准**（EDB 在 `meta.unit` / `meta.magnitude`，行情类在 `data.unit`），元数据没给就保留原值并说明单位未知，**不得自行换算**。EDB 有个例外：传了 `targetCurrency` 时 `meta.unit` 不跟着改，币种一律以 `meta.currency` 为准，照抄 `unit` 会给出一个不报错的错误答案。
 
-| `code` | 含义与处置 |
-| --- | --- |
-| `PARAM_VALIDATION_ERROR` / `PARAM_TYPE_ERROR` | 本地按 schema 拦下，未发出网络请求。`message` 已指明缺哪个必填、哪个字段类型/枚举/日期格式不对、哪些是未知字段。只改 `message` 指出的字段后重调。 |
-| `ROUTE_ERROR` | server 或工具名不存在，`message` 会给近似工具名。选错了就改名；确认工具应该存在则本地注册表过期，跑 `node scripts/cli.mjs refresh <server>` 后重试。 |
-| `INVALID_PARAMS_JSON` / `PARAMS_FILE_ERROR` | 命令行引号或参数文件问题，只改传参方式，**不动业务参数**。 |
-| `backend_error` | 接口层错误，`message` 是后端原文。若同时带 `known_issue`，说明这是已记录的服务端故障，**不要反复重试**，直接告知用户。 |
-| `AUTH_ERROR` / `RATE_LIMIT_ERROR` / `NETWORK_ERROR` | 认证、额度、网络问题。直接报告，不改参数、不换工具绕路。 |
+## 5. 跨 server 的三个坑
 
-**重调前自检**：
+单个 server 或单个工具的坑写在各自的「调用要点」和 `describe` 的 `known_issue` 里。下面三条哪个 server 都可能遇上：
 
-- 只改 `message` 点名的那个字段，不动其它参数，不改命令引号或 JSON 转义。
-- 保持同一 `server` 和 `tool`；只有当前契约证明该工具无法表达所需字段或口径时才切换。
-- 参数名和字段值必须来自当前 server 的契约（错误信封里的 `hint` 给了直接可跑的 `describe` 命令）。
-- 同一工具同一参数**最多重试一次**；两次都失败就换路径或如实报告。
-
-## 5. 已知的服务端坑
-
-- **业务错误常伪装成正常返回**：七个 server 普遍把「服务暂时不可用」「未识别到有效的金融标的」这类错误以 `isError=false` 的纯文本返回。CLI 已做嗅探并转成 `backend_error`，但如果你看到成功信封里的 `content[0].text` 是一句短提示而不是数据，同样按失败处理。
-- **未知字段被静默忽略**：后端对多数工具不校验未知字段，写错字段名不会报错，而是返回默认范围的数据。CLI 已在本地按 schema 拦截；不要用 `--allow-unknown` 绕过，除非 `refresh` 已确认注册表过期。
-- **`tools/list` 会变**：历史上出现过整批工具改名、字段名改动。命中疑似过期时跑 `node scripts/cli.mjs doctor` 看漂移，再 `refresh`。
-- **文档正文常为空**：`finance.general_get_document` 对新闻和公告返回的 `文档内容` 实测是**空串**（研报返回「无此研报权限」），信封仍是 `isError:false`，只有元信息和原文链接。需要正文时改用 `finance.general_query_documents`（`docType` 传 `"1"` 新闻 / `"3"` 公告，`startDate`/`endDate` 格式是 `YYYY-MM-DD HH:MM:SS`），它的 `content` 字段带正文。这是第 4 条仲裁规则「兜底排最后」的明确例外。
-- **说明文字与 enum 打架**：部分字段的 schema 说明里举的例子不在自己的 enum 里（如 `edb.economic_query_indicator_series.targetMagnitude` 说明写「如 元、亿元、万亿元」，而 enum 只收纯量级词「亿」「万亿」）。**一律以 enum 为准**，`describe` 的 `enum` 字段就是权威值集。反过来，`futures` 的 `sector` / `type` 说明里写明「中文键与英文值等价」并附了映射表，那些中文键虽然不在 enum 里但后端确实收，CLI 已一并放行。
-- **标的识别是非确定性的**：非法或含糊的代码/名称，多数时候会返回「未识别到有效的金融标的」，但实测也出现过**返回一只无关证券的真实数据、不报任何错**（`999999.XX` 曾命中中证800）。**凡是按代码或名称取数的调用，拿到结果后都要核对返回体里的证券代码/公司名称是不是你问的那一个**；对不上就按未识别处理，向用户要准确全称或 Wind 代码，不要把数据讲出去。
-- **误导性文案**：`futures_get_contract_spec` 偶发「未识别到有效的金融标的」（其实是瞬时故障，重试即恢复）；`fund_get_selection_timing_analysis` 对未覆盖的基金返回「Wind 数据源当前不可用，请稍后重试」（其实是该基金无评价数据，重试无用）。
-- **持续不可用**：`options_calc_accumulator`、`options_calc_single_shark_fin` 服务端长期不可用，直接告知用户，不要重试。
+- **业务错误伪装成正常返回**：七个 server 普遍把「服务暂时不可用」「未识别到有效的金融标的」以 `isError=false` 的纯文本返回。CLI 已做嗅探并转成 `backend_error`，但如果你看到成功信封里的 `content[0].text` 是一句短提示而不是数据，同样按失败处理。
+- **标的识别是非确定性的**：非法或含糊的代码/名称，多数时候返回「未识别到有效的金融标的」，但实测也出现过**返回一只无关证券的真实数据、不报任何错**（`999999.XX` 曾命中中证800）。所以第 4 节那条「先核对标的」是硬要求。
+- **说明文字未必可信**：部分字段的 schema 说明举例不在自己的 enum 里（`targetMagnitude` 写「如 元、亿元」，enum 只收「亿」「万亿」）；反过来 `futures` 的 `sector`/`type` 说明里的中文键不在 enum 里但后端确实收。**以 `describe` 输出的 `enum` 和 `enum_aliases` 为准**，CLI 按同一份判定放行或拦截。
 
 ## 6. 收口
 

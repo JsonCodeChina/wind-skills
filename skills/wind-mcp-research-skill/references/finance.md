@@ -9,7 +9,7 @@
 ## 调用要点
 
 - 本 server 是**跨资产兜底入口**：债券、外汇、商品、全球指数等在 stock / fund / futures / options 里没有专项工具的品种，走这里。
-- 四对工具是**强制两段式**，第二段的 id / 代码只能来自第一段的返回值，不能自己编：`general_search_indicators`→`general_get_indicator_data`、`general_search_datasets`→`general_get_dataset`、`general_search_documents`→`general_get_document`、`general_search_research_insight`→`general_get_research_insight`。`quote_search_realtime_indicators`→`quote_get_realtime_indicators` 是**可选**的一段（指标名拿不准时才需要先搜）。
+- 四对工具是**强制两段式**，第二段的 id / 代码只能来自第一段的返回值，不能自己编，字段名两端还不一样：`general_search_indicators` 的「指标代码」→ `general_get_indicator_data.indicatorCode`；`general_search_datasets` 的 `id` → `general_get_dataset.reportId`、`exampleCondition` → `condition`；`general_search_documents` 的「文档编号」→ `general_get_document.documentId`；`general_search_research_insight` 的 `templateId` → `general_get_research_insight.templateId`。`quote_search_realtime_indicators`→`quote_get_realtime_indicators` 是**可选**的一段（指标名拿不准时才先搜）。
 - `general_query_data` 与 `general_query_documents` 是自然语言兜底，**只在结构化工具都不覆盖时用**；它们不返回可复用的代码或 id，无法接续下一步。
 - `quote_get_realtime_indicators` 的 `windCodes` 是**逗号分隔 string**，不是数组；`indexes` 同样是逗号分隔 string，中文指标名和英文字段名都收，拿不准就先调 `quote_search_realtime_indicators` 取 `cnName` / `enName`。
 - `quote_get_historical_data_series` 的时间区间**嵌在 `params` 对象里**，且要按日期取数必须先设 `params.rangeflag = 2`，否则 `startDate`/`endDate` 不生效、静默返回最近 N 条。
