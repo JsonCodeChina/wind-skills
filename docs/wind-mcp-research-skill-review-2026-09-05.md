@@ -2,7 +2,7 @@
 
 - 日期：2026-09-05
 - 范围：按 `skills/wind-mcp-skill/mcp-connection-guide.md` 的方案，为 7 个新 MCP server（132 个工具）新建 skill，并评审现有 `wind-mcp-skill` 的结构
-- 结论：**新 skill 已可用**。离线契约测试 47/47、边界测试 36/36（含真实后端分组时 39/39）、132 个工具实盘冒烟 129/132（3 个失败全部是已记录的服务端故障，非本 skill 问题）
+- 结论：**新 skill 已可用**。离线契约测试 53/53、边界测试 36/36（含真实后端分组时 39/39）、132 个工具实盘冒烟 129/132（3 个失败全部是已记录的服务端故障，非本 skill 问题）
 
 ## 一、先回答「现有结构是否最优」
 
@@ -50,14 +50,13 @@
 
 ```
 skills/wind-mcp-research-skill/
-├── SKILL.md                      路由表 + 四步循环 + 两段式调用 + 已知的坑 + 收口
-├── references/                   7 份契约（由 registry.json 生成，不手写）
+├── SKILL.md               167 行  路由表 + 四步循环 + 两段式调用 + 已知的坑 + 收口
+├── references/                   7 份**工具目录**（由 registry.json 生成，不手写）
 │   ├── finance.md  stock.md  fund.md  edb.md  futures.md  options.md  company.md
 ├── scripts/
-│   ├── cli.mjs            775 行  【运行时】传输层 → 参数校验 → 注册表读取 → 命令与信封
-│   ├── build.mjs          245 行  【构建时】拉线上 schema → registry.json → references/*.md
+│   ├── cli.mjs            959 行  传输层 → 参数校验 → 注册表读取 → 重建与文档生成 → 命令与信封
 │   ├── update-check.mjs   534 行  【自更新】与旧 skill 同一份实现，一行未改
-│   ├── registry.json             【生成物】132 个工具的完整 schema
+│   ├── registry.json             【生成物】132 个工具的完整 schema，只给 CLI 用
 │   └── annotations.json          【人工维护】server 说明 + 领域关键词 + 132 个实测样例 + 已知故障
 └── tests/
     ├── run-offline-tests.mjs     40 项契约测试，零网络
@@ -70,11 +69,11 @@ skills/wind-mcp-research-skill/
 
 | | 旧 skill | 新 skill |
 | --- | --- | --- |
-| 自己的代码 | `cli.mjs` 1047 行 | `cli.mjs` 775 + `build.mjs` 245 = **1020 行** |
+| 自己的代码 | `cli.mjs` 1047 行 | `cli.mjs` **959 行** |
 | 共用的更新脚本 | `update-check.mjs` 534 行 | 同一份，534 行 |
 | 手工维护的契约 | `references/*.md` 10 份 + `tool-manifest.json` + `call-rules.json` | **无**——全部由 `registry.json` 生成 |
 
-行数基本持平，但覆盖的工具从 35 个变成 132 个，且三份手工副本换成了一份生成物。
+行数比旧 skill 还少，但覆盖的工具从 35 个变成 132 个，且三份手工副本换成了一份生成物。脚本只剩两个：`cli.mjs` 和 `update-check.mjs`（后者不能合并——更新会替换整个 skill 目录，脚本必须能被复制到别处独立执行）。
 
 ### 关键的三条分界
 
@@ -82,7 +81,24 @@ skills/wind-mcp-research-skill/
 
 **离线命令 vs 联网命令。** `find` / `describe` / `list-tools` / `list-servers` 全部离线，不消耗积分。132 个工具选型的成本因此降到零——agent 可以放心地先搜再定，不必赌。
 
-**运行时 vs 构建时。** `cli.mjs` 不静态 import 任何同目录模块，取数路径只加载它自己；`refresh` 通过**子进程**调用 `build.mjs`，不是 `import`。这一条是被逼出来的：`build.mjs` 反过来要 import `cli.mjs` 的传输层和注册表读取，直接动态 import 会形成 ESM 循环依赖，撞上入口处未结算的顶层 `await` 而死锁（合并过程中实际踩到）。离线测试里有一条专门锁住这个约束。
+**目录 vs 完整契约（决定上下文成本）。** `references/<server>.md` 只是**目录**：调用要点 + 一张表（工具名 / 一句话用途 / 入参签名 / 可直接跑的样例）。完整契约——【功能】【适用场景】【返回】【边界】+ 参数表 + 枚举 + 默认值——走 `cli.mjs describe <server> <tool>`，一次只取一个工具。
+
+最初的版本把全量参数表也写进了目录，`company.md` 因此有 3.5 万字，而 agent 一次只用其中一个工具的参数。拆开后：
+
+| 目录 | 拆之前 | 拆之后 | |
+| --- | --- | --- | --- |
+| `company.md` | 35410 字 | 8610 字 | 4.1x |
+| `options.md` | 29996 字 | 7053 字 | 4.3x |
+| `fund.md` | 23357 字 | 5885 字 | 4.0x |
+| 7 份合计 | 130784 字 | **36760 字** | 3.6x |
+
+单个工具的 `describe` 输出在 0.9–3.3 千字之间；只看一个字段的 `describe <server> <tool> <param>` 更小。所以回答一个 company 问题的读取量，从「SKILL.md + 3.5 万字契约」变成「SKILL.md + 8.6 千字目录 + 0.9 千字契约 ≈ 1.95 万字」。
+
+目录里保留了一列「别选错」——【边界】的首句。这一列是必要的：`company_get_discredit` / `company_get_final_case` / `company_get_high_consumers` / `company_get_executed_persons` 的【功能】几乎是同义反复（都是「查询企业的 X 公开记录」），只有【边界】写明它们是四种不同的司法执行结果。测试里有一条专门断言这四个工具的「别选错」列互不相同。
+
+每份目录末尾还有一节「本 server 最容易选错的」，内容按 server 各写各的（fund 写全部持仓 vs 重仓，options 写查行情 vs 定价器，futures 写库存的三个候选），测试断言它不会串台。
+
+离线测试卡了三条硬线守住这个分界：单份目录 ≤ 1 万字、7 份合计 ≤ 4.2 万字、目录里不许出现 `| 参数 | 必填 |` 表头。有人「顺手把文档补全一点」测试就会红。
 
 ### 契约文档怎么控制体积
 
@@ -92,7 +108,7 @@ skills/wind-mcp-research-skill/
 
 ## 三、测试结果
 
-### 3.1 离线契约测试（47 项，`tests/run-offline-tests.mjs`）
+### 3.1 离线契约测试（53 项，`tests/run-offline-tests.mjs`）
 
 覆盖：8 类参数校验规则、SSE/纯 JSON 双解析、业务错误嗅探的正负样本、CLI 六种信封形态、`jsonrpc.id` 必须是整数、每次调用前必须 `initialize`、校验失败时零网络请求、离线命令零网络请求、`find` 的相关度排序与零命中语义、以及注册表与文档的一致性（每个工具都有样例、样例本身能过校验、每个工具在契约文档里有小节、SKILL.md 路由表覆盖 7 个 server、每个 server 都配了领域关键词）。
 
@@ -186,6 +202,21 @@ call edb economic_query_indicator_series '{"question":"中国GDP现价","observa
 
 沪铜库存（`type=4`）的同一批结果里，交易所库存用「吨」（上期所 63,000、LME 234,175），地区库存用「万吨」（上海保税区 3.62、广东 0.78），**量级差 1 万倍**。想算总库存的 agent 会直接把 63000 和 3.62 相加。已在 futures 的调用要点里写明逐行读各自的 `unit`、不要跨行相加。
 
+### 4.7 `futures_get_basis` 的板块查询会被静默降级成单日
+
+传 `sector`（板块）+ `startDate`/`endDate` 时，后端**不报错**，而是只返回 `endDate` 当日的截面，把说明埋在返回体的 `queryDataNote` 里：
+
+```
+{"sector":"有色金属","startDate":"2026-08-01","endDate":"2026-08-31"}
+→ queryDataNote: "日期区间仅支持单品种查询，已返回最后日期 '2026-08-31' 的数据"
+→ 日期集合只有 2026-08-31
+
+{"windCodes":["CU.SHF"],"startDate":"2026-08-25","endDate":"2026-08-31"}
+→ 日期集合 08-25 / 08-26 / 08-27 / 08-28 / 08-31（完整序列）
+```
+
+问「8 月板块基差走势」拿到的会是「8 月 31 日板块基差截面」，**不看 `queryDataNote` 根本发现不了**。要板块历史序列只能逐品种用 `windCodes` 循环。已写进 futures 的调用要点和该工具的已知故障。
+
 ## 五、子 agent 亲和测试
 
 方法：起一个**只能读本 skill 目录**的子 agent（明确禁止读旧 skill、禁止 WebSearch、禁止直接用 MCP 工具），给它真实用户问句，要求它按 SKILL.md 的流程自己选路由、自己查契约、自己发命令，并汇报每一步的依据和踩到的坑。跑了两轮：第一轮探路，按结果改文档；第二轮回归验证改动是否真的挡住了坑。
@@ -238,6 +269,36 @@ call edb economic_query_indicator_series '{"question":"中国GDP现价","observa
 
 子 agent 的结论原话：能，六题全部首调成功；**但前提是遵守「先按路由表定 server、再 `list-tools`/`describe` 定工具」的顺序**——关键防错信息大量沉在 `list-tools` 的 guidance 和 `describe` 的 `known_issue` 里，只读 SKILL.md 正文会漏掉其中两条。这条意见已经反映到 SKILL.md 第 1、2 节的措辞里。
 
+### 5.3 第三轮：验证分层加载
+
+改成「路由表 → 目录 → 单工具契约 → 单参数」四层后，起第三个子 agent 验证。5 个问题，重点不是能不能答对，而是**读了什么、浪费了多少**。
+
+**结果：5 题全部首调成功。** 更重要的两条：
+
+- **`scripts/registry.json`（35 万字节）全程没被读，连 `grep` 都没跑。** SKILL.md 那句「那是给 CLI 用的，你不需要读它」有效。
+- **`scripts/cli.mjs` 也没被读**——文档把四个子命令和传参方式讲清了，没有需要看源码才能解开的问题。
+
+参数来源分布很能说明分层是否合理：3 题直接照抄目录里的样例（零 `describe`），1 题必须 `describe`（期权定价器 9 个必填参数，输出一个字没浪费），1 题靠目录顶部的「调用要点」（`sector` 收中文键那条）。
+
+**子 agent 自己算的账**：读进约 56 KB，真正参与决策的 6–8 KB。浪费的大头**不是 `describe`**（命中率很高），而是四份目录里那 101 个它根本不会碰的工具行。它的原话：
+
+> 真正的节省来自「按 server 切分」，不是来自「目录 + describe」……「目录 + describe」的真正价值是把「读 54 个工具的全参数」变成「读 1 个工具的全参数」——这是 54:1，很划算。
+> 用一次往返换 30 倍上下文，这笔账没有犹豫的余地。
+
+它也点出了结构的边界：**窄任务（每题只碰 1 个工具）最优，宽任务会退化**——要把一家企业的所有风险维度都拉一遍时，十几次 `describe` 的往返成本会追上大文件。这是取舍，不是缺陷。
+
+**这一轮发现并已修掉的 5 个问题**：
+
+| 问题 | 处理 |
+| --- | --- |
+| 目录的「用途」列对 54 个 company 工具基本是把工具名翻译回中文，信息增量接近零；真正区分它们的【边界】被砍掉了 | 目录加一列「别选错」＝【边界】首句（截断 56 字）。company.md 因此从 7387 涨到 8610 字，值得 |
+| 「除非原样照抄样例」这个豁免覆盖了 83% 的 company 工具，把「必须 describe」架空，两句话互相打架 | 改写成两个必须同时成立的条件：**工具选得准**（目录的「别选错」列已把相邻工具区分开，或用户用了工具名原词）**且参数不用改**。有一条不成立就先 `describe` |
+| 每份目录末尾的结尾语是机械复制的，`fund.md` / `options.md` 里在举司法案件的例子，纯噪声 | 改成每个 server 自己的「最容易选错的」，写进 `annotations.json`，测试断言不串台 |
+| 目录的「加粗=必填」表达不了「`windCodes` 与 `sector` 至少提供一个」这种二选一约束 | 从 schema 说明里检测「至少提供一个 / 二选一」，在入参列加 `⚠二选一，见 describe` 标记 |
+| 为了确认 `sector` 一个字段的取值，得把整份 4 KB 契约拉下来（其中 60% 是用不上的映射表） | 新增 `describe <server> <tool> <param>`，只输出那一个字段的类型、enum、等价写法、默认值和样例值。`futures_get_basis` 从 2271 字降到 1157 字 |
+
+**同时发现一个新的后端问题**（已写进契约，见 4.7）。
+
 ## 六、与现有 `wind-mcp-skill` 的关系
 
 两套 server **都还在线**（本次实测确认），能力不是替代而是分层：
@@ -260,7 +321,7 @@ call edb economic_query_indicator_series '{"question":"中国GDP现价","observa
 | 3 | 研报正文返回「无此研报权限」 | 当前 Key 无研报权限，`documentType:"rpp"` 只能列清单 | 确认是权限还是能力问题 |
 | 4 | EDB 转币种后 `meta.unit` 不更新 | 会导致不报错的错误答案 | 报给后端；skill 侧已在三处写明 |
 | 5 | 多个字段的说明举例与自己的 enum 冲突 | 照抄说明会被拦或调错 | 报给后端；skill 侧以 enum 为准 + 自动提取等价写法 |
-| 6 | `registry.json` 有 346KB | 仓库体积；但 agent 从不读它，只读生成出的 `references/*.md` | 保留。它是校验和文档生成的唯一真源，删了就退回手工维护 |
+| 6 | `registry.json` 有 354KB | 仓库体积；但 agent 从不读它（第三轮子 agent 实测确认，连 grep 都没跑），只读生成出的目录 | 保留。它是校验和文档生成的唯一真源，删了就退回手工维护 |
 | 7 | 样例入参里有日期与 `documentId` | 时间推移后冒烟会出现「非故障失败」 | `run-offline-tests.mjs` 的一致性检查会点名失效样例，按提示更新 `annotations.json` |
 
 ## 八、维护动作速查
@@ -270,10 +331,12 @@ cd skills/wind-mcp-research-skill
 
 node scripts/cli.mjs doctor            # Key + 7 个 server 连通性 + 注册表漂移
 node scripts/cli.mjs diff company      # 只看差异
-node scripts/cli.mjs refresh company   # 拉最新 schema 写回 registry.json（不动 annotations.json）
-node scripts/build.mjs                 # 重建全部 7 个 server（--docs-only 可只重生成文档、不联网）
+node scripts/cli.mjs refresh company   # 拉最新 schema 写回 registry.json 并重生成全部目录
+node scripts/cli.mjs refresh           # 同上，7 个 server 全量
 node tests/run-offline-tests.mjs       # 会点名因 schema 变动而失效的样例
 node scripts/cli.mjs smoke             # 132 个工具实盘冒烟
+
+跑测试或在开发仓里工作时先 `export WIND_SKILL_NO_UPDATE=1`，否则每次 `call` 成功都会在后台起一次 skill 自更新。
 ```
 
-人工知识只写在 `scripts/annotations.json`：server 的 `guidance`、每个工具的 `sample` 与 `knownIssue`。改完跑 `node scripts/build.mjs --docs-only` 即可同步到全部契约文档。
+人工知识只写在 `scripts/annotations.json`：server 的 `guidance`、每个工具的 `sample` 与 `knownIssue`。改完跑 `node scripts/cli.mjs refresh` 即可同步到全部工具目录。

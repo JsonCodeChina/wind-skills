@@ -30,13 +30,15 @@ examples:
 
 通过本地 CLI 调用 Wind 的 7 个 MCP 服务取数，**只基于返回结果回答**：不补常识、不补点评、不用记忆里的数字填空。
 
-每个问题按四步处理：**① 定路由 → ② 查契约 → ③ 发命令 → ④ 读回执**。③④ 之间可以按回执里的错误信息修正参数后重调，每次重调前都要过一遍第 4 节的自检项。
+每个问题按四步处理：**① 定路由 → ② 选工具 → ③ 发命令 → ④ 读回执**。③④ 之间可以按回执里的错误信息修正参数后重调，每次重调前都要过一遍第 4 节的自检项。
+
+契约分四层，**按需往下取，不要一次全读**：路由表（本文件第 1 节）→ 工具目录（`references/<server>.md`，一份两千到九千字）→ 单个工具的完整契约（`describe <server> <tool>`，约一千字）→ 单个参数（`describe <server> <tool> <param>`，几百字）。132 个工具的全量 schema 在 `scripts/registry.json` 里，那是给 CLI 用的，**你不需要读它**。
 
 ## 1. 定路由
 
-先按**问的是什么**选 `server`，之后只看这一个 server 的契约。参数一律以契约为准，不读其它 server 的契约，不凭记忆填参数名或字段值。
+先按**问的是什么**选 `server`，之后只看这一个 server 的目录。参数一律以契约为准，不读其它 server 的文件，不凭记忆填参数名或字段值。
 
-| `server` | 覆盖 | 必读契约 |
+| `server` | 覆盖 | 工具目录 |
 | --- | --- | --- |
 | `stock` | 单只股票的公司画像、财务、机构预期、估值、公司动态、资金流、技术面、实时行情；全市场与板块盘中概览、市场叙事、行业语料、选股筛选 | `references/stock.md` |
 | `fund` | 公募基金与 ETF 的档案、净值、规模、业绩、申赎、财务、持仓明细、资产/行业/券种配置、Brinson 与多因子归因、风格暴露、选基筛选 | `references/fund.md` |
@@ -53,28 +55,46 @@ examples:
 3. **公告、新闻、研报** —— 要**单只股票的近期动态摘要**走 `stock.stock_get_company_updates`；要**正文内容**走 `finance.general_query_documents`（自然语言检索，返回体带正文）；要**按类型/证券/日期精确列清单**走 `finance.general_search_documents`。注意 `general_get_document` 只回元信息与原文链接，`文档内容` 实测为空，不要指望它取全文。
 4. **兜底工具排在最后** —— `finance.general_query_data`、`finance.general_query_documents` 是自然语言兜底，只在专项工具都不覆盖时用；它们不返回可复用的代码或 id，接不上下一步。
 
-**选好 server 后先定位工具，不要通读契约**：`company` 有 54 个工具、`fund` 21 个、`options` 17 个，对应的 `references/*.md` 都在几万字量级。定位工具的顺序是 `find <关键词>` → 命中就 `describe`，没命中就按路由表选定的 server 跑一次 `list-tools <server>`（它会连带给出该 server 的调用要点）。这几条都是离线命令，比读整份契约快得多。
-
 标的类型或意图不落在上表任何一行时，直接回 `OUT_OF_SCOPE` 并说明，**不得用 Web Search 或兜底工具伪装成支持**。
 
 越界判定**以上面这张路由表为准**。`find` 可以辅助，但它**零命中不等于不支持**——工具说明里未必出现用户的用词（`find GDP` 就搜不到工具名，尽管 `edb` 完全覆盖）。零命中时 `find` 会给出 `related_servers` 和一句提示，按提示回路由表复核后再判 `OUT_OF_SCOPE`。
 
 涉及行业且用户未指定分类体系时，默认 Wind 行业分类。
 
-## 2. 查契约
+## 2. 选工具
 
-先 `cd` 到本 `SKILL.md` 所在目录（**不是当前项目目录**），再用相对路径执行。下面这组命令**全部离线**，不发网络、不消耗积分，不确定选哪个工具时随便用：
+先 `cd` 到本 `SKILL.md` 所在目录（**不是当前项目目录**），再用相对路径执行。
+
+**第一步——读目录**：读路由表指的那份 `references/<server>.md`。它只有调用要点 + 一张工具表（工具名 / 一句话用途 / **别选错**（【边界】首句）/ 入参签名 / 可直接跑的样例）+ 一节「本 server 最容易选错的」，最大的一份也才九千字。
+
+**第二步——取契约**：选定工具后，跑
+
+```bash
+node scripts/cli.mjs describe <server> <tool>
+```
+
+拿到这一个工具的完整契约：【功能】【适用场景】【返回】【边界】+ 参数表 + 枚举取值 + 默认值 + 实测样例。只想确认某一个字段的取值时，加上字段名 `describe <server> <tool> <param>`，输出只有那个字段。
+
+**什么时候可以跳过 `describe`**——两个条件同时成立才行：
+
+1. **工具选得准**：目录的「别选错」列已经把你要的和相邻工具区分开了。用户用工具名的原词提问（说「限制高消费」→ `company_get_high_consumers`）属于这一类；用户换了说法（说「法院查不到财产的案子」，实际是终本）就**不属于**，必须看完整【边界】。
+2. **参数不用改**：你打算原样照抄目录里的样例，只替换标的名/代码这类显而易见的值。任何要新增参数、改枚举、改日期口径的情况，都要先 `describe`。
+
+两条有一条不成立就先 `describe`。它是离线的，代价只有约一千字。
+
+不知道该看哪个 server 时，用 `node scripts/cli.mjs find <关键词>` 跨 7 个 server 搜；零命中会给出 `related_servers`。
 
 ```bash
 node scripts/cli.mjs find <关键词>                 # 跨 7 个 server 搜工具；零命中会给出 related_servers
 node scripts/cli.mjs describe <server> <tool>     # 单个工具的完整契约 + 实测样例入参
-node scripts/cli.mjs list-tools <server>          # 该 server 的全部工具 + 调用要点
+node scripts/cli.mjs describe <server> <tool> <param>   # 只看一个参数的类型、枚举与等价写法
+node scripts/cli.mjs list-tools <server>          # 等价于读 references/<server>.md
 node scripts/cli.mjs list-servers                 # 7 个 server 与工具数
 ```
 
-不带参数跑 `node scripts/cli.mjs` 会打印完整用法，包含下面这些排障命令（会发网络请求）：`doctor`（Key + 连通性 + 注册表漂移 + 上次自更新状态）、`diff <server>`（线上 schema vs 本地，只读）、`refresh <server>`（拉最新 schema 并重生成契约文档）、`smoke [server]`（用实测样例跑冒烟）。
+以上**全部离线**，不发网络、不消耗积分，不确定时随便用。不带参数跑 `node scripts/cli.mjs` 会打印完整用法，包含这些排障命令（会发网络请求）：`doctor`（Key + 连通性 + 注册表漂移 + 上次自更新状态）、`diff <server>`（线上 schema vs 本地，只读）、`refresh <server>`（拉最新 schema，写回注册表并重生成目录）、`smoke [server]`（用实测样例跑冒烟）。
 
-契约也可以直接读 `references/<server>.md`，内容与 `describe` 同源。**不要凭工具名猜参数**：同名字段在不同 server 含义不同（`windCode` 在 `stock` 是股票、在 `futures` 是品种、在 `options` 是标的），类型也不同（`futures_get_position_ranking.type` 是 integer，`futures_get_warehouse_receipt.type` 是 string）。
+**不要凭工具名猜参数**：同名字段在不同 server 含义不同（`windCode` 在 `stock` 是股票、在 `futures` 是品种、在 `options` 是标的），类型也不同（`futures_get_position_ranking.type` 是 integer，`futures_get_warehouse_receipt.type` 是 string）。
 
 ## 3. 发命令
 

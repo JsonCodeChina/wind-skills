@@ -1,7 +1,8 @@
-# `futures` 工具契约 —— 期货
+# `futures` 工具目录 —— 期货
 
-> 由 `scripts/registry.json` 生成（vserver_futures_data，9 个工具 / 26 个参数）。
-> 参数名、类型、枚举和必填项**以本文件为准**，不要凭记忆填；本地 CLI 会按同一份 schema 拦截不合法入参。
+> **这是目录，不是完整契约。** 表里的样例可以照抄直接跑；要改参数、要看【边界】、要看枚举取值，
+> 先跑 `node scripts/cli.mjs describe futures <tool>`（离线、不花积分、单个工具约 1 千字）。
+> 本文件由 `scripts/registry.json` 生成（vserver_futures_data，9 个工具 / 26 个参数），不要手改。
 
 **覆盖**：期货品种的合约规格与交割规则、仓单与交割、基差、资金流向、交易所席位持仓排名、研报观点统计、商品供需基本面。
 
@@ -15,158 +16,31 @@
 - **「库存」有两个候选，别选错**：问某品种的整体库存水平/走势用 `futures_get_supply_demand` 的 `type=4`；只有明确要**仓单或交割的汇总/仓库级明细**时才用 `futures_get_warehouse_receipt`（汇总）或 `futures_get_warehouse_receipt_details`（分仓库）。
 - `futures_get_basis.sector` 与 `futures_get_warehouse_receipt.type` 的 enum 只声明了英文系统值，但说明里的「映射关系」列出的中文键（有色金属 / 全市场 / 仓单 / 交割 …）后端同样接受，CLI 已一并放行，两种写法等价。
 - `futures_get_supply_demand` **一次返回里的单位可能混排**（实测沪铜库存同时出现「吨」的交易所库存和「万吨」的地区库存，量级差 1 万倍）。逐行读各自的 `unit`，**不要跨行相加或直接比大小**。
+- `futures_get_basis` 的**板块查询只有截面、没有序列**：传 `sector` + 日期区间会被静默降级成末日单日数据；要历史序列必须改用 `windCodes` 逐品种查。
 
 ## 工具目录
 
-| 工具 | 用途 | 入参 |
-| --- | --- | --- |
-| [`futures_get_warehouse_receipt_details`](#futures_get_warehouse_receipt_details) | 按单个期货品种查询仓单的仓库级明细，返回分仓储区域的期末、新增和注销仓单记录。 | **windCode**, date |
-| [`futures_get_warehouse_receipt`](#futures_get_warehouse_receipt) | 按业务类型、期货品种代码及日期查询期货品种的交割或仓单汇总，支持单品种、多品种和全市场。 | **type**, windCodes, date |
-| [`futures_get_related_securities`](#futures_get_related_securities) | 按期货品种查询期货资产类别下已配置的产业链关联标的，并可按上游、中游或下游筛选。 | **windCode**, type |
-| [`futures_get_contract_spec`](#futures_get_contract_spec) | 查询单个期货品种或标准合约的全球公开交易规格与交割规则。 | **windCode**, fields |
-| [`futures_get_basis`](#futures_get_basis) | 按期货品种、板块或全市场查询基差快照及历史统计。 | windCodes, sector, startDate, endDate |
-| [`futures_get_fund_flow`](#futures_get_fund_flow) | 按单品种或全市场查询指定交易日的期货资金变动统计，资金变动按持仓额变化估算。 | **date**, windCode |
-| [`futures_get_position_ranking`](#futures_get_position_ranking) | 按品种和交易日查询交易所公开席位的九类排名，涵盖持仓、增减仓和成交量排名。 | **type**, **windCode**, date, limit |
-| [`futures_get_research_opinion_stat`](#futures_get_research_opinion_stat) | 按单个期货品种和日期汇总公开研报的方向分类、统计结果、核心摘要及近 30 个交易日变化。 | **windCode**, date |
-| [`futures_get_supply_demand`](#futures_get_supply_demand) | 按期货品种和基本面类型查询商品供需指标的最新值与历史时间序列，可按日期窗口和历史开关控制范围。 | **windCode**, startDate, endDate, **type**, includeHistory |
+| 工具 | 用途 | 别选错（【边界】首句） | 入参（加粗=必填） | 可直接跑的样例 |
+| --- | --- | --- | --- | --- |
+| `futures_get_warehouse_receipt_details` | 按单个期货品种查询仓单的仓库级明细，返回分仓储区域的期末、新增和注销仓单记录。 | 仅登记仓单明细，不承诺交割明细、多品种、全市场或具体合约 | **windCode**, date | `{"windCode":"CU.SHF","date":"2026-09-03"}` |
+| `futures_get_warehouse_receipt` | 按业务类型、期货品种代码及日期查询期货品种的交割或仓单汇总，支持单品种、多品种和全市场。 | 交割数据按月、仓单数据按日 | **type**, windCodes, date | `{"type":"receipt","windCodes":["CU.SHF","AL.SHF"],"date":"2026-09-03"}` |
+| `futures_get_related_securities` | 按期货品种查询期货资产类别下已配置的产业链关联标的，并可按上游、中游或下游筛选。 | 仅覆盖期货资产类别下已配置的产业链关联记录，不延伸到其他资产类别、行业研究、现货价格或公司经营事实核验 | **windCode**, type | `{"windCode":"CU.SHF","type":["upstream"]}` |
+| `futures_get_contract_spec` | 查询单个期货品种或标准合约的全球公开交易规格与交割规则。 | 不提供实时行情、持仓排名或基差 | **windCode**, fields | `{"windCode":"CU.SHF"}` |
+| `futures_get_basis` | 按期货品种、板块或全市场查询基差快照及历史统计。 | 当前不承诺带日期的历史时序查询 | windCodes, sector, startDate, endDate ⚠二选一，见 `describe` | `{"windCodes":["CU.SHF"],"startDate":"2026-08-01","endDate":"2026-09-03"}` |
+| `futures_get_fund_flow` | 按单品种或全市场查询指定交易日的期货资金变动统计，资金变动按持仓额变化估算。 | 资金流向不等同真实资金划转或保证金流动 | **date**, windCode | `{"date":"2026-09-03","windCode":"CU.SHF"}` |
+| `futures_get_position_ranking` | 按品种和交易日查询交易所公开席位的九类排名，涵盖持仓、增减仓和成交量排名。 | 仅反映交易所公开席位排名，不等同客户持仓归因或交易策略 | **type**, **windCode**, date, limit | `{"type":1,"windCode":"CU.SHF","date":"2026-09-03","limit":5}` |
+| `futures_get_research_opinion_stat` | 按单个期货品种和日期汇总公开研报的方向分类、统计结果、核心摘要及近 30 个交易日变化。 | 仅支持品种级查询，不替代研报原文核验、行情查询或供需数据 | **windCode**, date | `{"windCode":"CU.SHF","date":"2026-09-03"}` |
+| `futures_get_supply_demand` | 按期货品种和基本面类型查询商品供需指标的最新值与历史时间序列，可按日期窗口和历史开关控制范围。 | 指标范围由已配置的 EDB 数据覆盖 | **windCode**, startDate, endDate, **type**, includeHistory | `{"windCode":"CU.SHF","type":4,"startDate":"2026-01-01","endDate":"2026-09-03"}` |
 
-_加粗为必填。_
+## 已知故障
 
-## 工具契约
+| 工具 | 问题 |
+| --- | --- |
+| `futures_get_warehouse_receipt` | 只管仓单与交割的汇总口径。用户问「某品种库存多少」时应走 `futures_get_supply_demand` 的 `type=4`（库存/仓单/港口库存），不要用本工具。 |
+| `futures_get_basis` | `sector`（板块）与 `startDate`/`endDate` **不能一起用**：同时传时后端会静默降级成 `endDate` 当日的单日截面，只在返回体的 `queryDataNote` 里留一句「日期区间仅支持单品种查询」，不报错。要板块的历史序列只能逐品种用 `windCodes` 循环调。实测已验证。 |
 
-### `futures_get_warehouse_receipt_details`
+## 本 server 最容易选错的
 
-- **功能**：按单个期货品种查询仓单的仓库级明细，返回分仓储区域的期末、新增和注销仓单记录。
-- **适用场景**：核对单品种仓单分布；查看仓储区域期末量；查看入库和出库变化；与仓单汇总结果交叉核验。
-- **返回**：返回日期、品种、单位、国家、仓储区域、期末仓单量、入库量和出库量；每行对应一个仓储区域，缺失值使用 null。
-- **边界**：仅登记仓单明细，不承诺交割明细、多品种、全市场或具体合约；不提供预测、图表和单位换算；零值需结合数据状态核验。
+`futures_get_supply_demand` 的 `type=4`（品种整体库存水平）vs `futures_get_warehouse_receipt`（仓单与交割汇总）vs `futures_get_warehouse_receipt_details`（分仓库明细）——问「库存多少」用第一个。
 
-| 参数 | 必填 | 类型 | 枚举 | 默认 | 说明 |
-| --- | --- | --- | --- | --- | --- |
-| `windCode` | 是 | string | — | — | 单个期货品种代码或名称，仅品种级代码（不支持带月份合约）。月合约代码（如 CU2701.SHF）需先去掉月份部分转为主力品种代码（CU.SHF）再传入。填写示例：CU.SHF / 沪铜。 |
-| `date` | 否 | string | — | — | 日期，格式 YYYY-MM-DD，示例 2026-07-03。 |
-
-样例：`{"windCode":"CU.SHF","date":"2026-09-03"}`
-
-### `futures_get_warehouse_receipt`
-
-- **功能**：按业务类型、期货品种代码及日期查询期货品种的交割或仓单汇总，支持单品种、多品种和全市场。
-- **适用场景**：查询仓单总量；查看交割量及均价；比较品种仓单和基差；扫描全市场仓单汇总。
-- **返回**：交割返回日期、品种、单位、交割量、交割金额和交割均价；仓单返回日期、品种、单位、仓单量、收盘价、基差和现货基准价；不适用字段使用 null。
-- **边界**：交割数据按月、仓单数据按日；不提供仓库级明细、预测或图表；跨品种的吨、手、张、公斤或桶不可直接相加。
-
-> ⚠ **已知问题**：只管仓单与交割的汇总口径。用户问「某品种库存多少」时应走 `futures_get_supply_demand` 的 `type=4`（库存/仓单/港口库存），不要用本工具。
-
-| 参数 | 必填 | 类型 | 枚举 | 默认 | 说明 |
-| --- | --- | --- | --- | --- | --- |
-| `type` | 是 | string | `delivery` / `receipt`（另收等价写法 `交割` / `仓单`） | — | 数据类型，需传入。决定返回哪些字段。可填英文系统值（delivery/receipt）或中文键（交割/仓单），两种写法等价。  映射关系： • delivery = 交割 • receipt = 仓单  【填写样例】 • 查交割数据 → "delivery" 或 "交割" • 查仓单数据 → "receipt" 或 "仓单"  负向约束： • 同时提到「交割和仓单」「两种都要」 → 主动追问,禁止默认任一 • 仅说「查一下」无 type 上下文 → 主动追问 • 一次调用只能一个 type |
-| `windCodes` | 否 | array | — | — | 单个或期货品种代码或名称，结构为数组。仅支持品种级代码，不支持月合约代码（如 CU2701.SHF）。填写示例：["CU.SHF"] / ["CU.SHF","AL.SHF"] / ["沪铜"]。 |
-| `date` | 否 | string | — | — | 日期。格式 YYYY-MM-DD。填写示例：2026-07-08。 |
-
-样例：`{"type":"receipt","windCodes":["CU.SHF","AL.SHF"],"date":"2026-09-03"}`
-
-### `futures_get_related_securities`
-
-- **功能**：按期货品种查询期货资产类别下已配置的产业链关联标的，并可按上游、中游或下游筛选。
-- **适用场景**：查询品种关联公司；按产业链环节筛选；查看公司代码、名称和主营产品；为后续公司基本面核对准备主体。
-- **返回**：返回期货品种对应的关联标的代码、名称、主营产品和产业链环节；结果是系统配置的匹配记录，不代表完整产业链或关联强度。
-- **边界**：仅覆盖期货资产类别下已配置的产业链关联记录，不延伸到其他资产类别、行业研究、现货价格或公司经营事实核验。
-
-| 参数 | 必填 | 类型 | 枚举 | 默认 | 说明 |
-| --- | --- | --- | --- | --- | --- |
-| `windCode` | 是 | string | — | — | 单个期货品种代码或名称。填写示例：CU.SHF / 沪铜 |
-| `type` | 否 | array | — | — | 产业链环节筛选，字符串数组，可选（不传或传空数组 [] 时返回上中下游全部）。  【最高优先级铁律】type 必须传入英文枚举值，严禁传中文（如 ["上游"]/["中游"]/["下游"]），否则后端报错。LLM 识别到用户说的中文环节名时，必须按下表替换为英文后再传入。  【中文→英文转换】 • 上游/原材料/采矿/上游公司 → "upstream" • 中游/冶炼/加工/精炼 → "midstream" • 下游/应用/成品/制造/下游公司 → "downstream" • 上中下游/全产业链/全部/不限定 → 不传 type（返回全部）  【合法英文值】 • upstream — 原材料/采矿/种植（铝土矿开采、铜矿采选） • midstream — 冶炼/加工/精炼（电解铝冶炼、阴极铜） • downstream — 成品制造/应用（铝合金型材、铝板带箔）  【填写样例】（仅英文） • 单环节：["upstream"] • 多环节：["upstream","downstream"] • 重复值系统去重保序  【判定规则】 1. 用户明确说「只要上游/上游公司」→ ["upstream"] 2. 用户说「上下游」→ ["upstream","downstream"] 3. 用户说「全产业链」或未限定环节 → 不传 type 4. 用户说「中下游」→ ["midstream","downstream"] 5. 用户说的环节名映射不确定时宁可省略 type 返回全部 |
-
-样例：`{"windCode":"CU.SHF","type":["upstream"]}`
-
-### `futures_get_contract_spec`
-
-- **功能**：查询单个期货品种或标准合约的全球公开交易规格与交割规则。
-- **适用场景**：查看合约规模和计量单位；核对报价单位与最小变动；查看交易时间和交割方式；查看上市日期及保证金基准说明。
-- **返回**：返回合约名称、标准代码、交易所、规模、单位、报价、交易时间、交割规则和上市日期等已开放字段；字段值按来源原文保留。
-- **边界**：不提供实时行情、持仓排名或基差；当前回包未稳定提供交易手续费，保证金和涨跌幅为合约文本基准值，使用时须核对交易所最新公告。
-
-| 参数 | 必填 | 类型 | 枚举 | 默认 | 说明 |
-| --- | --- | --- | --- | --- | --- |
-| `windCode` | 是 | string | — | — | 单个期货品种代码或名称。填写示例：CU.SHF / 沪铜 |
-| `fields` | 否 | array | — | — | 【最高优先级铁律：用户中文提问→中文映射键入参】用户用中文提问时（如「查沪铜的保证金、手续费、交割方式」），LLM 识别每个中文业务词并按下表映射成「中文映射键」放入 fields 数组；系统 convert_enum_list 自动转英文系统值。也可直接传英文驼峰名。  【双轨制】中文键、英文值、中英混合都接受；用户要多个字段 → 数组多值全列；宽泛问题（合约规格/合约信息）→ 不传 fields。  【歧义词警示（必须用精确键）】 • 「保证金」歧义 → 「保证金要求说明」(bailRemark) 或「交易保证金」(tradingDeposit)；不明确则两个都传 • 「手续费」歧义 → 「交易手续费」(transactionFee) 或「平今手续费」(closingFee)；不明确则两个都传 • 「交易所」歧义 → 「交易所英文简称」/「交易所中文简称」；不明确则两个都传 • 「合约名称」歧义 → 「标准合约名称」/「标准合约简称」/「标准合约代码」/「交易代码」按语义选  【常见词→精确键】合约规模/一手吨数→合约规模；合约乘数→合约乘数(-ator)；最小变动价位/一跳→最小报价单位说明；涨跌停板→日涨跌幅限制说明；交易时间→交易时间说明；延期补偿费率→延期补偿费率(-Rate)。  【规则】1.字符串数组，可选，不传/空数组返回全部字段；2.英文大小写敏感；3.严禁传映射表外的中文词。  【36 中文键→英文值】：标准合约名称→contractName、标准合约简称→contractShortName、标准合约代码→standardContractCode、交易代码→tradingCode、交易所英文简称→tradePlaceEnglishShortName、交易所中文简称→tradePlaceCNShortName、合约规模→contractScale、交易计量单位→tradeUnit、报价单位→quoteUnit、 |
-
-样例：`{"windCode":"CU.SHF"}`
-
-### `futures_get_basis`
-
-- **功能**：按期货品种、板块或全市场查询基差快照及历史统计。
-- **适用场景**：查看单品种基差；比较多个品种；扫描板块或全市场；核对基差分位和基准现货价格。
-- **返回**：返回品种代码、名称、数据日期、基差值、历史分位及现货价格，基差定义与窗口按实际回包标注。
-- **边界**：当前不承诺带日期的历史时序查询；不用于策略回测、收益归因或交易决策；原始分类字段规则未充分自洽，不纳入发布契约。
-
-| 参数 | 必填 | 类型 | 枚举 | 默认 | 说明 |
-| --- | --- | --- | --- | --- | --- |
-| `windCodes` | 否 | array | — | — | 单个或多个期货品种代码或名称，格式为数组。填写示例：["CU.SHF"] / ["CU.SHF","AL.SHF"] / ["沪铜"] |
-| `sector` | 否 | string | `Precious metals` / `Non-ferrous metals` / `Black Series` / `Shipping` / `Crude oil` / `Olefins` / `Polyester textile` / `Grease and oilseed` …（共 14 项，用 describe 看全）（另收等价写法 `全市场` / `贵金属` / `有色金属` / `黑色系` …） | — | 板块筛选（windCodes 与 sector 至少提供一个）。可填英文系统值（如 Precious metals / Non-ferrous metals / all）或 enum_map 中文键（如 贵金属 / 有色金属 / 全市场），两种写法等价。  映射关系： • 全市场 = all • 贵金属 = Precious metals • 有色金属 = Non-ferrous metals • 黑色系 = Black Series • 航运 = Shipping • 原油 = Crude oil • 烯烃 = Olefins • 聚酯纺织 = Polyester textile • 油脂油料 = Grease and oilseed • 畜牧养殖 = Animal Husbandry & Breeding • 轻工 = Light industry • 新能源材料 = New energy materials • 橡胶 = Rubber • 其他 = Others  与 windCodes 可同时提供，系统按并集处理。易混淆：能源/原油 = Crude oil（非 New energy materials） |
-| `startDate` | 否 | string | — | — | 开始日期，格式 YYYY-MM-DD。与 endDate 必须成对提供：都不传取最新交易日快照 |
-| `endDate` | 否 | string | — | — | 结束日期，格式 YYYY-MM-DD。与 startDate 必须成对提供。 |
-
-样例：`{"windCodes":["CU.SHF"],"startDate":"2026-08-01","endDate":"2026-09-03"}`
-
-### `futures_get_fund_flow`
-
-- **功能**：按单品种或全市场查询指定交易日的期货资金变动统计，资金变动按持仓额变化估算。
-- **适用场景**：查看单品种资金变动；扫描全市场方向。
-- **返回**：返回交易日、品种、价格和持仓额、变动额及幅度；价格和金额单位随品种记录。
-- **边界**：资金流向不等同真实资金划转或保证金流动；仅支持单日，不支持区间。
-
-| 参数 | 必填 | 类型 | 枚举 | 默认 | 说明 |
-| --- | --- | --- | --- | --- | --- |
-| `date` | 是 | string | — | — | 查询日期。格式 YYYY-MM-DD，示例 2026-07-15。 |
-| `windCode` | 否 | string | — | — | 单个期货品种代码或名称，或者传入all（全市场）。填写示例：CU.SHF / all / 沪铜 |
-
-样例：`{"date":"2026-09-03","windCode":"CU.SHF"}`
-
-### `futures_get_position_ranking`
-
-- **功能**：按品种和交易日查询交易所公开席位的九类排名，涵盖持仓、增减仓和成交量排名。
-- **适用场景**：查看多头或空头席位；查看净多或净空排名；查看增仓或减仓排名；查看成交量席位排名。
-- **返回**：返回排名类型、交易日、会员简称、名次、指标值、增减值和计量单位；返回条数由 limit 控制。
-- **边界**：仅反映交易所公开席位排名，不等同客户持仓归因或交易策略；不提供图表。
-
-| 参数 | 必填 | 类型 | 枚举 | 默认 | 说明 |
-| --- | --- | --- | --- | --- | --- |
-| `type` | 是 | integer | `1` / `2` / `3` / `4` / `5` / `6` / `7` / `8` …（共 9 项，用 describe 看全） | — | 排名类型，必填（1-9 整数）。映射关系：多头持仓/空头持仓/净多/净空/多头增仓/多头减仓/空头增仓/空头减仓/成交量 → 1/2/3/4/5/6/7/8/9。中文键与数字值等价。用户问「多头榜/做多排名」→ type=1；「净空榜」→ type=4；「增仓榜/加仓」→ 对应 5 或 7；「成交量榜」→ type=9。 |
-| `windCode` | 是 | string | — | — | 单个期货品种代码。支持品种级标准代码（如 CU.SHF）与合约级代码（如 CU2612.SHF），月合约自动转换为主力合约代码。填写示例：CU.SHF / RB2510.SHF。注意：本工具接口不支持中文品种名称，用户给中文名时应要求提供 Wind 代码；多品种请分次查询。 |
-| `date` | 否 | string | — | — | 日期。格式 YYYY-MM-DD。填写示例：2026-08-25。 |
-| `limit` | 否 | integer | — | 默认 `20` | 返回条数，可选，1-100 的整数，默认 20。用户说「前 N 名 / 前几名」→ 传对应数字（前五名→5，前十名→10）；未提及→不传（默认 20）。 |
-
-样例：`{"type":1,"windCode":"CU.SHF","date":"2026-09-03","limit":5}`
-
-### `futures_get_research_opinion_stat`
-
-- **功能**：按单个期货品种和日期汇总公开研报的方向分类、统计结果、核心摘要及近 30 个交易日变化。
-- **适用场景**：查看当日研报方向分布；读取公开研报核心摘要；回溯分类计数变化；核对机构、标题和发布时间。
-- **返回**：返回品种、日期、多空中性计数、统计分值、核心摘要、逐篇研报明细；核心摘要和方向属于研报聚合内容，不是工具自行分析。
-- **边界**：仅支持品种级查询，不替代研报原文核验、行情查询或供需数据；收盘价和核心摘要可能为空；不输出交易建议或价格结论。
-
-| 参数 | 必填 | 类型 | 枚举 | 默认 | 说明 |
-| --- | --- | --- | --- | --- | --- |
-| `windCode` | 是 | string | — | — | 单个期货品种代码或名称。填写示例：CU.SHF / 沪铜。合约代码（如 CU2506.SHF）可直传，后端自动转主力合约。 |
-| `date` | 否 | string | — | — | 日期，可选。格式 YYYY-MM-DD，示例 2026-07-03。 |
-
-样例：`{"windCode":"CU.SHF","date":"2026-09-03"}`
-
-### `futures_get_supply_demand`
-
-- **功能**：按期货品种和基本面类型查询商品供需指标的最新值与历史时间序列，可按日期窗口和历史开关控制范围。
-- **适用场景**：查看供需平衡表；查询供应或产量；查询需求或消费；查询库存或仓单；核对指标元数据和更新日期。
-- **返回**：返回指标代码、名称、品种、功能、频率、单位、来源、数据截止日期、最新值和历史序列；全球或地区等口径以指标元数据为准。
-- **边界**：指标范围由已配置的 EDB 数据覆盖；当前实测沪铜主要为全球口径，不默认代表中国市场；不输出价格预测或交易建议。
-
-| 参数 | 必填 | 类型 | 枚举 | 默认 | 说明 |
-| --- | --- | --- | --- | --- | --- |
-| `windCode` | 是 | string | — | — | 单个期货品种代码或名称。支持月合约代码（如 RB2610.SHF）。填写示例：CU.SHF / RB2610.SHF / 螺纹钢。 |
-| `startDate` | 否 | string | — | — | 开始日期，可选。格式 YYYY-MM-DD，示例 2026-01-01。 |
-| `endDate` | 否 | string | — | — | 截止日期，可选。格式 YYYY-MM-DD，示例 2026-06-19。 |
-| `type` | 是 | integer | `1` / `2` / `3` / `4` | — | 基本面类型，必填。可选值：1-供需平衡（供需/平衡表），2-供应（供给/产量/进口），3-需求（消费/出口），4-库存（社会库存/仓单/港口库存）。用户问「库存/仓单」→4；问「产量/供应/供给/进口」→2；问「需求/消费/出口」→3；问「供需平衡/平衡表」→1。 |
-| `includeHistory` | 否 | boolean | — | 默认 `true` | 是否返回历史时间序列，布尔值，不传默认 true。用户只关心最新值→传 false；用户明确要走势/历史/序列时→传 true 或不传。 |
-
-样例：`{"windCode":"CU.SHF","type":4,"startDate":"2026-01-01","endDate":"2026-09-03"}`
-
+拿不准就 `node scripts/cli.mjs describe futures <tool>` 看完整的【边界】，它比上表的一句话摘要说得清楚。

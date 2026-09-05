@@ -356,13 +356,76 @@ check('每个工具都有实测样例入参，且样例本身能通过校验', (
   assert(!invalid.length, `样例不合法：\n  ${invalid.join('\n  ')}`);
 });
 
-check('每个 server 都有契约文档，且列全了自己的工具', () => {
+check('每个 server 都有工具目录，且列全了自己的工具', () => {
   for (const [alias, s] of Object.entries(REG.servers)) {
     const path = join(SKILL_DIR, 'references', `${alias}.md`);
     assert(existsSync(path), `缺 references/${alias}.md`);
     const md = readFileSync(path, 'utf8');
     for (const name of Object.keys(s.tools)) {
-      assert(md.includes(`### \`${name}\``), `references/${alias}.md 缺 ${name} 的契约小节`);
+      assert(md.includes(`| \`${name}\` |`), `references/${alias}.md 的目录表缺 ${name}`);
+    }
+  }
+});
+
+// 目录只该是目录：参数表、枚举、【适用场景】这些放进来会让 company 重新涨到 3.5 万字，
+// 而 agent 一次只用一个工具的参数。这条是防止有人「顺手补全一下文档」把上下文成本加回去。
+check('工具目录保持轻量：单份不超过 1 万字，7 份合计不超过 4 万字', () => {
+  let total = 0;
+  for (const alias of Object.keys(REG.servers)) {
+    const md = readFileSync(join(SKILL_DIR, 'references', `${alias}.md`), 'utf8');
+    total += md.length;
+    assert(md.length <= 10000, `references/${alias}.md 有 ${md.length} 字，超出目录该有的体量——参数表应该留在 describe 里`);
+    assert(!/^\| 参数 \| 必填 \|/m.test(md), `references/${alias}.md 混进了参数表，应该只留目录`);
+  }
+  assert(total <= 42000, `7 份目录合计 ${total} 字，超标`);
+});
+
+await checkAsync('describe 可以只取一个参数', async () => {
+  const full = await runCli(['describe', 'futures', 'futures_get_basis']);
+  const one = await runCli(['describe', 'futures', 'futures_get_basis', 'sector']);
+  eq(one.json.param, 'sector');
+  assert(one.json.enum?.includes('Non-ferrous metals'), '应给出 enum');
+  assert(one.json.enum_aliases?.includes('有色金属'), '应给出等价写法');
+  assert(one.text.length < full.text.length, '单字段输出应比整份契约小');
+  eq(one.calls.length, 0, '不应发网络请求');
+});
+
+await checkAsync('describe 取不存在的参数报 ROUTE_ERROR 并列出合法字段', async () => {
+  const r = await runCli(['describe', 'futures', 'futures_get_basis', 'zzz']);
+  eq(r.thrown?.code, 'ROUTE_ERROR');
+  assert(r.thrown.message.includes('sector'), '应列出合法字段');
+});
+
+check('目录的「别选错」列把同类工具区分开了', () => {
+  const md = readFileSync(join(SKILL_DIR, 'references', 'company.md'), 'utf8');
+  const rows = ['company_get_discredit', 'company_get_final_case', 'company_get_high_consumers', 'company_get_executed_persons']
+    .map((n) => md.split('\n').find((l) => l.startsWith(`| \`${n}\` |`)));
+  const boundaries = rows.map((r) => r.split('|')[3].trim());
+  assert(rows.every(Boolean), '四个司法工具都要在目录里');
+  eq(new Set(boundaries).size, 4, `四个司法工具的「别选错」列必须互不相同，实际：${boundaries.join(' / ')}`);
+});
+
+check('每份目录都有自己的「最容易选错的」一节，且不串台', () => {
+  for (const alias of Object.keys(REG.servers)) {
+    const md = readFileSync(join(SKILL_DIR, 'references', `${alias}.md`), 'utf8');
+    assert(md.includes('## 本 server 最容易选错的'), `references/${alias}.md 缺「最容易选错的」一节`);
+    if (alias !== 'company') {
+      const section = md.split('## 本 server 最容易选错的')[1].split('##')[0];
+      assert(!section.includes('失信被执行'), `references/${alias}.md 的易混示例串到了 company 的司法工具上`);
+    }
+  }
+});
+
+check('单个工具的 describe 输出足够小，可以按需取', () => {
+  for (const [alias, s] of Object.entries(REG.servers)) {
+    for (const [name, t] of Object.entries(s.tools)) {
+      const req = new Set(t.inputSchema?.required || []);
+      const payload = JSON.stringify({
+        description: t.description,
+        params: Object.entries(t.inputSchema?.properties || {}).map(([k, p]) => ({ k, required: req.has(k), ...p })),
+        sample: t.sample,
+      });
+      assert(payload.length <= 8000, `describe ${alias} ${name} 会输出 ${payload.length} 字，太大`);
     }
   }
 });
@@ -375,13 +438,13 @@ check('SKILL.md 路由表覆盖 7 个 server 并指向存在的契约', () => {
   }
 });
 
-check('已知故障都写进了 SKILL.md 或对应契约', () => {
-  const skill = readFileSync(join(SKILL_DIR, 'SKILL.md'), 'utf8');
+check('已知故障都出现在对应目录的「已知故障」表里', () => {
   for (const [alias, s] of Object.entries(REG.servers)) {
     const md = readFileSync(join(SKILL_DIR, 'references', `${alias}.md`), 'utf8');
+    const section = md.split('## 已知故障')[1] || '';
     for (const [name, t] of Object.entries(s.tools)) {
       if (!t.knownIssue) continue;
-      assert(md.includes(name) && (md.includes('已知问题') || skill.includes(name)), `${alias}.${name} 的已知故障没写进文档`);
+      assert(section.includes(`\`${name}\``), `${alias}.${name} 的已知故障没进目录的「已知故障」表`);
     }
   }
 });

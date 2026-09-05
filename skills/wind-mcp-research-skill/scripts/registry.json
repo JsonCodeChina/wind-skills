@@ -41,6 +41,7 @@
         "投研语料",
         "自然语言"
       ],
+      "confusable": "`general_query_documents`（要正文，自然语言）vs `general_search_documents`（要清单，按类型/证券/日期）——前者给内容，后者给编号，`general_get_document` 拿不到正文。",
       "toolCount": 13,
       "paramCount": 32,
       "tools": {
@@ -533,6 +534,7 @@
         "选股",
         "筛选"
       ],
+      "confusable": "`stock_get_company_finance_analysis`（历史实际财务）vs `stock_get_company_earnings_estimate`（机构预期）vs `stock_get_company_valuation`（当前估值）——三者互不覆盖，问「业绩怎么样」要先分清问的是哪一个。",
       "toolCount": 15,
       "paramCount": 18,
       "tools": {
@@ -898,6 +900,7 @@
         "选基",
         "筛选"
       ],
+      "confusable": "`fund_get_equity_holdings`（全部股票持仓，几百只）vs `fund_get_top_equity_holdings`（披露的重仓股，十只左右）——问「持仓」多半要后者，问「全部持仓明细」才用前者。",
       "toolCount": 21,
       "paramCount": 68,
       "tools": {
@@ -2099,6 +2102,7 @@
         "同比",
         "环比"
       ],
+      "confusable": "`economic_get_indicator_series`（已知代码，原始口径）vs `economic_query_indicator_series`（自然语言，可转换数量级/币种/频率）——要折算就必须用后者。",
       "toolCount": 3,
       "paramCount": 12,
       "tools": {
@@ -2249,7 +2253,8 @@
         "供需指标的地区口径以返回的指标元数据为准（实测沪铜主要是全球口径），不要默认当成中国市场。",
         "**「库存」有两个候选，别选错**：问某品种的整体库存水平/走势用 `futures_get_supply_demand` 的 `type=4`；只有明确要**仓单或交割的汇总/仓库级明细**时才用 `futures_get_warehouse_receipt`（汇总）或 `futures_get_warehouse_receipt_details`（分仓库）。",
         "`futures_get_basis.sector` 与 `futures_get_warehouse_receipt.type` 的 enum 只声明了英文系统值，但说明里的「映射关系」列出的中文键（有色金属 / 全市场 / 仓单 / 交割 …）后端同样接受，CLI 已一并放行，两种写法等价。",
-        "`futures_get_supply_demand` **一次返回里的单位可能混排**（实测沪铜库存同时出现「吨」的交易所库存和「万吨」的地区库存，量级差 1 万倍）。逐行读各自的 `unit`，**不要跨行相加或直接比大小**。"
+        "`futures_get_supply_demand` **一次返回里的单位可能混排**（实测沪铜库存同时出现「吨」的交易所库存和「万吨」的地区库存，量级差 1 万倍）。逐行读各自的 `unit`，**不要跨行相加或直接比大小**。",
+        "`futures_get_basis` 的**板块查询只有截面、没有序列**：传 `sector` + 日期区间会被静默降级成末日单日数据；要历史序列必须改用 `windCodes` 逐品种查。"
       ],
       "keywords": [
         "期货",
@@ -2272,6 +2277,7 @@
         "螺纹钢",
         "品种"
       ],
+      "confusable": "`futures_get_supply_demand` 的 `type=4`（品种整体库存水平）vs `futures_get_warehouse_receipt`（仓单与交割汇总）vs `futures_get_warehouse_receipt_details`（分仓库明细）——问「库存多少」用第一个。",
       "toolCount": 9,
       "paramCount": 26,
       "tools": {
@@ -2493,7 +2499,8 @@
             ],
             "startDate": "2026-08-01",
             "endDate": "2026-09-03"
-          }
+          },
+          "knownIssue": "`sector`（板块）与 `startDate`/`endDate` **不能一起用**：同时传时后端会静默降级成 `endDate` 当日的单日截面，只在返回体的 `queryDataNote` 里留一句「日期区间仅支持单品种查询」，不报错。要板块的历史序列只能逐品种用 `windCodes` 循环调。实测已验证。"
         },
         "futures_get_fund_flow": {
           "description": "【功能】按单品种或全市场查询指定交易日的期货资金变动统计，资金变动按持仓额变化估算。\n\n【适用场景】查看单品种资金变动；扫描全市场方向。\n\n【返回】返回交易日、品种、价格和持仓额、变动额及幅度；价格和金额单位随品种记录。\n\n【边界】资金流向不等同真实资金划转或保证金流动；仅支持单日，不支持区间。",
@@ -2690,6 +2697,7 @@
         "snowball",
         "结构化产品"
       ],
+      "confusable": "`options_get_*`（查市场真实数据，要 windCode 和交易日）vs `options_calc_*`（纯定价计算器，不查任何市场数据，现价/波动率/利率全要用户给）——问「现在的隐含波动率」是前者，问「给这个结构定价」是后者。",
       "toolCount": 17,
       "paramCount": 149,
       "tools": {
@@ -4503,6 +4511,7 @@
         "风控",
         "尽调"
       ],
+      "confusable": "「失信被执行」`company_get_discredit`、「终本案件」`company_get_final_case`、「限制高消费」`company_get_high_consumers`、「被执行案件」`company_get_executed_persons` 是四种不同的司法执行结果，用户不用原词提问时（如「法院查不到财产的案子」＝终本）必须先 `describe` 看【边界】。",
       "toolCount": 54,
       "paramCount": 127,
       "tools": {

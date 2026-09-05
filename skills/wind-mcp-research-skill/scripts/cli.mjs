@@ -3,13 +3,14 @@
 //
 // 契约：stdout 只有两种形态。成功是数据对象；失败是 {"ok":false,"code":...,"message":...}。
 //
-// 本文件是**运行时**的全部内容，按四段组织：传输层 → 参数校验 → 注册表读取 → 命令与信封。
-// 重建注册表和契约文档的代码在 build.mjs（`refresh` 时才动态加载）；skill 自更新在 update-check.mjs。
+// 本文件按五段组织：传输层 → 参数校验 → 注册表读取 → 注册表重建与文档生成 → 命令与信封。
+// skill 自更新在 update-check.mjs——它必须是独立文件，因为更新会替换整个 skill 目录，
+// 脚本不能在自己即将被覆盖的位置上执行。
 import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve, basename } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 
 const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = dirname(SCRIPTS_DIR);
@@ -18,6 +19,7 @@ const UPDATE_CHECK_PATH = join(SCRIPTS_DIR, 'update-check.mjs');
 
 export const REGISTRY_PATH = join(SCRIPTS_DIR, 'registry.json');
 export const ANNOTATIONS_PATH = join(SCRIPTS_DIR, 'annotations.json');
+const REF_DIR = join(SKILL_DIR, 'references');
 
 // #region 传输层：MCP Streamable HTTP（JSON-RPC 2.0 over POST，服务端 stateless、无 session id）
 export const ENDPOINT_BASE = 'https://mcp.wind.com.cn';
@@ -338,7 +340,7 @@ export function readAnnotations() {
 
 export function readRegistry() {
   if (!existsSync(REGISTRY_PATH)) {
-    throw new Error(`缺少 ${REGISTRY_PATH}，先运行：node scripts/build.mjs`);
+    throw new Error(`缺少 ${REGISTRY_PATH}，先运行：node scripts/cli.mjs refresh`);
   }
   return JSON.parse(readFileSync(REGISTRY_PATH, 'utf8'));
 }
@@ -359,6 +361,150 @@ export function diffTools(oldTools = {}, liveTools = []) {
   return { added, removed, changed };
 }
 // #endregion 注册表读取
+
+// #region 注册表：线上 tools/list 的全量 schema + annotations.json 的人工注解
+export async function buildRegistry({ only = null, fetchFn } = {}) {
+  const ann = readAnnotations();
+  const prev = existsSync(REGISTRY_PATH) ? readRegistry() : { servers: {} };
+  const registry = {
+    schema_version: 1,
+    generatedAt: new Date().toISOString().slice(0, 10),
+    transport: 'MCP Streamable HTTP (JSON-RPC 2.0 over POST, stateless, 每次请求前先 initialize)',
+    servers: { ...prev.servers },
+  };
+  const report = [];
+  const aliases = only ? [only] : Object.keys(ann.servers);
+  for (const alias of aliases) {
+    const meta = ann.servers[alias];
+    if (!meta) throw new Error(`annotations.json 中没有 server: ${alias}`);
+    const live = await listTools(meta.full, { fetchFn });
+    const changes = diffTools(prev.servers?.[alias]?.tools, live);
+    const tools = {};
+    for (const t of live) {
+      const a = meta.tools[t.name] || {};
+      tools[t.name] = {
+        description: t.description || '',
+        inputSchema: t.inputSchema || { type: 'object', properties: {} },
+        ...(a.sample ? { sample: a.sample } : {}),
+        ...(a.knownIssue ? { knownIssue: a.knownIssue } : {}),
+      };
+    }
+    registry.servers[alias] = {
+      full: meta.full,
+      endpoint: endpointOf(meta.full),
+      title: meta.title,
+      scope: meta.scope,
+      guidance: meta.guidance,
+      keywords: meta.keywords || [],
+      confusable: meta.confusable || null,
+      toolCount: live.length,
+      paramCount: live.reduce((n, t) => n + Object.keys(t.inputSchema?.properties || {}).length, 0),
+      tools,
+    };
+    const orphanSamples = Object.keys(meta.tools).filter((n) => !(n in tools));
+    report.push({ alias, count: live.length, ...changes, orphanSamples });
+  }
+  writeFileSync(REGISTRY_PATH, JSON.stringify(registry, null, 2) + '\n');
+  return { registry, report };
+}
+// #endregion 注册表
+
+// #region 契约文档：由 registry.json 渲染 references/<server>.md
+// 只渲染**目录**，不渲染参数表。理由：company 有 54 个工具，全量参数表会让这份文件涨到
+// 3.5 万字，而 agent 一次只用其中一个工具的参数。完整契约（【边界】+ 参数表 + 枚举）走
+// `cli.mjs describe <server> <tool>`，单个工具约 1 千字，按需取。
+const esc = (s) => String(s ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ').trim();
+
+const firstLine = (d) => String(d || '').replace(/【功能】/, '').split(/\n|【/)[0].trim();
+
+// 【边界】那一段才是区分同类工具的东西（「失信被执行」和「终本案件」的【功能】几乎同义反复，
+// 【边界】里才写着它们是不同的司法结果）。目录里放它的第一句，完整版留给 describe。
+const BOUNDARY_MAX = 56;
+
+function boundaryCell(tool) {
+  const m = String(tool.description || '').match(/【边界】([\s\S]*)$/);
+  if (!m) return '—';
+  const first = m[1].split(/[。；]/)[0].trim();
+  if (!first) return '—';
+  return esc(first.length > BOUNDARY_MAX ? `${first.slice(0, BOUNDARY_MAX)}…` : first);
+}
+
+// 样例太长（期权定价器有 18 个参数）就不塞进表格，让 agent 去 describe 取。
+const SAMPLE_MAX = 110;
+
+function sampleCell(tool) {
+  if (!tool.sample) return '—';
+  const json = JSON.stringify(tool.sample);
+  return json.length <= SAMPLE_MAX ? `\`${esc(json)}\`` : `参数较多，见 \`describe\``;
+}
+
+// 「加粗=必填」表达不了「windCodes 与 sector 至少提供一个」这种二选一约束，单独标出来。
+const EITHER_OR_RE = /至少(提供|填|传)|二选一|其一/;
+
+function paramCell(tool) {
+  const props = Object.keys(tool.inputSchema?.properties || {});
+  if (!props.length) return '（无）';
+  const req = new Set(tool.inputSchema?.required || []);
+  const cell = props.map((k) => (req.has(k) ? `**${k}**` : k)).join(', ');
+  const texts = [tool.description || '', ...Object.values(tool.inputSchema?.properties || {}).map((p) => p.description || '')];
+  return texts.some((t) => EITHER_OR_RE.test(t)) ? `${cell} ⚠二选一，见 \`describe\`` : cell;
+}
+
+export function renderServer(alias, server) {
+  const lines = [];
+  const entries = Object.entries(server.tools);
+  lines.push(`# \`${alias}\` 工具目录 —— ${server.title}`);
+  lines.push('');
+  lines.push('> **这是目录，不是完整契约。** 表里的样例可以照抄直接跑；要改参数、要看【边界】、要看枚举取值，');
+  lines.push(`> 先跑 \`node scripts/cli.mjs describe ${alias} <tool>\`（离线、不花积分、单个工具约 1 千字）。`);
+  lines.push(`> 本文件由 \`scripts/registry.json\` 生成（${server.full}，${server.toolCount} 个工具 / ${server.paramCount} 个参数），不要手改。`);
+  lines.push('');
+  lines.push(`**覆盖**：${server.scope}`);
+  lines.push('');
+  lines.push('## 调用要点');
+  lines.push('');
+  for (const g of server.guidance || []) lines.push(`- ${g}`);
+  lines.push('');
+  lines.push('## 工具目录');
+  lines.push('');
+  lines.push('| 工具 | 用途 | 别选错（【边界】首句） | 入参（加粗=必填） | 可直接跑的样例 |');
+  lines.push('| --- | --- | --- | --- | --- |');
+  for (const [name, t] of entries) {
+    lines.push(`| \`${name}\` | ${esc(firstLine(t.description))} | ${boundaryCell(t)} | ${paramCell(t)} | ${sampleCell(t)} |`);
+  }
+  lines.push('');
+
+  const issues = entries.filter(([, t]) => t.knownIssue);
+  if (issues.length) {
+    lines.push('## 已知故障');
+    lines.push('');
+    lines.push('| 工具 | 问题 |');
+    lines.push('| --- | --- |');
+    for (const [name, t] of issues) lines.push(`| \`${name}\` | ${esc(t.knownIssue)} |`);
+    lines.push('');
+  }
+
+  if (server.confusable) {
+    lines.push('## 本 server 最容易选错的');
+    lines.push('');
+    lines.push(server.confusable);
+    lines.push('');
+    lines.push(`拿不准就 \`node scripts/cli.mjs describe ${alias} <tool>\` 看完整的【边界】，它比上表的一句话摘要说得清楚。`);
+    lines.push('');
+  }
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n');
+}
+
+export function generateReferences(registry) {
+  const written = [];
+  for (const [alias, server] of Object.entries(registry.servers)) {
+    const md = renderServer(alias, server);
+    writeFileSync(join(REF_DIR, `${alias}.md`), md);
+    written.push({ server: alias, tools: server.toolCount, chars: md.length, path: `references/${alias}.md` });
+  }
+  return written;
+}
+// #endregion 契约文档
 
 // #region 信封
 function out(obj) {
@@ -381,16 +527,14 @@ const USAGE = `wind-mcp-research-skill —— Wind 7 个 MCP server / 132 个工
   node scripts/cli.mjs list-servers                7 个 server 与工具数
   node scripts/cli.mjs list-tools <server>         该 server 的工具与入参签名
   node scripts/cli.mjs describe <server> <tool>    单个工具的完整契约（说明 + 参数表 + 样例）
+  node scripts/cli.mjs describe <server> <tool> <param>  只看一个参数的类型、枚举与等价写法
   node scripts/cli.mjs find <keyword>              按关键词跨 server 搜工具
 
 维护
   node scripts/cli.mjs doctor                      检查 Key、连通性、注册表是否过期
   node scripts/cli.mjs diff [server]               线上 schema vs 本地注册表（只读不写）
-  node scripts/cli.mjs refresh [server]            重新拉取 schema 并写回注册表
+  node scripts/cli.mjs refresh [server]            重新拉取 schema，写回注册表并重生成 references/*.md
   node scripts/cli.mjs smoke [server]              用注册表里的实测样例跑冒烟
-
-重建（后端 schema 变了才用）
-  node scripts/build.mjs [server]                  拉最新 schema 重建 registry.json 并重新生成 references/*.md
 
 server: finance / stock / fund / edb / futures / options / company
 
@@ -521,15 +665,38 @@ function cmdListTools(alias) {
   });
 }
 
-function cmdDescribe(alias, toolName) {
+function cmdDescribe(alias, toolName, field) {
   const server = resolveServer(alias);
   const tool = resolveTool(server, toolName);
   const req = new Set(tool.inputSchema?.required || []);
+  const props = tool.inputSchema?.properties || {};
+
+  // 只想确认一个字段的取值时，没必要把整份契约拉下来（futures 的 sector 光映射表就 4 千字）。
+  if (field) {
+    const p = props[field];
+    if (!p) {
+      throw new McpError('ROUTE_ERROR', `${alias}.${toolName} 没有参数 '${field}'。它接受：${Object.keys(props).join('、') || '（无参数）'}`);
+    }
+    return out({
+      server: server.alias,
+      tool: toolName,
+      param: field,
+      required: req.has(field),
+      type: p.type || null,
+      ...(p.enum ? { enum: p.enum } : {}),
+      ...(enumAliases(p).size ? { enum_aliases: [...enumAliases(p)] } : {}),
+      ...(p.default !== undefined ? { default: p.default } : {}),
+      ...(p.maxItems !== undefined ? { max_items: p.maxItems } : {}),
+      description: p.description || p.title || '',
+      ...(tool.sample && tool.sample[field] !== undefined ? { sample_value: tool.sample[field] } : {}),
+    });
+  }
+
   out({
     server: server.alias,
     tool: toolName,
     description: tool.description,
-    params: Object.entries(tool.inputSchema?.properties || {}).map(([k, p]) => ({
+    params: Object.entries(props).map(([k, p]) => ({
       name: k,
       required: req.has(k),
       type: p.type || null,
@@ -627,21 +794,18 @@ async function cmdDiff(alias) {
   out({ compared: targets, diff: result });
 }
 
-// 重建走子进程而不是 import：build.mjs 反过来要 import 本文件，
-// 直接 import 会形成 ESM 循环依赖，撞上本文件入口处未结算的顶层 await 而死锁。
-// 子进程还有个好处：更新注册表和文档不会污染当前进程已经读进内存的 registry。
-function cmdRefresh(alias) {
-  const target = alias ? resolveServer(alias).alias : null;
-  const args = [join(SCRIPTS_DIR, 'build.mjs')];
-  if (target) args.push(target);
-  const r = spawnSync(process.execPath, args, { encoding: 'utf8', windowsHide: true });
-  if (r.status !== 0) {
-    return fail('SETUP_ERROR', `重建失败（exit ${r.status}）：${(r.stderr || r.stdout || '').trim().slice(0, 500)}`);
-  }
+// 重建：拉最新 schema 写回 registry.json，再由它重新生成全部契约目录。
+// 只覆盖 schema，annotations.json 里的人工内容（说明、关键词、样例、已知故障）原样保留。
+async function cmdBuild(alias) {
+  const only = alias ? resolveServer(alias).alias : null;
+  const { registry, report } = await buildRegistry({ only });
+  REGISTRY = registry;
   out({
-    refreshed: target || 'all',
+    rebuilt: only || 'all',
     registry: REGISTRY_PATH,
-    log: (r.stdout || '').trim().split('\n').filter(Boolean),
+    servers: report.map((r) => ({ server: r.alias, tools: r.count, added: r.added, removed: r.removed, changed: r.changed, stale_annotations: r.orphanSamples })),
+    references: generateReferences(registry),
+    next: '跑 node tests/run-offline-tests.mjs，它会点名因 schema 变动而失效的样例',
   });
 }
 
@@ -749,12 +913,13 @@ export async function main(argv) {
       if (!args[0]) throw new McpError('USAGE_ERROR', '用法：list-tools <server>');
       return cmdListTools(args[0]);
     case 'describe':
-      if (args.length < 2) throw new McpError('USAGE_ERROR', '用法：describe <server> <tool>');
-      return cmdDescribe(args[0], args[1]);
+      if (args.length < 2) throw new McpError('USAGE_ERROR', '用法：describe <server> <tool> [param]');
+      return cmdDescribe(args[0], args[1], args[2]);
     case 'find': return cmdFind(args[0]);
     case 'doctor': return cmdDoctor();
     case 'diff': return cmdDiff(args[0]);
-    case 'refresh': return cmdRefresh(args[0]);
+    case 'refresh':
+    case 'build': return cmdBuild(args[0]);
     case 'smoke': return cmdSmoke(args[0]);
     default:
       throw new McpError('USAGE_ERROR', `未知命令 '${cmd}'。\n\n${USAGE}`);
